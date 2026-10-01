@@ -427,3 +427,20 @@ export function wallRibAngles(): number[] {
     })
   );
 }
+
+/**
+ * The floor and the ceiling are square boards cut by the wall, not discs, and
+ * split an odd number of times: **no vertex may sit straight under or over
+ * the camera.** The fisheye's cube cameras look along the room's axes, and a
+ * disc's centre vertex lies exactly on four of their camera planes (w = 0);
+ * the floor's triangles then came out in front of the desk in the fisheye
+ * (2026-10-01). The square's corners are outside the round wall, never seen,
+ * and its UVs are the disc's own bounding square, so the floor texture lands
+ * where it did.
+ */
+export const FLOOR_SEGMENTS = 9;
+
+/** Where the floor's (and the ceiling's) grid lines run, along either axis, in metres from the centre. */
+export function floorGridLines(): number[] {
+  return Array.from({ length: FLOOR_SEGMENTS + 1 }, (_, k) => -ROOM_RADIUS + (k * 2 * ROOM_RADIUS) / FLOOR_SEGMENTS);
+}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   RECTILINEAR,
+  cubeFaceSize,
   STEREOGRAPHIC,
   lensPixelsPerRadian,
   lensRadius,
@@ -152,5 +153,33 @@ describe("every lens between the two", () => {
         expect(lensPixelsPerRadian(theta, HALF, k, halfWidth)).toBeCloseTo(px / radians, 2);
       }
     }
+  });
+});
+
+describe("cubeFaceSize", () => {
+  const FISHEYE = 161;
+
+  it("gives the middle of a face at least the px per radian the lens puts at the middle of the screen", () => {
+    for (const [width, dpr] of [
+      [1280, 1],
+      [1600, 1],
+      [1440, 1.5],
+    ] as const) {
+      const size = cubeFaceSize(width, dpr, FISHEYE, STEREOGRAPHIC, 4096);
+      const screen = lensPixelsPerRadian(0, ((FISHEYE / 2) * Math.PI) / 180, STEREOGRAPHIC, (width * dpr) / 2);
+      // A 90° face of `size` px carries size/2 px per radian at its middle.
+      expect(size / 2).toBeGreaterThanOrEqual(screen);
+    }
+  });
+
+  it("grows with the device's pixel ratio — a fixed 1024 was stretched ~1.85× on a retina screen", () => {
+    expect(cubeFaceSize(1600, 2, FISHEYE, STEREOGRAPHIC, 4096)).toBeGreaterThan(cubeFaceSize(1600, 1, FISHEYE, STEREOGRAPHIC, 4096) * 1.8);
+    expect(cubeFaceSize(1600, 2, FISHEYE, STEREOGRAPHIC, 4096) / 2).toBeGreaterThan(1024 / 2 * 1.8);
+  });
+
+  it("stays within the cap, a multiple of 64, and not below 512", () => {
+    expect(cubeFaceSize(1600, 2, FISHEYE, STEREOGRAPHIC, 1536)).toBe(1536);
+    expect(cubeFaceSize(200, 1, FISHEYE, STEREOGRAPHIC, 1536)).toBe(512);
+    expect(cubeFaceSize(1280, 1, FISHEYE, STEREOGRAPHIC, 4096) % 64).toBe(0);
   });
 });

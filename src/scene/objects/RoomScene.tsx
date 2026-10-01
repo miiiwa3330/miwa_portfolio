@@ -23,6 +23,7 @@ import {
   pieceCentreDistance,
   pieceToWorld,
   wallRibAngles,
+  FLOOR_SEGMENTS,
   type MonitorKey,
   type PieceKey,
 } from "../room/layout";
@@ -115,6 +116,7 @@ function useCables(): THREE.TubeGeometry[] {
   return cables;
 }
 
+
 function Shell({ ceiling, neon }: { ceiling: boolean; neon: NeonTheme }) {
   const wall = useMemo(() => makeWallTexture(), []);
   const floor = useMemo(() => makeFloorTexture(), []);
@@ -129,7 +131,7 @@ function Shell({ ceiling, neon }: { ceiling: boolean; neon: NeonTheme }) {
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[ROOM_RADIUS, 96]} />
+        <planeGeometry args={[ROOM_RADIUS * 2, ROOM_RADIUS * 2, FLOOR_SEGMENTS, FLOOR_SEGMENTS]} />
         {/* A little gloss, so the neon pools on it the way it does in the reference. */}
         <meshStandardMaterial map={floor} roughness={0.32} metalness={0.55} />
       </mesh>
@@ -147,7 +149,7 @@ function Shell({ ceiling, neon }: { ceiling: boolean; neon: NeonTheme }) {
         );
       })}
       <mesh position={[0, WALL_HEIGHT, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[ROOM_RADIUS, 96]} />
+        <planeGeometry args={[ROOM_RADIUS * 2, ROOM_RADIUS * 2, FLOOR_SEGMENTS, FLOOR_SEGMENTS]} />
         <meshStandardMaterial color="#15171b" roughness={0.9} />
       </mesh>
       {[

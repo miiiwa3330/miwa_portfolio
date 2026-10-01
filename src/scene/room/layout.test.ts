@@ -38,6 +38,7 @@ import {
   MONITOR_Y,
   chairBackZ,
   wallRibAngles,
+  floorGridLines,
   RIB_STEP,
   HAND_Y,
   KEYBOARD,
@@ -310,5 +311,20 @@ describe("wallRibAngles", () => {
     const ribs = wallRibAngles();
     expect(ribs.length).toBeGreaterThanOrEqual(360 / RIB_STEP - 4);
     expect(ribs.length).toBeLessThan(360 / RIB_STEP);
+  });
+});
+
+describe("the floor's grid", () => {
+  it("puts no vertex straight under the camera, on the cube cameras' planes", () => {
+    // The fisheye's cube cameras look along the axes from the centre; a vertex
+    // on x = 0 or z = 0 under the camera sits on their camera planes (w = 0),
+    // and the floor's triangles came out in front of the desk (2026-10-01).
+    for (const line of floorGridLines()) expect(Math.abs(line)).toBeGreaterThan(0.1);
+  });
+
+  it("still reaches the wall all round", () => {
+    const lines = floorGridLines();
+    expect(lines[0]).toBeLessThanOrEqual(-ROOM_RADIUS);
+    expect(lines[lines.length - 1]).toBeGreaterThanOrEqual(ROOM_RADIUS);
   });
 });
