@@ -56,10 +56,32 @@ export function lensBends(lens: number): boolean {
   return lens > 1 + 1e-4;
 }
 
+/**
+ * How far the eye moves forward as the head tips down, in metres. The head
+ * turns about the neck, so the eyes come forward of the body when looking
+ * down — which is how anyone sees their own feet past their chest (step 7:
+ * with the eye held straight over the body, looking down showed only the top
+ * of the chest). Nothing happens looking up. **Provisional (仮)**: 7 cm at
+ * the deepest look down (70°); at 12 cm the feet ended up behind the eye.
+ */
+export const HEAD_LEAN = 0.07;
+/**
+ * Below this the head stays over the body: every area's standing view and the
+ * seated one look within ±10° of level, and leaning there would put the
+ * camera a few centimetres off the point the view was aimed from.
+ */
+export const LEAN_FROM = 15 * DEG;
+const LEAN_FULL = 70 * DEG;
+
+export function headLean(pitch: number): number {
+  return HEAD_LEAN * Math.max(0, Math.min(1, (-pitch - LEAN_FROM) / (LEAN_FULL - LEAN_FROM)));
+}
+
 /** Where the camera stands and the point it looks at — one metre straight ahead. */
 export function placeCamera(pose: RoomPose): { position: [number, number, number]; target: [number, number, number] } {
   const [hx, hz] = horizontalAt(pose.yaw / DEG);
-  const position: [number, number, number] = [hx * pose.forward, pose.eyeHeight, hz * pose.forward];
+  const out = pose.forward + headLean(pose.pitch);
+  const position: [number, number, number] = [hx * out, pose.eyeHeight, hz * out];
   const [dx, dy, dz] = viewDirection(pose.yaw / DEG, pose.pitch / DEG);
   return { position, target: [position[0] + dx, position[1] + dy, position[2] + dz] };
 }

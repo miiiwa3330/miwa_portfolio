@@ -14,6 +14,10 @@ import {
   SUBJECTS,
   WALL_HEIGHT,
   CHAIR_BACK_HEIGHT,
+  CHAIR_SEAT_FORWARD,
+  CHAIR_SEAT_TOP,
+  KEYBOARD,
+  MOUSE,
   chairBackZ,
   horizontalAt,
   pieceCentreDistance,
@@ -32,6 +36,8 @@ import { SCREEN_HOLE_LAYER } from "../layers";
 import { hash01 } from "../voxel/rng";
 import { sceneClock } from "../sceneClock";
 import SectionMarkers from "./SectionMarkers";
+import Self from "./Self";
+import { SecurityCameraBody, SecurityFeed } from "./SecurityCamera";
 
 /**
  * The room the camera stands in — **placeholder shapes** (step 2 of
@@ -188,10 +194,13 @@ function Desk() {
               glow={MONITOR_GLOW[key]}
               glowStrength={1.2}
             />
+            {key === "camera" && <SecurityFeed />}
           </group>
         );
       })}
-      <Box size={[0.5, 0.02, 0.18]} at={[pcX, 0.785, 0.15]} color="#1c1e22" />
+      {/* The keyboard and the mouse, where a seated reader's hands rest (`Self`). */}
+      <Box size={[KEYBOARD.width, 0.02, KEYBOARD.depth]} at={[KEYBOARD.x, KEYBOARD.y, KEYBOARD.z]} color="#1c1e22" />
+      <Box size={[0.06, 0.03, 0.1]} at={[MOUSE.x, MOUSE.y, MOUSE.z]} color="#1c1e22" />
       {/* The hologram's device. Idle, it turns a wireframe over itself;
           focused, it projects the self-introduction instead — the text is
           HTML in front of the canvas (`HOLOGRAM_PANEL`), and a cone of light
@@ -225,9 +234,9 @@ function Desk() {
           prototype's 1.19 m) blacked out the lower half of the PC's screen at
           home. */}
       <group position={[pcX, 0, chairBackZ()]}>
-        <Box size={[0.5, 0.06, 0.48]} at={[0, 0.48, -0.25]} color="#1c1e22" />
+        <Box size={[0.5, 0.06, 0.48]} at={[0, CHAIR_SEAT_TOP - 0.03, -CHAIR_SEAT_FORWARD]} color="#1c1e22" />
         <Box size={[0.48, 0.4, 0.06]} at={[0, CHAIR_BACK_HEIGHT - 0.2, 0]} color="#1c1e22" />
-        <Box size={[0.05, 0.45, 0.05]} at={[0, 0.24, -0.25]} color="#2a2d33" />
+        <Box size={[0.05, 0.45, 0.05]} at={[0, 0.24, -CHAIR_SEAT_FORWARD]} color="#2a2d33" />
       </group>
     </Piece>
   );
@@ -299,6 +308,42 @@ function Bookcase() {
   );
 }
 
+/**
+ * The owner's reflection in the porthole's glass — **a faint picture, not a
+ * real reflection** (docs/room-migration.md): a real one is the room drawn
+ * once more from behind the glass, and a head and shoulders darkening the
+ * view is all the glass needs to say someone is standing in the room.
+ * Provisional (仮) like the body it stands for; it does not follow the
+ * reader round.
+ */
+function Reflection() {
+  const texture = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "#000000";
+    ctx.beginPath();
+    ctx.arc(128, 112, 34, 0, Math.PI * 2); // head
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(48, 256);
+    ctx.quadraticCurveTo(56, 168, 128, 160); // shoulders
+    ctx.quadraticCurveTo(200, 168, 208, 256);
+    ctx.fill();
+    const t = new THREE.CanvasTexture(canvas);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }, []);
+  useEffect(() => () => texture.dispose(), [texture]);
+  return (
+    <mesh position={[0.12, -0.12, 0.004]}>
+      <planeGeometry args={[0.9, 0.9]} />
+      <meshBasicMaterial map={texture} transparent opacity={0.22} depthWrite={false} toneMapped={false} />
+    </mesh>
+  );
+}
+
 function PortholeAndHammock() {
   const curve = useMemo(
     () =>
@@ -319,6 +364,7 @@ function PortholeAndHammock() {
           <circleGeometry args={[0.62, 48]} />
           <meshBasicMaterial color="#5a2a8a" toneMapped={false} />
         </mesh>
+        <Reflection />
         <mesh position={[0, 0, 0.03]}>
           <torusGeometry args={[0.66, 0.07, 12, 48]} />
           <meshStandardMaterial color="#6a6e76" metalness={0.8} />
@@ -520,6 +566,8 @@ export default function RoomScene() {
       <Door neon={neon} />
       <Workbench neon={neon} />
       <ScreenHole panel={DESK_SCREEN} />
+      <Self />
+      <SecurityCameraBody />
       <SectionMarkers />
     </group>
   );

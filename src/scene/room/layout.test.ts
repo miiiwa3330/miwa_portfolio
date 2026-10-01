@@ -37,6 +37,8 @@ import {
   MONITOR_SCREEN,
   MONITOR_Y,
   chairBackZ,
+  HAND_Y,
+  KEYBOARD,
 } from "./layout";
 
 const DEG = Math.PI / 180;
@@ -184,11 +186,22 @@ describe("zoomView", () => {
     }
   });
 
-  it("sits down at the PC and faces the screen squarely", () => {
+  it("sits down at the PC, at a height that faces the screen rather than looking down on it", () => {
     // Standing height looked down 29° and keystoned the screen's text.
     const view = zoomView("desk", STANDARD_HFOV);
     expect(view.eyeHeight).toBe(SEATED_EYE_HEIGHT);
-    expect(Math.abs(view.pitch)).toBeLessThan(5);
+    expect(Math.abs(view.pitch)).toBeLessThan(10);
+  });
+
+  it("sees both the whole screen and the hands on the keyboard from the seat (16:9)", () => {
+    const view = zoomView("desk", STANDARD_HFOV);
+    const halfV = Math.atan(Math.tan((STANDARD_HFOV / 2) * DEG) / (16 / 9)) / DEG;
+    const desk = pieceCentreDistance(PIECES.desk);
+    const angle = (y: number, away: number) => Math.atan2(y - SEATED_EYE_HEIGHT, away) / DEG - view.pitch;
+    const screenTop = angle(MONITOR_Y + MONITOR_SCREEN.height / 2, subjectDistance("desk") - view.forward);
+    const hands = angle(HAND_Y, desk - KEYBOARD.z - view.forward);
+    expect(screenTop).toBeLessThan(halfV - 1);
+    expect(hands).toBeGreaterThan(-halfV + 1);
   });
 
   it("frames the PC's centre monitor, not the whole desk", () => {

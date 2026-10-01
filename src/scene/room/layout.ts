@@ -262,12 +262,37 @@ export function zoomView(stop: Stop, hfovDeg: number = STANDARD_HFOV): RoomView 
   const frameHfov = stop === "desk" ? STANDARD_HFOV : hfovDeg;
   const standOff = subject.frameWidth / 2 / ZOOM_FILL / Math.tan((frameHfov * DEG) / 2);
   const forward = Math.max(0, Math.min(face - ZOOM_MIN_CLEARANCE, face - standOff));
-  return {
-    yaw: subjectYaw(stop),
-    pitch: Math.atan2(y - subject.zoomEyeHeight, face - forward) / DEG,
-    forward,
-    eyeHeight: subject.zoomEyeHeight,
-  };
+  const pitch =
+    stop === "desk"
+      ? seatedPitch(forward)
+      : Math.atan2(y - subject.zoomEyeHeight, face - forward) / DEG;
+  return { yaw: subjectYaw(stop), pitch, forward, eyeHeight: subject.zoomEyeHeight };
+}
+
+/**
+ * The keyboard and the mouse on the desk, in its frame, and how high the
+ * hands rest over them. **Provisional (仮)** placement: the keyboard stands
+ * 8 cm out from the desk's middle, close enough under the screen that a
+ * seated reader sees both their hands and the whole screen at once.
+ */
+export const KEYBOARD = { x: 0, z: 0.08, y: 0.785, width: 0.5, depth: 0.18 } as const;
+export const MOUSE = { x: 0.36, z: 0.1, y: 0.79 } as const;
+export const HAND_Y = 0.82;
+
+/**
+ * Where a seated reader looks: half-way between the top of the screen and
+ * their hands on the keyboard (degrees, up positive) — so both are in the
+ * frame. Looking at the screen's centre instead, the hands sat about 4°
+ * below the bottom of a 16:9 frame, and the requirement is to see them.
+ */
+export function seatedPitch(forward: number): number {
+  const desk = pieceCentreDistance(PIECES.desk);
+  const top = MONITOR_Y + MONITOR_SCREEN.height / 2;
+  const screenAway = desk - monitorFace("gui").centre[2] - forward;
+  const handsAway = desk - KEYBOARD.z - forward;
+  const up = Math.atan2(top - SEATED_EYE_HEIGHT, screenAway);
+  const down = Math.atan2(HAND_Y - SEATED_EYE_HEIGHT, handsAway);
+  return (up + down) / 2 / DEG;
 }
 
 /** The signed difference `to - from` in degrees, wrapped into (-180, 180]. */
@@ -368,6 +393,9 @@ export function lensForZoom(zoom: ViewZoom): number {
 export const CHAIR_BACK_BEHIND_EYE = 0.15;
 /** The top of the chair's back above the floor (see `RoomScene`'s chair). */
 export const CHAIR_BACK_HEIGHT = 0.98;
+/** The chair's seat: the top of its cushion, and how far it sits in front of the back (towards the desk). */
+export const CHAIR_SEAT_TOP = 0.51;
+export const CHAIR_SEAT_FORWARD = 0.25;
 
 /**
  * Where the chair's back stands, as `z` in the desk's frame (+Z towards the

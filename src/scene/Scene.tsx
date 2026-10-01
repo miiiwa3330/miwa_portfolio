@@ -67,11 +67,14 @@ const WHEEL_SENSITIVITY = 0.0004; // radians of turn per unit of wheel deltaY
 
 /**
  * How far the free view may look up or down, in radians. The planet clamped
- * its polar angle away from the poles; a room clamps the head instead —
- * enough to see the floor in front of the furniture and the pipes on the
- * ceiling, not so much that the view is only ceiling.
+ * its polar angle away from the poles; a room clamps the head instead.
+ *
+ * 70°, so that looking down reaches the reader's own feet (step 7): the body
+ * stands under the eye, and at 55° the bottom of a 16:9 frame stopped at 75°
+ * below level — the chest at the very edge, the legs never. 70° plus half
+ * the frame's height comes to straight down.
  */
-const MAX_PITCH = 55 * (Math.PI / 180);
+const MAX_PITCH = 70 * (Math.PI / 180);
 
 const DEG = Math.PI / 180;
 

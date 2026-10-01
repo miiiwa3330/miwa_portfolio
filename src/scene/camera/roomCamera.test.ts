@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   advanceRoomFlight,
   beginRoomFlight,
+  headLean,
   toCameraSpace,
   blendRoomPose,
   placeCamera,
@@ -70,6 +71,18 @@ describe("placeCamera", () => {
       (ray[0] * toSubject[0] + ray[1] * toSubject[1] + ray[2] * toSubject[2]) /
       (Math.hypot(...ray) * Math.hypot(...toSubject));
     expect(cos).toBeCloseTo(1, 9);
+  });
+});
+
+describe("headLean", () => {
+  it("leaves the head over the body looking ahead or up, so every area's view is aimed from where it stands", () => {
+    for (const pitch of [0, 0.3, -0.1, -0.2]) expect(headLean(pitch)).toBe(0);
+  });
+
+  it("brings the eye forward looking down, most at the deepest look", () => {
+    expect(headLean(-0.6)).toBeGreaterThan(0);
+    expect(headLean(-1.2)).toBeGreaterThan(headLean(-0.6));
+    expect(headLean((-70 * Math.PI) / 180)).toBeCloseTo(0.07, 9);
   });
 });
 
