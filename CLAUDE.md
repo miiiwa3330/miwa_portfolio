@@ -58,6 +58,7 @@ npx tsc --noEmit     # 型のみ検査（テストは .tsx を1つも通らな�
 | ボクセルアセットの制作 | [docs/voxel-object-creation.md](docs/voxel-object-creation.md) |
 | 未修正の不具合の確認 | [docs/review.md](docs/review.md) |
 | 読み物のページ（制作実績の個別ページ・ノート）の追加や本文の執筆 | [docs/tech.md](docs/tech.md) の「読み物のページ」 |
+| 部屋の中への移行（惑星・ボクセルの置き換え） | [docs/room-migration.md](docs/room-migration.md) |
 
 docs 全体の地図は [docs/README.md](docs/README.md)。
 
@@ -112,6 +113,7 @@ docs は**日本語**で、実務レベル一式を揃える。
 | `docs/voxel-object-creation.md` | ボクセル制作のワークフローと規約 | 制作フローや規約を決め直したとき |
 | `docs/review.md` | 未修正の指摘の台帳。問題点＋解決策＋再現手順 | 指摘を直したら該当項目を消す。恒久的な設計判断になったものは `tech.md` へ移す。**新しい設計をここに書かない** |
 | `docs/planet-migration.md` | 惑星への移行の記録（**完了済み**） | 通常は更新しない |
+| `docs/room-migration.md` | 惑星から「部屋の中」への移行の要件と設計（**進行中**、`feature/room-world`） | 要件・設計を決めたとき、各手順を終えたとき（「手順Nの結果」を足す） |
 | `README.md` | サイトの特長、起動手順、ディレクトリ構成 | ユーザーから見える機能や手順が変わったとき |
 | `CLAUDE.md` | 作業の前提とルール | 守るべきルールが増減したとき。**理由や実測値はここではなく docs へ** |
 
