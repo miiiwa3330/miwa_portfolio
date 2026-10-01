@@ -26,10 +26,14 @@ import {
   type RoomFlight,
   type RoomPose,
 } from "./camera/roomCamera";
-import { publishView, viewNow } from "./camera/viewChannel";
+import { publishBody, publishView, viewNow } from "./camera/viewChannel";
+import { planRoomMove } from "./camera/walkFlight";
+import { STANDING, advanceGait, stepBob } from "./room/gait";
+import { seatShare } from "./room/seat";
 import {
   EYE_HEIGHT,
   facingStop,
+  horizontalAt,
   viewDirection,
   yawOf,
   zoomView,
@@ -112,7 +116,9 @@ const PINCH_WHEEL_THRESHOLD = 24;
 const WHEEL_REARM_MS = 220;
 
 /**
- * How long a camera flight lasts, in seconds.
+ * How long a camera flight lasts, in seconds — at least: a flight the reader
+ * walks takes as long as the walk (`camera/walkFlight.ts`), which out to an
+ * area is longer than either.
  *
  * Two values, and the one in play is chosen by whether the detail page was
  * covering the canvas when the flight began — not by which control started it.
@@ -561,6 +567,8 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
   const swayRef = useRef({ yaw: 0, pitch: 0, height: 0 });
   /** How much of the sway is in play: eased to 0 while reading at the desk or the hologram. */
   const swayGainRef = useRef(1);
+  /** The reader's walk, worked out each frame from how the held eye moved (`room/gait.ts`). */
+  const gaitRef = useRef(STANDING);
   /** The reader's "reduce motion" setting: no sway at all. */
   const reducedMotionRef = useRef(false);
   useEffect(() => {
@@ -630,12 +638,20 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
    *
    * The idle sway is added here, to what is drawn and published — so the
    * markers, the dotted line and the HTML in the room sway with the picture —
-   * and not to `poseRef`, which every flight starts from.
+   * and not to `poseRef`, which every flight starts from. So is the dip of
+   * each step: the walk is worked out here from how far the held eye moved
+   * since the last frame, whatever moved it.
    */
-  const applyPose = (camera: THREE.PerspectiveCamera, size: { width: number; height: number }, held: RoomPose) => {
+  const applyPose = (camera: THREE.PerspectiveCamera, size: { width: number; height: number }, held: RoomPose, delta: number) => {
     poseRef.current = held;
+    const sat = seatShare(held);
+    const [hx, hz] = horizontalAt(held.yaw / DEG);
+    const gait = advanceGait(gaitRef.current, hx * held.forward, hz * held.forward, held.yaw, delta, sat);
+    gaitRef.current = gait;
+    publishBody(gait, held);
+    const bob = reducedMotionRef.current ? 0 : stepBob(gait) * (1 - sat);
     const sway = swayRef.current;
-    const pose: RoomPose = { ...held, yaw: held.yaw + sway.yaw, pitch: held.pitch + sway.pitch, eyeHeight: held.eyeHeight + sway.height };
+    const pose: RoomPose = { ...held, yaw: held.yaw + sway.yaw, pitch: held.pitch + sway.pitch, eyeHeight: held.eyeHeight + sway.height + bob };
     const { position, target } = placeCamera(pose);
     camera.position.set(position[0], position[1], position[2]);
     camera.up.set(0, 1, 0);
@@ -655,8 +671,9 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     publishView(pose, size.width, size.height);
   };
 
+  /** Fly to `to`, walking whatever distance the reader covers on foot (`camera/walkFlight.ts`). */
   const startFlight = (to: RoomPose, duration: number, land: RoomFlight["land"]) => {
-    flightRef.current = beginRoomFlight(poseRef.current, to, duration, land);
+    flightRef.current = beginRoomFlight(planRoomMove(poseRef.current, to, duration), land);
   };
 
   // Swiping the card asks for a stop. Steering tourURef is all it takes — the
@@ -767,7 +784,7 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     const flight = flightRef.current;
     if (flight) {
       const step = advanceRoomFlight(flight, delta);
-      applyPose(camera, size, step.pose);
+      applyPose(camera, size, step.pose, delta);
       // Hand the free view the angles this flight actually finished on — see
       // `RoomFlight.land` for what skipping this costs.
       if (step.landed) {
@@ -783,7 +800,7 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     // A focused section holds the camera where its flight parked it. Re-applied
     // rather than left alone, so a resize re-derives the field of view.
     if (activeSection) {
-      applyPose(camera, size, poseRef.current);
+      applyPose(camera, size, poseRef.current, delta);
       return;
     }
 
@@ -805,7 +822,7 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     yawRef.current = current + (target - current) * fraction;
     pitchRef.current = pitchRef.current + (pitchTargetRef.current - pitchRef.current) * fraction;
 
-    applyPose(camera, size, freePose(yawRef.current, pitchRef.current));
+    applyPose(camera, size, freePose(yawRef.current, pitchRef.current), delta);
 
     // Publish which stop is in front. A subscription rather than a setState,
     // because this runs every frame and everything above the canvas is a

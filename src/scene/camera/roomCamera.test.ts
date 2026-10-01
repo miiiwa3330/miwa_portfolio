@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   advanceRoomFlight,
   beginRoomFlight,
+  easedMove,
   headLean,
   toCameraSpace,
   blendRoomPose,
@@ -254,14 +255,14 @@ describe("blendRoomPose", () => {
 
 describe("advanceRoomFlight", () => {
   it("charges no time on its first frame", () => {
-    const flight = beginRoomFlight(pose(), pose({ yaw: 1 }), 1, null);
+    const flight = beginRoomFlight(easedMove(pose(), pose({ yaw: 1 }), 1), null);
     const first = advanceRoomFlight(flight, 1);
     expect(first.pose.yaw).toBe(0);
     expect(first.done).toBe(false);
   });
 
   it("never advances more than MAX_FLIGHT_STEP in one frame", () => {
-    const flight = beginRoomFlight(pose(), pose({ yaw: 1 }), 1, null);
+    const flight = beginRoomFlight(easedMove(pose(), pose({ yaw: 1 }), 1), null);
     advanceRoomFlight(flight, 0);
     advanceRoomFlight(flight, 5);
     expect(flight.elapsed).toBeCloseTo(MAX_FLIGHT_STEP, 12);
@@ -269,7 +270,7 @@ describe("advanceRoomFlight", () => {
 
   it("hands back the free view's angles on the landing frame, and only then", () => {
     const land = { yaw: 0.7, pitch: -0.05 };
-    const flight = beginRoomFlight(pose(), pose({ yaw: 0.7, pitch: -0.05 }), 0.2, land);
+    const flight = beginRoomFlight(easedMove(pose(), pose({ yaw: 0.7, pitch: -0.05 }), 0.2), land);
     expect(advanceRoomFlight(flight, 0).landed).toBeNull();
     expect(advanceRoomFlight(flight, 0.1).landed).toBeNull();
     const last = advanceRoomFlight(flight, 0.1);
@@ -278,7 +279,7 @@ describe("advanceRoomFlight", () => {
   });
 
   it("lands nowhere for a flight that parks the camera", () => {
-    const flight = beginRoomFlight(pose(), pose({ forward: 1 }), 0.1, null);
+    const flight = beginRoomFlight(easedMove(pose(), pose({ forward: 1 }), 0.1), null);
     advanceRoomFlight(flight, 0);
     const last = advanceRoomFlight(flight, 0.1);
     expect(last.done).toBe(true);

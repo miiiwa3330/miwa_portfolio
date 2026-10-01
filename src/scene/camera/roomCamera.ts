@@ -272,16 +272,28 @@ export const MAX_FLIGHT_STEP = 1 / 10;
  *   frame damping from where the camera stood *before* the flight.
  */
 export type RoomFlight = {
-  from: RoomPose;
-  to: RoomPose;
+  move: RoomMove;
   elapsed: number;
-  duration: number;
   primed: boolean;
   land: { yaw: number; pitch: number } | null;
 };
 
-export function beginRoomFlight(from: RoomPose, to: RoomPose, duration: number, land: RoomFlight["land"]): RoomFlight {
-  return { from, to, elapsed: 0, duration, primed: false, land };
+/**
+ * The way a flight goes: how long it takes, and the pose `elapsed` seconds
+ * into it. `easedMove` glides; `camera/walkFlight.ts` walks.
+ */
+export type RoomMove = { duration: number; at: (elapsed: number) => RoomPose };
+
+/** Straight from one pose to the other, still at both ends. */
+export function easedMove(from: RoomPose, to: RoomPose, duration: number): RoomMove {
+  return {
+    duration,
+    at: (elapsed) => blendRoomPose(from, to, easeInOutCubic(duration > 0 ? Math.min(1, elapsed / duration) : 1)),
+  };
+}
+
+export function beginRoomFlight(move: RoomMove, land: RoomFlight["land"]): RoomFlight {
+  return { move, elapsed: 0, primed: false, land };
 }
 
 export type RoomFlightFrame = {
@@ -295,10 +307,10 @@ export type RoomFlightFrame = {
 export function advanceRoomFlight(flight: RoomFlight, delta: number): RoomFlightFrame {
   if (flight.primed) flight.elapsed += Math.min(delta, MAX_FLIGHT_STEP);
   flight.primed = true;
-  const t = flight.duration > 0 ? Math.min(1, flight.elapsed / flight.duration) : 1;
-  const done = t >= 1;
+  const { duration } = flight.move;
+  const done = flight.elapsed >= duration;
   return {
-    pose: blendRoomPose(flight.from, flight.to, easeInOutCubic(t)),
+    pose: flight.move.at(Math.min(flight.elapsed, duration)),
     done,
     landed: done ? flight.land : null,
   };

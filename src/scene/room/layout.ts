@@ -186,6 +186,9 @@ export const SUBJECTS: Record<Stop, Subject> = {
 
 export const STOP_KEYS = Object.keys(SUBJECTS) as Stop[];
 
+/** The investigation board's frame: as wide as the board's footprint plus a 5 cm border each side, and this tall, round its subject's height. */
+export const BOARD_FRAME = { width: PIECES.board.width + 0.1, height: 1.6 } as const;
+
 /** A subject's focus point in world coordinates. */
 export function subjectPoint(stop: Stop): [number, number, number] {
   const subject = SUBJECTS[stop];

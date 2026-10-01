@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import {
+  BOARD_FRAME,
   MONITORS,
   MONITOR_BEZEL,
   MONITOR_GLASS,
@@ -18,7 +19,6 @@ import {
   CHAIR_SEAT_TOP,
   KEYBOARD,
   MOUSE,
-  chairBackZ,
   horizontalAt,
   pieceCentreDistance,
   pieceToWorld,
@@ -34,12 +34,14 @@ import { AMBIENT_FLOOR, neonTheme, type LightSwitch, type NeonTheme, type RoomLi
 import { pointerClaim } from "../pointerClaim";
 import { makeCityTexture, makeFloorTexture, makeVideo, makeWallTexture } from "./roomTextures";
 import { panelShown } from "../camera/cssView";
-import { viewNow } from "../camera/viewChannel";
+import { bodyNow, viewNow } from "../camera/viewChannel";
+import { chairPlacement } from "../room/seat";
 import { SCREEN_HOLE_LAYER } from "../layers";
 import { hash01 } from "../hash";
 import { sceneClock } from "../sceneClock";
 import SectionMarkers from "./SectionMarkers";
 import Self from "./Self";
+import CurveMirror from "./CurveMirror";
 import { SecurityCameraBody, SecurityFeed } from "./SecurityCamera";
 
 /**
@@ -338,34 +340,51 @@ function Desk() {
       <Box size={[0.025, 0.5, 0.025]} at={[pcX - 0.42, 1.04, 0.22]} color="#2a2d33" />
       <Box size={[0.14, 0.08, 0.12]} at={[pcX - 0.42, 1.25, -0.06]} color="#3a3d44" />
       <Box size={[0.1, 0.01, 0.08]} at={DESK_LAMP_BULB} color="#000000" glow="#ffcf8a" glowStrength={lamp ? 3 : 0} />
-      {/* The chair, where the reader sits down at the PC: its back just behind
-          the seated eye (`chairBackZ`). Its back stops below the line of sight
-          from the centre to the bottom of the screen — a taller back (the
-          prototype's 1.19 m) blacked out the lower half of the PC's screen at
-          home. */}
-      <group position={[pcX, 0, chairBackZ()]}>
-        <Box size={[0.5, 0.06, 0.48]} at={[0, CHAIR_SEAT_TOP - 0.03, -CHAIR_SEAT_FORWARD]} color="#1c1e22" />
-        <Box size={[0.48, 0.4, 0.04]} at={[0, CHAIR_BACK_HEIGHT - 0.2, 0]} color="#16181c" />
-        <Box size={[0.04, 0.3, 0.04]} at={[0, CHAIR_SEAT_TOP - 0.03 + 0.15, 0]} color="#2a2d33" />
-        {/* The gas lift and the five-legged base on its castors. */}
-        <mesh position={[0, 0.27, -CHAIR_SEAT_FORWARD]}>
-          <cylinderGeometry args={[0.025, 0.025, 0.4, 10]} />
-          <meshStandardMaterial color="#8a8e96" metalness={0.8} roughness={0.3} />
-        </mesh>
-        {[0, 1, 2, 3, 4].map((i) => {
-          const a = (i / 5) * Math.PI * 2;
-          return (
-            <group key={i} position={[0, 0.07, -CHAIR_SEAT_FORWARD]} rotation={[0, a, 0]}>
-              <Box size={[0.03, 0.03, 0.3]} at={[0, 0, 0.15]} color="#1c1e22" />
-              <mesh position={[0, -0.04, 0.29]}>
-                <sphereGeometry args={[0.025, 8, 6]} />
-                <meshStandardMaterial color="#111" />
-              </mesh>
-            </group>
-          );
-        })}
-      </group>
+      <Chair />
     </Piece>
+  );
+}
+
+/**
+ * The chair, where the reader sits down at the PC: its back just behind the
+ * seated eye. Moved every frame from the reader's held pose
+ * (`chairPlacement`): aside while nobody sits on it, brought round behind the
+ * reader walking in, under them sitting down, and rolled in with them. Its
+ * back stops below the line of sight from the centre to the bottom of the
+ * screen — a taller back (the prototype's 1.19 m) blacked out the lower half
+ * of the PC's screen at home.
+ */
+function Chair() {
+  const chair = useRef<THREE.Group>(null);
+  useFrame(() => {
+    if (!chair.current) return;
+    const { x, z, yaw } = chairPlacement(bodyNow().held);
+    chair.current.position.set(x, 0, z);
+    chair.current.rotation.set(0, yaw, 0);
+  });
+  return (
+    <group ref={chair}>
+      <Box size={[0.5, 0.06, 0.48]} at={[0, CHAIR_SEAT_TOP - 0.03, -CHAIR_SEAT_FORWARD]} color="#1c1e22" />
+      <Box size={[0.48, 0.4, 0.04]} at={[0, CHAIR_BACK_HEIGHT - 0.2, 0]} color="#16181c" />
+      <Box size={[0.04, 0.3, 0.04]} at={[0, CHAIR_SEAT_TOP - 0.03 + 0.15, 0]} color="#2a2d33" />
+      {/* The gas lift and the five-legged base on its castors. */}
+      <mesh position={[0, 0.27, -CHAIR_SEAT_FORWARD]}>
+        <cylinderGeometry args={[0.025, 0.025, 0.4, 10]} />
+        <meshStandardMaterial color="#8a8e96" metalness={0.8} roughness={0.3} />
+      </mesh>
+      {[0, 1, 2, 3, 4].map((i) => {
+        const a = (i / 5) * Math.PI * 2;
+        return (
+          <group key={i} position={[0, 0.07, -CHAIR_SEAT_FORWARD]} rotation={[0, a, 0]}>
+            <Box size={[0.03, 0.03, 0.3]} at={[0, 0, 0.15]} color="#1c1e22" />
+            <mesh position={[0, -0.04, 0.29]}>
+              <sphereGeometry args={[0.025, 8, 6]} />
+              <meshStandardMaterial color="#111" />
+            </mesh>
+          </group>
+        );
+      })}
+    </group>
   );
 }
 
@@ -632,7 +651,7 @@ function Board() {
   }, [papers]);
   return (
     <Piece name="board">
-      <Box size={[width + 0.1, 1.6, depth]} at={[0, cy, 0]} color="#3a2a1c" />
+      <Box size={[BOARD_FRAME.width, BOARD_FRAME.height, depth]} at={[0, cy, 0]} color="#3a2a1c" />
       {/* A strip lamp over the board. */}
       <Box size={[1.2, 0.05, 0.12]} at={[0, cy + 0.88, 0.08]} color="#2a2d33" />
       <Box size={[1.1, 0.01, 0.08]} at={[0, cy + 0.85, 0.08]} color="#000000" glow="#ffcf8a" glowStrength={2.2} />
@@ -857,6 +876,8 @@ export default function RoomScene() {
       <Workbench neon={neon} />
       <ScreenHole panel={DESK_SCREEN} />
       <Self />
+      {/* After the body: the glass reflects where the body is this frame. */}
+      <CurveMirror />
       <SecurityCameraBody />
       <SectionMarkers />
     </group>

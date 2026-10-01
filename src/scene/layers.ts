@@ -15,7 +15,8 @@ export const SCREEN_HOLE_LAYER = 2;
 /**
  * **`HEAD_LAYER`** — the reader's own head (`Self`). The reader's camera is
  * inside it, so neither that camera nor the fisheye's cube camera (which
- * stands at the same eye) may draw it; the security camera does, so the
- * owner on the right-hand monitor has a head.
+ * stands at the same eye) may draw it; the security camera and the curve
+ * mirror's cube do, so the owner has a head on the right-hand monitor and in
+ * the mirror.
  */
 export const HEAD_LAYER = 1;

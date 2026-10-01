@@ -8,8 +8,8 @@
 | --- | --- |
 | `scene/Scene.tsx` | キャンバスとカメラの制御。**行き先を決める effect はここ1つだけ**（[scene-invariants.md](scene-invariants.md) の「カメラ — 行き先と飛行」）。R3F のポインタイベントの光線もここ（`roomEvents`） |
 | `scene/LensRenderer.tsx` | 描画そのもの（通常の遠近と、魚眼の立方体）。`useFrame` の優先度1で R3F の描画を乗っ取る唯一の場所 |
-| `scene/camera/` | カメラの姿勢・飛行・レンズ・画面への射影・HTML を3Dに置く CSS の計算・カメラの値を運ぶチャンネル（`roomCamera` / `fisheye` / `cssView` / `cameraMotion` / `markerScreen` / `viewChannel`）。three.js を持ち込まない |
-| `scene/room/` | 部屋の配置・巡回・HTML を載せる板・照明の切り替え・体の関節の純粋関数（`layout` / `tour` / `screens` / `lighting` / `self`）。three.js を持ち込まない |
+| `scene/camera/` | カメラの姿勢・飛行・歩く飛行・レンズ・画面への射影・HTML を3Dに置く CSS の計算・カメラの値を運ぶチャンネル（`roomCamera` / `walkFlight` / `fisheye` / `cssView` / `cameraMotion` / `markerScreen` / `viewChannel`）。three.js を持ち込まない |
+| `scene/room/` | 部屋の配置・巡回・HTML を載せる板・照明の切り替え・体の関節・歩き・座る度合いと椅子の位置・カーブミラーの位置の純粋関数（`layout` / `tour` / `screens` / `lighting` / `self` / `gait` / `seat` / `mirror`）。three.js を持ち込まない |
 | `scene/objects/` | シーンに置かれる R3F コンポーネント。`RoomScene.tsx` がその根。canvas に描くテクスチャ（`roomTextures.ts`）もここ |
 | `scene/` 直下のその他 | 層をまたぐもの（`sceneClock` / `markerBolt` / `hash` / `direction` / `layers`）と、入力の交通整理（`pointerClaim` / `viewGesture`）だけ。**迷ったらここではない** |
 

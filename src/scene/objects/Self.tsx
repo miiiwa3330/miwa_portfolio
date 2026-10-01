@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { TORSO_DEPTH, TORSO_HALF_WIDTH, bodyJoints } from "../room/self";
-import { viewNow } from "../camera/viewChannel";
+import { bodyNow, viewNow } from "../camera/viewChannel";
+import { seatShare } from "../room/seat";
 import { HEAD_LAYER } from "../layers";
 
 /**
@@ -13,8 +14,9 @@ import { HEAD_LAYER } from "../layers";
  * of capsules and spheres, until what the owner looks like is decided — it
  * has to read the same in the security camera, looking down, and at the desk.
  *
- * Moved every frame from the camera's published pose, so it follows a
- * flight, a drag or a zoom without being told about any of them. Nothing
+ * Moved every frame from the camera's published pose and the walk the camera
+ * worked out from it (`bodyNow`), so it walks a flight, shuffles round a
+ * drag and sits down at the PC without being told about any of them. Nothing
  * here takes the pointer: the reader's own rays start inside it.
  */
 
@@ -64,7 +66,8 @@ export default function Self() {
     const parts = body.current;
     if (!parts) return;
     const part = (name: string) => parts.getObjectByName(name);
-    const j = bodyJoints(viewNow().pose);
+    const { gait, held } = bodyNow();
+    const j = bodyJoints(viewNow().pose, gait, seatShare(held));
     // The torso is upright and flatter front to back than across, turned
     // with the body rather than stretched like a limb.
     const torso = part("torso");

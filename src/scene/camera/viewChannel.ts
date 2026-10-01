@@ -1,5 +1,6 @@
 import { EYE_HEIGHT, STANDARD_HFOV } from "../room/layout";
 import type { RoomPose } from "./roomCamera";
+import { STANDING, type Gait } from "../room/gait";
 
 /**
  * Where the camera is and how it is drawing right now — its whole pose,
@@ -56,4 +57,25 @@ export function onView(listener: (view: Readonly<ViewState>) => void): () => voi
   return () => {
     listeners.delete(listener);
   };
+}
+
+/**
+ * The body under the eye, for the frame being drawn: the walk
+ * (`room/gait.ts`) and the pose the camera is holding before the sway and
+ * the step are added — what sitting down and the chair are worked out from
+ * (`room/seat.ts`), so neither bobs with the head. Written by the camera
+ * alongside the view; read by the body and the chair. Not delivered to
+ * listeners — nothing outside the canvas needs it.
+ */
+export type BodyState = { gait: Gait; held: RoomPose };
+
+const body: BodyState = { gait: STANDING, held: current.pose };
+
+export function publishBody(gait: Gait, held: RoomPose): void {
+  body.gait = gait;
+  body.held = held;
+}
+
+export function bodyNow(): Readonly<BodyState> {
+  return body;
 }
