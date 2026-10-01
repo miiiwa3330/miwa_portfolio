@@ -7,9 +7,8 @@ import RoomScene from "./objects/RoomScene";
 import LensRenderer from "./LensRenderer";
 import { SCREEN_HOLE_LAYER } from "./layers";
 import {
-  AUTO_ORBIT_SPEED,
-  ORBIT_RETURN_SPEED,
-  orbitStepFraction,
+  dampFraction,
+  idleSway,
   wrapAngle,
 } from "./camera/cameraMotion";
 import {
@@ -149,16 +148,6 @@ function directionFor(yaw: number, pitch: number) {
 }
 
 /**
- * `orbitStepFraction` measures the gap as a great-circle arc between two
- * azimuth/polar pairs. Yaw and pitch are the same thing about the vertical
- * axis — yaw an azimuth, pitch the complement of a polar angle — so the
- * damp, the return cap and their arithmetic carry over as they are.
- */
-function asOrbit(yaw: number, pitch: number) {
-  return { azimuth: yaw, polar: Math.PI / 2 - pitch };
-}
-
-/**
  * Only in the free view does dragging or the wheel move the camera. Whenever
  * a section is focused — zoomed in, or with its page open — input is locked
  * out; a stray gesture is ignored rather than silently queued up for later.
@@ -181,16 +170,19 @@ function asOrbit(yaw: number, pitch: number) {
  * travelling together** is a scroll along the tour, the touch half of what the
  * wheel does, at the drag's own rate.
  *
- * `returningRef` is the one piece of state a gesture leaves behind: letting go
- * of a drag hands the camera back to the tour, and only *that* trip is held to
- * the idle drift's own pace (see `ORBIT_RETURN_SPEED`).
+ * `followTourRef` is the one piece of state a gesture leaves behind: the
+ * wheel and the two-finger swipe put the view back on the tour (it follows
+ * `tourURef`), and a drag takes it off — **letting go leaves the view where
+ * it was let go**, the way a game's camera stays where you looked. Nothing
+ * turns the room by itself (the user asked for the idle drift to stop,
+ * 2026-10-01), so there is no tour to drift back to.
  */
 function useViewInput(
   yawTargetRef: React.RefObject<number>,
   pitchTargetRef: React.RefObject<number>,
   tourURef: React.RefObject<number>,
   draggingRef: React.RefObject<boolean>,
-  returningRef: React.RefObject<boolean>,
+  followTourRef: React.RefObject<boolean>,
   lockedRef: React.RefObject<boolean>,
   flightRef: React.RefObject<unknown>,
   onPinchZoom: (zoom: ViewZoom) => void
@@ -225,18 +217,16 @@ function useViewInput(
 
     /**
      * Turn `arc` radians along the tour — the one place the wheel and the
-     * two-finger swipe meet, so the two cannot drift apart in sign. Travel the
-     * reader just asked for is not a return to the path, so it clears the cap.
+     * two-finger swipe meet, so the two cannot drift apart in sign. Both put
+     * the view back on the tour, from wherever a drag left it.
      */
     const advanceTour = (arc: number) => {
-      returningRef.current = false;
+      followTourRef.current = true;
       tourURef.current = wrap01(tourURef.current + arc / ROOM_TOUR.length);
     };
 
     const onPointerDown = (e: PointerEvent) => {
       if (locked() || isInteractive(e.target)) return;
-      // A hand back on the room ends any drift back towards the path.
-      returningRef.current = false;
       activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
       if (activePointers.size === 2) {
@@ -250,6 +240,9 @@ function useViewInput(
         lastX = e.clientX;
         lastY = e.clientY;
         draggingRef.current = true;
+        // A hand on the room takes the view off the tour until the wheel
+        // brings it back.
+        followTourRef.current = false;
       }
     };
 
@@ -311,8 +304,6 @@ function useViewInput(
       activePointers.delete(e.pointerId);
       if (activePointers.size < 2) twoFinger = null;
       if (activePointers.size === 0) {
-        // Letting go is what starts the trip home, and the only thing that does.
-        if (draggingRef.current) returningRef.current = true;
         down = false;
         draggingRef.current = false;
       }
@@ -377,7 +368,7 @@ function useViewInput(
       window.removeEventListener("pointercancel", endDrag);
       window.removeEventListener("wheel", onWheel);
     };
-  }, [yawTargetRef, pitchTargetRef, tourURef, draggingRef, returningRef, lockedRef, flightRef, onPinchZoom]);
+  }, [yawTargetRef, pitchTargetRef, tourURef, draggingRef, followTourRef, lockedRef, flightRef, onPinchZoom]);
 }
 
 /** Stands in for an absent `onEmptyTap`; the hook is disabled in that case anyway. */
@@ -533,7 +524,7 @@ function tourAngles(u: number): { yaw: number; pitch: number } {
 }
 
 function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
-  const { activeSection, pageOpen, homeNonce, turnRequest, paused, viewZoom, setViewZoom } = useAppState();
+  const { activeSection, pageOpen, homeNonce, turnRequest, viewZoom, setViewZoom } = useAppState();
 
   // Whether the card is the strip along the bottom rather than the panel on
   // the left — which decides whether the subject has to be slid clear of it.
@@ -561,12 +552,26 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
 
   const draggingRef = useRef(false);
   /**
-   * Whether the camera is drifting back onto the tour after a drag let go —
-   * the one journey held to `ORBIT_RETURN_SPEED`. A mode rather than a
-   * property of the gap, because a wheel flick and a released drag leave the
-   * same gap and only one of them is a return.
+   * Whether the free view follows the tour (`tourURef`): after the wheel, a
+   * two-finger swipe, a card's step or coming back from an area. A drag
+   * turns it off, and the view stays where the drag left it.
    */
-  const returningRef = useRef(false);
+  const followTourRef = useRef(true);
+  /** This frame's idle sway, added to every pose as it is drawn (`applyPose`). */
+  const swayRef = useRef({ yaw: 0, pitch: 0, height: 0 });
+  /** How much of the sway is in play: eased to 0 while reading at the desk or the hologram. */
+  const swayGainRef = useRef(1);
+  /** The reader's "reduce motion" setting: no sway at all. */
+  const reducedMotionRef = useRef(false);
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const read = () => {
+      reducedMotionRef.current = query.matches;
+    };
+    read();
+    query.addEventListener("change", read);
+    return () => query.removeEventListener("change", read);
+  }, []);
   const prevSectionRef = useRef<Focus>(null);
   const prevNonceRef = useRef(homeNonce);
   const prevZoomRef = useRef(viewZoom);
@@ -590,7 +595,7 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     lockedRef.current = pageOpen || !!activeSection;
   }, [pageOpen, activeSection]);
 
-  useViewInput(yawTargetRef, pitchTargetRef, tourURef, draggingRef, returningRef, lockedRef, flightRef, setViewZoom);
+  useViewInput(yawTargetRef, pitchTargetRef, tourURef, draggingRef, followTourRef, lockedRef, flightRef, setViewZoom);
 
   // The tap that replaces the pause button. Off while the detail sheet covers
   // the canvas, during About, where a tap beside the text is not asking for
@@ -622,9 +627,15 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
    * Only ever called from the frame loop, with the frame's own camera: the
    * camera is three.js state that the frame loop owns, not a value of this
    * component's render.
+   *
+   * The idle sway is added here, to what is drawn and published — so the
+   * markers, the dotted line and the HTML in the room sway with the picture —
+   * and not to `poseRef`, which every flight starts from.
    */
-  const applyPose = (camera: THREE.PerspectiveCamera, size: { width: number; height: number }, pose: RoomPose) => {
-    poseRef.current = pose;
+  const applyPose = (camera: THREE.PerspectiveCamera, size: { width: number; height: number }, held: RoomPose) => {
+    poseRef.current = held;
+    const sway = swayRef.current;
+    const pose: RoomPose = { ...held, yaw: held.yaw + sway.yaw, pitch: held.pitch + sway.pitch, eyeHeight: held.eyeHeight + sway.height };
     const { position, target } = placeCamera(pose);
     camera.position.set(position[0], position[1], position[2]);
     camera.up.set(0, 1, 0);
@@ -645,26 +656,16 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
   };
 
   const startFlight = (to: RoomPose, duration: number, land: RoomFlight["land"]) => {
-    // A flight supersedes a drift home: it has its own clock and destination.
-    returningRef.current = false;
     flightRef.current = beginRoomFlight(poseRef.current, to, duration, land);
   };
 
-  // Pausing means "stop now", not "coast to a halt". Never during a flight:
-  // the targets are that flight's landing there.
-  useEffect(() => {
-    if (!paused || flightRef.current) return;
-    yawTargetRef.current = yawRef.current;
-    pitchTargetRef.current = pitchRef.current;
-  }, [paused]);
-
   // Swiping the card asks for a stop. Steering tourURef is all it takes — the
-  // idle loop turns the camera round, and the card follows because it reads
+  // frame loop turns the camera round, and the card follows because it reads
   // the direction rather than being set.
   useEffect(() => {
     if (!turnRequest) return;
     tourURef.current = stopU(turnRequest.section);
-    returningRef.current = false;
+    followTourRef.current = true;
   }, [turnRequest]);
 
   // Every camera destination is decided here, in one place, so the several
@@ -703,6 +704,7 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     //    of the tour, the desk.
     if (wasReset && !cameFrom) {
       tourURef.current = 0;
+      followTourRef.current = true;
       flyToFree(home.yaw, home.pitch);
       return;
     }
@@ -713,6 +715,7 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     if (cameFrom) {
       const u = stopU(cameFrom);
       tourURef.current = u;
+      followTourRef.current = true;
       const { yaw, pitch } = tourAngles(u);
       flyToFree(yaw, pitch);
       return;
@@ -748,6 +751,17 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
   useFrame((state, delta) => {
     const camera = state.camera as THREE.PerspectiveCamera;
     const size = state.size;
+
+    // The idle sway, on the room's clock so the pause button holds it still.
+    // Eased out while reading the PC's screen or the hologram — text that
+    // sways is harder to read — and off for a reader who asked for less motion.
+    const reading = activeSection === "desk" || activeSection === "about";
+    const gainTarget = reading || reducedMotionRef.current ? 0 : 1;
+    swayGainRef.current += (gainTarget - swayGainRef.current) * dampFraction(delta);
+    const sway = idleSway(sceneClock.time(state.clock.elapsedTime));
+    const gain = swayGainRef.current;
+    swayRef.current = { yaw: sway.yaw * gain, pitch: sway.pitch * gain, height: sway.height * gain };
+
     // A flight owns the camera outright while it runs. Real delta, not the
     // room's clock: the pause button freezes the room, not the reader.
     const flight = flightRef.current;
@@ -773,29 +787,21 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
       return;
     }
 
-    // Idle drift along the tour. A drag shadows tourURef instead of driving it.
-    if (!draggingRef.current) {
-      tourURef.current = wrap01(tourURef.current + (sceneClock.delta(delta) * AUTO_ORBIT_SPEED) / ROOM_TOUR.length);
+    // Nothing turns the room by itself. The tour is where the wheel, a
+    // two-finger swipe or a card's step asked the view to be; a drag sets the
+    // targets directly instead, and the view stays there once let go.
+    if (followTourRef.current && !draggingRef.current) {
       const { yaw, pitch } = tourAngles(tourURef.current);
       yawTargetRef.current += wrapAngle(yaw - yawTargetRef.current);
       pitchTargetRef.current = pitch;
     }
 
-    // Chase the targets — one fraction of the gap for both angles, and on the
-    // way back from a drag no faster than ORBIT_RETURN_SPEED.
+    // Chase the targets — one fraction of the gap for both angles, in real
+    // time: pausing the room does not stop the reader turning round in it.
     const current = yawRef.current;
     const target = current + wrapAngle(yawTargetRef.current - current);
     yawTargetRef.current = target;
-    const from = asOrbit(current, pitchRef.current);
-    const to = asOrbit(target, pitchTargetRef.current);
-    const effectiveDelta = draggingRef.current ? delta : sceneClock.delta(delta);
-    const damped = orbitStepFraction(from, to, effectiveDelta);
-    let fraction = damped;
-    if (returningRef.current) {
-      fraction = orbitStepFraction(from, to, effectiveDelta, ORBIT_RETURN_SPEED);
-      // The cap ceasing to bite *is* the arrival.
-      if (effectiveDelta > 0 && fraction >= damped) returningRef.current = false;
-    }
+    const fraction = dampFraction(delta);
     yawRef.current = current + (target - current) * fraction;
     pitchRef.current = pitchRef.current + (pitchTargetRef.current - pitchRef.current) * fraction;
 

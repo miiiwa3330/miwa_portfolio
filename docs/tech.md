@@ -57,7 +57,7 @@
 ### カメラ：中央に立って首を振る
 
 - **姿勢は `RoomPose`**（首振り・見上げ・前に出る距離・目の高さ・画角・レンズ・横寄せ・縦のずらし、`scene/camera/roomCamera.ts`）。位置と向きは毎フレーム直接書き、カメラの「上」は常に world +Y
-- **自由視点は巡回の輪に沿ってゆっくり右へ首を振る**（`scene/room/tour.ts`、毎秒0.032 rad）。ドラッグは「世界を掴む」、ホイールを下へ回すと右を向く。ドラッグを離したあとの復帰は速度で戻す（`scene/camera/cameraMotion.ts`、惑星から引き継いだ減衰と上限）
+- **部屋は勝手に回らない。** ホイール・2本指・カードの送りで巡回の輪（`scene/room/tour.ts`）に沿って右へ首を振り、ドラッグで自由に見回す（離した向きのまま留まる）。ドラッグは「世界を掴む」、ホイールを下へ回すと右を向く。**止まっているあいだも、ゲームの一人称視点のような軽い揺れ**（`idleSway`、`scene/camera/cameraMotion.ts`）がある。2026-10-01 にユーザーの指示で、アイドルの自動の首振りから置き換えた
 - **区画を選ぶと、その物の正面へ飛んで寄り、離れると中央へ戻る**（`RoomFlight`。最初のフレームに時間を加えない・着地で首振りの値を引き継ぐ、の2つの約束は惑星の飛行から）。行き先を決める effect は `Scene.tsx` に1つ
 - **カードを避ける横寄せと、スマホのカードレールを避ける縦のずらしは、投影の中心をずらす**（`setViewOffset`）。カメラは動かさない
 - **下を向くと目が前へ出る**（`headLean`）。首を支点に頭が傾く分で、自分の脚が胸の向こうに見える
@@ -127,7 +127,7 @@
 - **カメラの `useFrame` はマーカーより先に走る（優先度 -1）。** 惑星の頃は `camera-controls` が行列を張り直さない問題を `updateMatrixWorld()` で防いでいた。部屋ではカメラの処理の順番そのものが逆になっていて、点線の先が1フレーム遅れていた（手順3で直した）
 ### ジオラマの時計
 
-自分から動くもの（アイドルの首振り・マーカーの脈動・左のモニターの動画・ホログラムの仮の多面体の回転・ホログラムの文字の自動再生）は、レンダラの時刻ではなく `scene/sceneClock.ts` を読む。ヘッダーの停止ボタンはこの時計を凍らせるだけで、全部が同じフレームに止まる。停止していた時間は加算されるのではなく**割り引かれる**ので、再生は止めた瞬間の続きから始まる。停止中もカメラは手で回せる——ダンピングには実 delta を渡し、自動回転の加算だけこの時計を通しているため。
+自分から動くもの（視点の揺れ・マーカーの脈動・左のモニターの動画・ホログラムの仮の多面体の回転・ホログラムの文字の自動再生）は、レンダラの時刻ではなく `scene/sceneClock.ts` を読む。ヘッダーの停止ボタンはこの時計を凍らせるだけで、全部が同じフレームに止まる。停止していた時間は加算されるのではなく**割り引かれる**ので、再生は止めた瞬間の続きから始まる。停止中もカメラは手で回せる——首振りの減衰には実 delta を渡し、揺れだけこの時計を通しているため。
 
 **この時計はレンダラの時刻が単調でないことを前提に組んである。** `frameloop` を `"demand"`↔`"always"` で切り替えると、R3F の `setFrameloop` が `clock.stop(); clock.elapsedTime = 0; clock.start(); clock.elapsedTime = 0` を実行する（`events-*.esm.js`）——詳細ページを開くたび・閉じるたびに**レンダラの時刻が0から数え直しになる**。`sceneClock` は内部に `restarts`（巻き戻り幅の累計）を持ち、渡された `elapsed` が前回より小さければその差を積んで補正する。これが無いと、時刻の関数で位置が決まるもの（マーカーの脈動と `strikeIndex`、動画）が**閉じた瞬間に一斉にワープする**——しかも `Hub.tsx` は progress がわずかでも立てば `setCovered(false)` を投げるので、スペーサが透けて部屋が見えている状態で起きる。`setPaused` も同じ補正を通す（`frozenAt` と `skipped` が `time()` の答えと同じ座標系に乗る必要がある）。**`frameloop` の切り替え自体は残す**——省電力のためのもので、直すべきはこちら側。
 
@@ -213,7 +213,7 @@ AdSense の審査で「有用性の低いコンテンツ」として不合格に
 
 ## テスト
 - **Vitest**（node環境）。React も three.js も含まない純粋ロジックのみを対象にしているため、DOMもレンダラも不要で全体が1秒未満で走る（件数は `CLAUDE.md` の「コマンド」にだけ書く）。
-- 対象: 部屋の配置・ズームの寄り方・座る位置と椅子・壁の柱（`scene/room/layout.ts`）、巡回の輪（`scene/room/tour.ts`）、HTML を載せる板の位置（`scene/room/screens.ts`）、照明の切り替え（`scene/room/lighting.ts`）、体の関節（`scene/room/self.ts`）、レンズの式（`scene/camera/fisheye.ts`）、カメラの姿勢・画面上の位置・飛行・ずらし（`scene/camera/roomCamera.ts`）、CSS の3D変換が WebGL の射影と一致すること（`scene/camera/cssView.ts`）、首振りの減衰と復帰の速さ（`scene/camera/cameraMotion.ts`）、マーカーの可視判定（`scene/camera/markerScreen.ts`）、マーカーの形（`scene/markerBolt.ts`）、ジェスチャの判定（`scene/viewGesture.ts`）、ジオラマの時計（`scene/sceneClock.ts`）、決定論的ハッシュ（`scene/hash.ts`）、制作実績のフィルタ（`detail/products/catalog.ts`）、経歴の並び順とリンク先の実在（`data/experience.ts`）、プロジェクトデータの言語解決と、実績が指す画像・過去バージョンが配信物に実在し、過去バージョンが自分のディレクトリの外を指さず、検索よけ（`noindex`）が入っているか（`data/projectModel.ts`。これだけは `public/` を読む）、URL の解釈（`state/sectionUrl.ts`）、ナビの並びと、読み物のページからの行き先（`hub/nav.ts`）、カードレールの窓（`hub/card/railLayout.ts`）、詳細ページの退場方向（`detail/detailSheet.ts`）、カードのホイール送り（`hub/card/cardWheel.ts`）、点線の稲妻（`hub/card/lightningPath.ts`）、自己紹介の自動再生と読了判定（`hub/about/aboutScroll.ts`）、自己紹介の文の全角（`hub/about/aboutCopy.tsx` を読む）、ノートの並び順と日付の書式（`data/noteModel.ts`）、読み物のページのメタデータ（`reading/pageMeta.ts`）、サイトマップ（`app/sitemap.ts`）、`ads.txt` と発行者 ID の一致（`data/site.ts`）、読み物の本文の実在・最低文字数・サイト内リンクの実在（`content/`。`src/content/` を読む）。
+- 対象: 部屋の配置・ズームの寄り方・座る位置と椅子・壁の柱（`scene/room/layout.ts`）、巡回の輪（`scene/room/tour.ts`）、HTML を載せる板の位置（`scene/room/screens.ts`）、照明の切り替え（`scene/room/lighting.ts`）、体の関節（`scene/room/self.ts`）、レンズの式（`scene/camera/fisheye.ts`）、カメラの姿勢・画面上の位置・飛行・ずらし（`scene/camera/roomCamera.ts`）、CSS の3D変換が WebGL の射影と一致すること（`scene/camera/cssView.ts`）、首振りの減衰と視点の揺れ（`scene/camera/cameraMotion.ts`）、マーカーの可視判定（`scene/camera/markerScreen.ts`）、マーカーの形（`scene/markerBolt.ts`）、ジェスチャの判定（`scene/viewGesture.ts`）、ジオラマの時計（`scene/sceneClock.ts`）、決定論的ハッシュ（`scene/hash.ts`）、制作実績のフィルタ（`detail/products/catalog.ts`）、経歴の並び順とリンク先の実在（`data/experience.ts`）、プロジェクトデータの言語解決と、実績が指す画像・過去バージョンが配信物に実在し、過去バージョンが自分のディレクトリの外を指さず、検索よけ（`noindex`）が入っているか（`data/projectModel.ts`。これだけは `public/` を読む）、URL の解釈（`state/sectionUrl.ts`）、ナビの並びと、読み物のページからの行き先（`hub/nav.ts`）、カードレールの窓（`hub/card/railLayout.ts`）、詳細ページの退場方向（`detail/detailSheet.ts`）、カードのホイール送り（`hub/card/cardWheel.ts`）、点線の稲妻（`hub/card/lightningPath.ts`）、自己紹介の自動再生と読了判定（`hub/about/aboutScroll.ts`）、自己紹介の文の全角（`hub/about/aboutCopy.tsx` を読む）、ノートの並び順と日付の書式（`data/noteModel.ts`）、読み物のページのメタデータ（`reading/pageMeta.ts`）、サイトマップ（`app/sitemap.ts`）、`ads.txt` と発行者 ID の一致（`data/site.ts`）、読み物の本文の実在・最低文字数・サイト内リンクの実在（`content/`。`src/content/` を読む）。
 - 新しいテストは**変異テストで検証する運用**にしている。意図的なバグを仕込んで落ちることを確認しないと、緑であることに意味がないため。
 
 ```bash

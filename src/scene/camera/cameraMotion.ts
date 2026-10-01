@@ -3,8 +3,7 @@
  * gives up to the card — the arithmetic the room's camera kept from the
  * planet's, where it was first measured (docs/planet-migration.md). The
  * names still say "orbit": the free view's turn on the spot is the same
- * damped chase the planet's orbit was, with yaw for azimuth and pitch for the
- * complement of the polar angle (see `asOrbit` in `Scene.tsx`).
+ * damped chase the planet's orbit was, minus the idle drift.
  *
  * Free of three.js, so it is tested without a renderer.
  */
@@ -26,53 +25,12 @@
 export const HANDHELD_RAIL_TOP_PX = 664;
 
 /**
- * How fast the camera drifts along the tour path when nothing is driving it —
- * radians of great-circle arc per second.
- *
- * Lives here rather than in Scene.tsx, where it started, because
- * `ORBIT_RETURN_SPEED` below is derived from it: the relationship between the
- * two is what decides whether the camera ever finds its way back to the path
- * at all, and a constant that another constant depends on is not a local one.
- */
-export const AUTO_ORBIT_SPEED = 0.032;
-
-/**
  * How hard the rendered azimuth/polar chase their targets — the `λ` of
  * `MathUtils.damp`, i.e. the gap left over shrinks by `1 - exp(-λΔt)` every
  * frame. Roughly half a second to cover a gap of any size, which is inertia
- * for a drag in progress and a snap for anything larger.
+ * for a drag in progress and a glide for a wheel or a card's step.
  */
 export const ORBIT_DAMP_LAMBDA = 5;
-
-/**
- * How fast the camera drifts back onto the tour path once a drag lets go —
- * the same radians-of-arc-per-second `AUTO_ORBIT_SPEED` is in, and
- * deliberately a multiple of it.
- *
- * Asked for as "come back at about the speed it turns by itself". The damp
- * alone (`ORBIT_DAMP_LAMBDA`) takes about the same half-second whether the
- * drag pushed the camera 2° off the path or 30°, so the further you pulled the
- * planet the faster it was yanked out of your hand — measured at ~0.5s for a
- * 0.35 rad gap, i.e. some eleven times the idle drift's own pace over that
- * arc.
- *
- * **Not 1× `AUTO_ORBIT_SPEED`, because the destination is not standing still.**
- * The tour keeps advancing the whole time the camera is finding its way back
- * (see Scene.tsx's frame loop), so the point being chased is itself moving at
- * `AUTO_ORBIT_SPEED` along the path. Travelling at exactly that speed would
- * leave a camera trailing directly behind it closing at zero — following one
- * gap behind for ever. At twice the drift, that worst case closes at exactly
- * `AUTO_ORBIT_SPEED`, and a camera drifting sideways onto the path at twice it:
- * the same order as the idle rotation either way, which is what was asked,
- * rather than a snap.
- *
- * **Only the post-drag return is capped this way.** The wheel and the card's
- * swipe both move the camera along the path by an amount the reader just asked
- * for — a flick worth 0.4 rad would take six seconds at this speed, which
- * reads as the input having been ignored. See `returningRef` in Scene.tsx for
- * where the cap is switched on and off.
- */
-export const ORBIT_RETURN_SPEED = AUTO_ORBIT_SPEED * 2;
 
 /**
  * Fraction of the frame's width the free orbit gives up to the card on the
@@ -114,60 +72,55 @@ export function sectionCardShare(handheld: boolean): number {
   return handheld ? 0 : CARD_SHARE;
 }
 
-/** Where on the orbit the camera is, in the angles Scene.tsx keeps as its truth. */
-export type OrbitAngles = { azimuth: number; polar: number };
-
 /**
- * The great-circle angle between two points on the orbit — how far the camera
- * actually has to travel to get from one to the other.
+ * How much of the gap between where the view is turned and where it is asked
+ * to turn it closes in one frame of `delta` seconds — `MathUtils.damp`'s
+ * `1 - exp(-λΔt)`, applied to yaw and pitch alike.
  *
- * Not the difference in either angle, and not the two differences added up: a
- * turn of azimuth covers `sin(polar)` times as much arc as the same turn of
- * polar does, and none at all at a pole. Anything that wants to move the
- * camera at a speed measured in arc (`AUTO_ORBIT_SPEED`, `ORBIT_RETURN_SPEED`)
- * has to ask in these terms or the same nominal speed would mean something
- * different at every latitude.
+ * Real time, never the room's clock: the pause button freezes the room, not
+ * the reader, and a turn the reader asks for while it is paused still has to
+ * arrive.
  *
- * Written out as the spherical law of cosines rather than built from two
- * vectors and dotted, because this runs inside the frame loop.
+ * (On the planet this was capped on the way back from a drag, at twice the
+ * idle drift's speed, because the drift kept moving the target away. The
+ * room has no idle drift (2026-10-01), a drag leaves the view where it was let
+ * go, and there is nothing to be capped. The cap and its measurements are in
+ * docs/planet-archive.md.)
  */
-export function orbitArcBetween(a: OrbitAngles, b: OrbitAngles): number {
-  const cosine =
-    Math.sin(a.polar) * Math.sin(b.polar) * Math.cos(a.azimuth - b.azimuth) +
-    Math.cos(a.polar) * Math.cos(b.polar);
-  return Math.acos(Math.min(1, Math.max(-1, cosine)));
+export function dampFraction(delta: number): number {
+  return delta > 0 ? 1 - Math.exp(-ORBIT_DAMP_LAMBDA * delta) : 0;
 }
 
 /**
- * How much of the gap between `from` and `to` the camera closes this frame, as
- * a fraction of it — applied to azimuth and polar alike.
- *
- * One fraction for both is not a simplification: `MathUtils.damp` *is* a lerp
- * by `1 - exp(-λΔt)`, so this reproduces exactly what a pair of `damp()` calls
- * did. Having the fraction in hand rather than hidden inside them is what lets
- * it be capped — `maxArcPerSecond` bounds how much of the sphere the camera may
- * cross in a second however far away the target is, which is the difference
- * between drifting home and being snapped home (see `ORBIT_RETURN_SPEED`).
- *
- * The cap stops binding by itself once the gap is down to about
- * `maxArcPerSecond / ORBIT_DAMP_LAMBDA` radians, where the damp is the slower
- * of the two again — so a capped return ends by handing back to the damp for
- * the last fraction of a degree, with no threshold of its own to tune.
+ * **Provisional (仮).** How far the idle sway moves the view: a game's
+ * first-person idle — the head never quite still, the chest rising and
+ * falling — in place of the room turning by itself, which the user asked to
+ * stop (2026-10-01). Degrees of yaw and pitch, and metres of eye height.
  */
-export function orbitStepFraction(
-  from: OrbitAngles,
-  to: OrbitAngles,
-  delta: number,
-  maxArcPerSecond: number = Infinity
-): number {
-  if (delta <= 0) return 0;
-  const damped = 1 - Math.exp(-ORBIT_DAMP_LAMBDA * delta);
-  const arc = orbitArcBetween(from, to);
-  // Nowhere to go: the cap has no gap to be a fraction of, and dividing by it
-  // would hand back NaN — which `setLookAt` would take without complaint and
-  // paint as nothing at all.
-  if (arc <= 0 || !Number.isFinite(maxArcPerSecond)) return damped;
-  return Math.min(damped, (maxArcPerSecond * delta) / arc);
+export const SWAY_YAW_DEG = 0.45;
+export const SWAY_PITCH_DEG = 0.3;
+export const SWAY_BREATH_M = 0.006;
+
+const TURN = Math.PI * 2;
+const DEG = Math.PI / 180;
+
+/**
+ * The idle sway at time `t` (seconds on the room's clock, so the pause button
+ * stops it): offsets in yaw and pitch (radians, at most `SWAY_YAW_DEG` and
+ * `SWAY_PITCH_DEG`) and eye height (metres, at most `SWAY_BREATH_M`).
+ *
+ * Each is two slow sine waves whose periods do not divide each other, so the
+ * movement never visibly repeats; the eye height follows the slower pitch
+ * wave, the way breathing lifts the head. The camera adds it on top of
+ * whatever pose it holds, flights included, so only its size and its
+ * smoothness matter.
+ */
+export function idleSway(t: number): { yaw: number; pitch: number; height: number } {
+  return {
+    yaw: SWAY_YAW_DEG * DEG * (0.65 * Math.sin((TURN * t) / 7.3) + 0.35 * Math.sin((TURN * t) / 3.1 + 1.3)),
+    pitch: SWAY_PITCH_DEG * DEG * (0.7 * Math.sin((TURN * t) / 4.2 + 0.5) + 0.3 * Math.sin((TURN * t) / 2.3)),
+    height: SWAY_BREATH_M * Math.sin((TURN * t) / 4.2 + 0.5),
+  };
 }
 
 /**
