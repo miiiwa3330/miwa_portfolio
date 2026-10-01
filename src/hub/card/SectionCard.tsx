@@ -23,7 +23,7 @@ import { CARD_COPY } from "./cardCopy";
  * Which area it shows is not decided here. It reads `section` and asks for a
  * step; the camera turns, and the area it ends up facing comes back down as a
  * new `section`. Card and camera never write to each other — see
- * `facingSection` in cameraLayout for why that direction matters.
+ * `facingStop` in `scene/room/layout.ts` for why that direction matters.
  */
 
 /** How far each layer behind sits below the front card, in px. */

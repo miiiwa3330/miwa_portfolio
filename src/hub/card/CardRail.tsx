@@ -21,7 +21,7 @@ import type { SectionType } from "@/types";
 
 /**
  * The handheld version of the contextual card: a strip along the bottom of
- * the screen that you slide sideways to fly around the planet.
+ * the screen that you slide sideways to turn round the room.
  */
 
 /**
@@ -127,7 +127,7 @@ function CardRailBody({
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   const dragX = useMotionValue(0);
 
-  // Sync external section changes (e.g. idle planet orbit or HOME button).
+  // Sync external section changes (e.g. the idle turn or the HOME button).
   useEffect(() => {
     if (isAnimating.current) return;
     if (section === activeSectionRef.current) return;

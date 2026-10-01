@@ -11,7 +11,6 @@ miwa_portfolio のドキュメント一覧。作業のルールそのものは [
 | [structure.md](structure.md) | ディレクトリ構成と命名の規約 | ファイルを追加・移動・改名する前 |
 | [testing.md](testing.md) | テスト方針と、変異テストで得た教訓 | テストを書く前 |
 | [verification.md](verification.md) | ヘッドレスでの見た目確認の手順と、計測の落とし穴 | スクリーンショットを撮る前、ピクセルで測る前 |
-| [voxel-object-creation.md](voxel-object-creation.md) | Blockbench MCP でのボクセル制作フローと規約 | ボクセルアセットを作る前 |
 
 ## 台帳・記録
 
@@ -20,7 +19,9 @@ miwa_portfolio のドキュメント一覧。作業のルールそのものは [
 | [review.md](review.md) | 未修正の指摘の台帳（2026-08-02 の全体レビュー）。問題点＋解決策＋再現手順 | 直したら該当項目を消す。**新しい設計をここに書かない** |
 | [devlog/](devlog/) | 日々の作業記録と判断の理由 | **毎回追記する。** あとから本文を書き換えない |
 | [planet-migration.md](planet-migration.md) | 平面の浮遊島 → 球体の惑星への移行の記録（**完了済み**） | 通常は更新しない。現在の構造は `tech.md` と `scene-invariants.md` が正 |
-| [room-migration.md](room-migration.md) | 球体の惑星 → ロケットのコロニーの中の「部屋」への移行の要件と設計（**進行中**） | 要件・設計を決めたら書き足す。各手順を終えたら「手順Nの結果」を足す。完了したら現在の構造を `tech.md` と `scene-invariants.md` へ移す |
+| [planet-archive.md](planet-archive.md) | 惑星の頃の不変条件と `tech.md` の惑星の節（**退役済み**、本文のまま） | 通常は更新しない。同じ案が再提案されたとき、却下理由と実測値を引く |
+| [voxel-object-creation.md](voxel-object-creation.md) | Blockbench MCP でのボクセル制作フローと規約（**退役済み**） | ボクセルに戻すときだけ読む |
+| [room-migration.md](room-migration.md) | 球体の惑星 → ロケットのコロニーの中の「部屋」への移行の要件・設計・各手順の結果（**完了済み**）と、**ユーザーの確認待ちの一覧** | 確認待ちの事項が決まったら一覧から消し、決まった値を `tech.md`・`scene-invariants.md` へ |
 
 **動く試作物は `docs/` にはない。** 単体で開ける HTML の実験はルート直下の [sandbox/](../sandbox/) にある（2026-09-16 に `docs/prototypes/` から移した。理由は [structure.md](structure.md)）。ここに置くのは書かれた記録だけ。
 
@@ -28,4 +29,4 @@ miwa_portfolio のドキュメント一覧。作業のルールそのものは [
 
 - **ルール（何を守るか）は `CLAUDE.md`、理由（なぜそうなのか）は `docs/`。** `CLAUDE.md` は毎セッション読み込まれるので、肥大させると全作業のコストになる
 - **恒久的な設計判断になったものは `review.md` から `tech.md` へ移す。** `review.md` は「まだ直っていないこと」だけを持つ
-- **`devlog/` と `planet-migration.md` はその時点の記録。** 名前や構成が変わっても本文は書き換えない（リンク切れの修正は別）
+- **`devlog/`・`planet-migration.md`・`planet-archive.md` はその時点の記録。** 名前や構成が変わっても本文は書き換えない（リンク切れの修正は別）

@@ -4,7 +4,7 @@
  * The scene knows this (it has the camera); the leader line needs it (it is
  * DOM). Routing it through React state would re-render the whole overlay every
  * frame, on the same main thread that is already drawing several thousand
- * instanced voxels — so this is a plain subscription the scene pushes to and
+ * room — so this is a plain subscription the scene pushes to and
  * the line writes straight to the DOM from.
  */
 

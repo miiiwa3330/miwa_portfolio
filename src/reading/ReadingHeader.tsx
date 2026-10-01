@@ -26,7 +26,7 @@ import { useHandheld } from "@/state/useHandheld";
  */
 export default function ReadingHeader() {
   const pathname = usePathname();
-  // Lights "ノート" on the notes; no area is ever lit off the planet.
+  // Lights "ノート" on the notes; no area is ever lit off the hub.
   const current = pageLinkForPath(pathname);
   const { language, toggleLanguage } = useLanguage();
   const isJa = language === "ja";

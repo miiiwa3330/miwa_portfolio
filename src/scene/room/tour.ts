@@ -1,5 +1,4 @@
-import type { Tour } from "../planet/tour";
-import type { Direction } from "../planet/geometry";
+import type { Direction } from "../direction";
 import type { SectionType } from "@/types";
 import { STOP_ORDER, standardView, viewDirection, yawDelta, yawOf, type Stop } from "./layout";
 
@@ -22,6 +21,20 @@ import { STOP_ORDER, standardView, viewDirection, yawDelta, yawOf, type Stop } f
  * `Scene.tsx` already reads it.
  */
 export type Anchor = { yaw: number; pitch: number };
+
+/** A closed path the camera's view turns along. */
+export type Tour = {
+  /** The view direction at `u`, the fraction of the turn. */
+  direction(u: number): Direction;
+  /** The `u` at which the path passes anchor `index`. */
+  anchorU(index: number): number;
+  /** The `u` whose direction is closest to `dir`. */
+  nearestU(dir: Direction): number;
+  /** One full turn, in radians — so a turn rate over it is a fraction a second. */
+  length: number;
+  /** The visiting order the path was built from, as indices into the input. */
+  order: number[];
+};
 
 const TURN = 360;
 

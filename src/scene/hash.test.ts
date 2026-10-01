@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hash01, hashRange } from "./rng";
-import { pick } from "./palette";
+import { hash01, hashRange } from "./hash";
 
 describe("hash01", () => {
   it("returns the same value for the same seed", () => {
@@ -16,7 +15,7 @@ describe("hash01", () => {
     }
   });
 
-  it("decorrelates nearby seeds, which is what makes voxels look varied", () => {
+  it("decorrelates nearby seeds, which is what makes the room look varied", () => {
     const values = Array.from({ length: 200 }, (_, i) => hash01(i));
     expect(new Set(values).size).toBeGreaterThan(190);
   });
@@ -43,26 +42,5 @@ describe("hashRange", () => {
 
   it("collapses to a point when min equals max", () => {
     expect(hashRange(9, 5, 5)).toBe(5);
-  });
-});
-
-describe("pick", () => {
-  const list = ["a", "b", "c", "d"];
-
-  it("always returns a member of the list", () => {
-    for (let i = 0; i < 300; i++) expect(list).toContain(pick(list, i * 0.9));
-  });
-
-  it("is deterministic for a given seed", () => {
-    expect(pick(list, 12.5)).toBe(pick(list, 12.5));
-  });
-
-  it("uses the whole list rather than favouring one entry", () => {
-    const seen = new Set(Array.from({ length: 200 }, (_, i) => pick(list, i)));
-    expect(seen.size).toBe(list.length);
-  });
-
-  it("handles a single-entry list", () => {
-    expect(pick(["only"], 3)).toBe("only");
   });
 });

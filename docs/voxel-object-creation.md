@@ -1,5 +1,7 @@
 # ボクセルオブジェクト制作フロー（Q&A記録）
 
+> **退役済み（2026-10-01）。** 部屋の中への移行（[room-migration.md](room-migration.md)）で、トップの3Dからボクセルの部品（`scene/voxel/`・惑星の街）を外した。部屋の家具は箱・円柱・球と canvas で手続き的に組み、外部のモデルも Blockbench も使っていない。展示棚の品をボクセルにするかは未定で、もしボクセルに戻すならこの手順を読み直す。以下はその時点の記録として残す。制作物（`.bbmodel`／`.glb`）は `assets/models/` に残っている
+
 Blockbenchで3Dオブジェクトを制作し、R3Fシーンに組み込むまでのワークフローについて話し合った内容の記録。疑問点とその解決策をQ&A形式でまとめる。
 
 ## 前提: ツールの役割分担
@@ -63,7 +65,7 @@ Blockbenchで3Dオブジェクトを制作し、R3Fシーンに組み込むま�
 
 **疑問**: 観覧車の土台と回転部分のように、動く部分の回転中心をどう正しい位置に配置しているか。
 
-**解決**: Three.jsでは**回転は常にオブジェクト自身のローカル原点(0,0,0)を中心に起きる**。これを踏まえて2つのテクニックがある（既存コード [`Decorations.tsx`](../src/scene/objects/Decorations.tsx) に両方の実例あり）。
+**解決**: Three.jsでは**回転は常にオブジェクト自身のローカル原点(0,0,0)を中心に起きる**。これを踏まえて2つのテクニックがある（既存コード [`Decorations.tsx`](https://github.com/miiiwa1121/miwa_portfolio/blob/v1-voxel-planet/src/scene/objects/Decorations.tsx) に両方の実例あり）。
 
 ### ① ジオメトリ自体を回転軸中心に作る（観覧車の`wheel`）
 リムの座標を`cos(rad)*R, sin(rad)*R`のように最初から原点(0,0)を中心とした円として計算し、ハブも原点をまたぐように配置する。ジオメトリ自体が最初から「原点＝回転中心」になっているので、そのラッパー`<group>`をそのまま回すだけでよい。
@@ -115,7 +117,7 @@ return (
 - **建物の階層をそのまま`<group>`のネストで表現**（部屋の位置 → 壁の位置・向き → 壁面から少し浮かせた写真の位置、と入れ子にする）
 - **ワールド座標を直接指定**（`Trees`/`StreetLamps`と同じ、単純な配置ならこちらで十分）
 
-浮遊アニメーションは`Clouds`/`Villagers`（[Decorations.tsx](../src/scene/objects/Decorations.tsx)）と同じ「refの配列＋インスタンスごとのphase/seed」パターンで、各写真が同じタイミングで動かないようにする。
+浮遊アニメーションは`Clouds`/`Villagers`（[Decorations.tsx](https://github.com/miiiwa1121/miwa_portfolio/blob/v1-voxel-planet/src/scene/objects/Decorations.tsx)）と同じ「refの配列＋インスタンスごとのphase/seed」パターンで、各写真が同じタイミングで動かないようにする。
 
 ---
 

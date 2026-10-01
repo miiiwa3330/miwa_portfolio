@@ -6,7 +6,7 @@ import { motion, type Variants } from "framer-motion";
 import { Terminal, X } from "lucide-react";
 import { GithubIcon, XIcon } from "@/ui/icons";
 import type { SectionType } from "@/types";
-import { NAV, PAGE_LINKS, leadsToHub, navKey, offPlanetHref, type NavEntry } from "./nav";
+import { NAV, PAGE_LINKS, leadsToHub, navKey, offHubHref, type NavEntry } from "./nav";
 
 /**
  * The handheld navigation, as a panel over the whole screen.
@@ -24,7 +24,7 @@ import { NAV, PAGE_LINKS, leadsToHub, navKey, offPlanetHref, type NavEntry } fro
  * button reads as having opened into the panel rather than been replaced.
  *
  * The reading pages open the same panel. There an area is not a camera
- * flight but a link to the hub (`offPlanetHref`; a plain <a>, see
+ * flight but a link to the hub (`offHubHref`; a plain <a>, see
  * `leadsToHub`), and there is no terminal to open, so both of those props are
  * optional.
  */
@@ -156,7 +156,7 @@ export default function MobileMenu({
         </div>
 
         {/* The five areas, numbered; a rule — the header's "｜" — then the
-            pages off the planet. Sized to be read at arm's length, not to fit
+            pages off the hub. Sized to be read at arm's length, not to fit
             as many as possible: six rows is the whole list, so there is no
             scroll to budget for. */}
         <nav className="flex-1 flex flex-col justify-center gap-1 min-h-0">
@@ -188,7 +188,7 @@ export default function MobileMenu({
                 </motion.button>
               );
             }
-            const href = offPlanetHref(item);
+            const href = offHubHref(item);
             const linkProps = {
               href,
               onClick: onClose,

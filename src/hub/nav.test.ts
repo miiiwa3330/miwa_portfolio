@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import sitemap from "@/app/sitemap";
 import { siteUrl } from "@/data/site";
 import { sectionFromHash } from "@/state/sectionUrl";
-import { NAV, PAGE_LINKS, leadsToHub, navItemForSection, navKey, offPlanetHref, pageLinkForPath } from "./nav";
+import { NAV, PAGE_LINKS, leadsToHub, navItemForSection, navKey, offHubHref, pageLinkForPath } from "./nav";
 
 const byLabel = (ja: string) => {
   const item = NAV.find((i) => i.ja === ja);
@@ -11,7 +11,7 @@ const byLabel = (ja: string) => {
 };
 
 describe("NAV", () => {
-  it("lists the five planet areas", () => {
+  it("lists the five areas", () => {
     expect(NAV.map((i) => i.ja)).toEqual([
       "自己紹介",
       "制作実績",
@@ -21,7 +21,7 @@ describe("NAV", () => {
     ]);
   });
 
-  it("names every area on the planet exactly once", () => {
+  it("names every area in the room exactly once", () => {
     const sections = NAV.flatMap((i) => (i.section ? [i.section] : []));
     expect([...sections].sort()).toEqual(["about", "contact", "experience", "products", "skills"]);
   });
@@ -49,18 +49,18 @@ describe("PAGE_LINKS", () => {
   });
 });
 
-describe("offPlanetHref", () => {
+describe("offHubHref", () => {
   it("leads to the hub at the area", () => {
-    expect(offPlanetHref(byLabel("自己紹介"))).toBe("/#about");
-    expect(offPlanetHref(byLabel("制作実績"))).toBe("/#products");
-    expect(offPlanetHref(byLabel("技術スタック"))).toBe("/#skills");
-    expect(offPlanetHref(byLabel("経歴・活動"))).toBe("/#experience");
-    expect(offPlanetHref(byLabel("お問い合わせ"))).toBe("/#contact");
+    expect(offHubHref(byLabel("自己紹介"))).toBe("/#about");
+    expect(offHubHref(byLabel("制作実績"))).toBe("/#products");
+    expect(offHubHref(byLabel("技術スタック"))).toBe("/#skills");
+    expect(offHubHref(byLabel("経歴・活動"))).toBe("/#experience");
+    expect(offHubHref(byLabel("お問い合わせ"))).toBe("/#contact");
   });
 
   it("uses a hash the hub opens on arrival", () => {
     for (const item of NAV) {
-      const url = new URL(offPlanetHref(item), "https://miiiwa.com/notes/drag-the-sun");
+      const url = new URL(offHubHref(item), "https://miiiwa.com/notes/drag-the-sun");
       expect(url.pathname).toBe("/");
       expect(sectionFromHash(url.hash)).toBe(item.section);
     }
@@ -108,7 +108,7 @@ describe("leadsToHub", () => {
 
   it("covers every entry in NAV", () => {
     for (const item of NAV) {
-      expect(leadsToHub(offPlanetHref(item))).toBe(true);
+      expect(leadsToHub(offHubHref(item))).toBe(true);
     }
   });
 });

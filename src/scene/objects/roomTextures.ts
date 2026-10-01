@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { hash01 } from "../voxel/rng";
+import { hash01 } from "../hash";
 
 /**
  * The room's surfaces, painted on canvases at load — no image files, in

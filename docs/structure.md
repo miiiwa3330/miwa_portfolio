@@ -6,21 +6,29 @@
 
 | 置き場 | 何が入るか |
 | --- | --- |
-| `scene/Scene.tsx` | キャンバスとカメラの制御。**行き先を決める effect はここ1つだけ**（[scene-invariants.md](scene-invariants.md) の「カメラ — 行き先と飛行」） |
-| `scene/camera/` | 構図・飛行・画面への射影（`cameraLayout` / `cameraFlight` / `markerScreen` / `fisheye`）。three.js を持ち込まない |
-| `scene/objects/` | シーンに置かれる R3F コンポーネント。`PlanetScene.tsx` がその根 |
-| `scene/planet/` | 球面の幾何と配置の純粋関数（`geometry` / `sections` / `tour` / `shell` / `city` / `decor`） |
-| `scene/room/` | 部屋の配置と巡回の純粋関数（`layout` / `tour`）。2026-10-01 に部屋の中への移行（[room-migration.md](room-migration.md)）のために足した。移行が終わるまで `scene/planet/` と並んで存在し、`Direction` 型などは `planet/geometry.ts` から借りている（`scene/planet/` を外す手順で置き場を移す） |
-| `scene/voxel/` | ボクセルエンジン |
-| `scene/` 直下のその他 | 層をまたぐもの（`sceneClock` / `markerBolt` / `sunLight` / `planetPlacement`）と、入力の交通整理（`pointerClaim` / `viewGesture`）だけ。**迷ったらここではない** |
+| `scene/Scene.tsx` | キャンバスとカメラの制御。**行き先を決める effect はここ1つだけ**（[scene-invariants.md](scene-invariants.md) の「カメラ — 行き先と飛行」）。R3F のポインタイベントの光線もここ（`roomEvents`） |
+| `scene/LensRenderer.tsx` | 描画そのもの（通常の遠近と、魚眼の立方体）。`useFrame` の優先度1で R3F の描画を乗っ取る唯一の場所 |
+| `scene/camera/` | カメラの姿勢・飛行・レンズ・画面への射影・HTML を3Dに置く CSS の計算・カメラの値を運ぶチャンネル（`roomCamera` / `fisheye` / `cssView` / `cameraMotion` / `markerScreen` / `viewChannel`）。three.js を持ち込まない |
+| `scene/room/` | 部屋の配置・巡回・HTML を載せる板・照明の切り替え・体の関節の純粋関数（`layout` / `tour` / `screens` / `lighting` / `self`）。three.js を持ち込まない |
+| `scene/objects/` | シーンに置かれる R3F コンポーネント。`RoomScene.tsx` がその根。canvas に描くテクスチャ（`roomTextures.ts`）もここ |
+| `scene/` 直下のその他 | 層をまたぐもの（`sceneClock` / `markerBolt` / `hash` / `direction` / `layers`）と、入力の交通整理（`pointerClaim` / `viewGesture`）だけ。**迷ったらここではない** |
 
-- **`camera/cameraLayout.ts` はカメラの構図、`planet/geometry.ts` は球面の幾何。** 旧称は `worldLayout.ts` / `planetLayout.ts` で、どちらも「Layout」だったせいで役割が名前から引けなかった（devlog 202607〜202608 の記述はこの旧称のまま）
+ハブ（`hub/`）の側で3Dに関わるもの:
+
+| 置き場 | 何が入るか |
+| --- | --- |
+| `hub/room/` | 部屋の中に置く HTML の層（`RoomHtml.tsx`）。中身は持たない |
+| `hub/desk/` | PC の画面の GUI（`DeskScreen.tsx`） |
+| `hub/about/` | 自己紹介の文（`aboutCopy.tsx`）、ホログラム（`Hologram.tsx`）、自動再生と読了の判定（`aboutScroll.ts`） |
+
+- **2026-10-01 に部屋の中への移行（[room-migration.md](room-migration.md)）で、`scene/planet/`（球面の幾何）・`scene/voxel/`（ボクセルエンジン）・惑星の部品・`sunLight`・`planetPlacement`・`camera/cameraLayout`・`camera/cameraFlight` を外した。** 部屋の側が借りていたものは移した: `hash01`（`voxel/rng.ts` → `scene/hash.ts`）、`Direction` 型（`planet/geometry.ts` → `scene/direction.ts`）、`Tour` 型（`planet/tour.ts` → `room/tour.ts`）、首振りの減衰とカードの横寄せ（`cameraLayout.ts` → `camera/cameraMotion.ts`）、`MAX_FLIGHT_STEP`（`cameraFlight.ts` → `roomCamera.ts`）。当時のコードは `v1-voxel-planet` のタグで読める
+- **`camera/cameraLayout.ts` と `planet/geometry.ts` の旧称は `worldLayout.ts` / `planetLayout.ts`**（devlog 202607〜202608 の記述はこの旧称のまま。どちらも今は無い）
 - **同じ5エリアを指す語は `section` に統一してある。** `SectionCard`（旧 `AreaCard`）・`SectionMarkers`（旧 `AreaMarkers`）も含めて、コード内で `Area` は使わない（画面に出る日本語が「エリア」なのは別の話）。詳細ページの見出しコンテナは `detail/DetailSection.tsx` で、`SectionType` とは無関係
-- **`SectionType` は `@/types` からだけ読む。** `AppStateContext` の再エクスポート経由という第2の経路は撤去済み。`OrbitZoom` も同じく `@/scene/camera/cameraLayout` が唯一の定義元
-- **1ファイル1コンポーネントなら default export。** 複数を束ねるモジュール（`objects/Decorations.tsx` / `objects/ProceduralObjects.tsx`）だけが named
+- **`SectionType`・`Stop`・`Focus` は `@/types` からだけ読む。** `AppStateContext` の再エクスポート経由という第2の経路は撤去済み。`ViewZoom` は `@/scene/room/layout` が唯一の定義元。`room/layout.ts` は `Stop` を再エクスポートしているが、定義は `@/types`
+- **1ファイル1コンポーネントなら default export。** 複数を束ねるモジュール（`objects/SecurityCamera.tsx` / `hub/room/RoomHtml.tsx`）だけが named
 - **コンポーネント（PascalCase `.tsx`）とロジック（camelCase `.ts`）で、大文字小文字だけ違う名前を付けない。** macOS のファイルシステムは大文字小文字を区別しないので、`CardRail.tsx` と `cardRail.ts` を並べると TypeScript が `TS1149`（「すでに読み込んだファイルと大文字小文字しか違わない」）で止まる。ロジック側に別の名前を与える（`CardRail.tsx` ↔ `railLayout.ts`。既存の `SectionCard.tsx` ↔ `cardWheel.ts` も同じ形）
-- **`public/` には「公開したいもの」しか置かない。** `output: 'export'` なので中身はそのまま配信される。git に残したいだけの制作物（`.bbmodel`／`.glb`）は `assets/` へ、試作 HTML は `sandbox/` へ
-- **`sandbox/` は動く試作物、`docs/` は書かれた記録。** 2026-09-16 に `docs/prototypes/` から移した——`docs/` は「判断の理由・実測値・経緯」を持つ場所で、単体で動く HTML はその種類ではない。ルート直下の `assets/`（`.bbmodel`／`.glb`）・`reference/`（ムード参考、gitignore）と同じ「公開しないが git に残す成果物」の並びに置いている。**`test/` や `tests/` という名前は避けた**——`src/**/*.test.ts` の Vitest 一式と紛らわしく、新しく入った人がまずそこを探すため
+- **`public/` には「公開したいもの」しか置かない。** `output: 'export'` なので中身はそのまま配信される。git に残したいだけの制作物は `assets/` へ、試作 HTML は `sandbox/` へ
+- **`sandbox/` は動く試作物、`docs/` は書かれた記録。** 2026-09-16 に `docs/prototypes/` から移した——`docs/` は「判断の理由・実測値・経緯」を持つ場所で、単体で動く HTML はその種類ではない。ルート直下の `assets/`・`reference/`（ムード参考、gitignore）と同じ「公開しないが git に残す成果物」の並びに置いている。**`test/` や `tests/` という名前は避けた**——`src/**/*.test.ts` の Vitest 一式と紛らわしく、新しく入った人がまずそこを探すため
 
 ## 読み物のページ（2026-09-19）
 

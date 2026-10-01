@@ -1,15 +1,14 @@
-import { HANDHELD_RAIL_TOP_PX, easeInOutCubic, orbitCardShare, sectionCardShare, wrapAngle } from "./cameraLayout";
-import { MAX_FLIGHT_STEP } from "./cameraFlight";
+import { HANDHELD_RAIL_TOP_PX, easeInOutCubic, orbitCardShare, sectionCardShare, wrapAngle } from "./cameraMotion";
 import { hfovForZoom, horizontalAt, lensForZoom, viewDirection, type RoomView, type ViewZoom } from "../room/layout";
 import { RECTILINEAR, lensPixelsPerRadian, projectLens, unprojectLens } from "./fisheye";
 import type { Stop } from "@/types";
-import type { Direction } from "../planet/geometry";
+import type { Direction } from "../direction";
 
 /**
  * The camera inside the room: where it stands, which way it looks, and how
  * wide it sees — and the flights between two of those.
  *
- * The planet's camera (`cameraLayout.ts`'s `orbitPose`) sat on a sphere and
+ * The planet's camera (docs/planet-migration.md) sat on a sphere and
  * looked in at the centre; this one stands at the centre (or a step out from
  * it, for a zoom) and looks out. **Up is always world +Y**: the room is never
  * on its side, so none of the planet's per-building roll (`sectionUp`) has a
@@ -249,8 +248,20 @@ export function blendRoomPose(from: RoomPose, to: RoomPose, t: number): RoomPose
 }
 
 /**
- * A flight from one pose to another — the room's counterpart of
- * `cameraFlight.ts`'s `Flight`, keeping its two rules:
+ * The largest step one frame may contribute to a flight, in seconds.
+ *
+ * A backstop for a stall part way through, not a frame-rate policy: the clamp
+ * only bites below 10fps, where the flight would stretch in wall-clock time
+ * rather than skip. Set at 1/30 first (on the planet), which quietly turned
+ * every flight on a device rendering slower than 30fps into a slow-motion
+ * one — measured at headless SwiftShader's ~3fps, a 1.2s flight took twelve
+ * seconds. The time before a flight existed is handled by `primed` instead.
+ */
+export const MAX_FLIGHT_STEP = 1 / 10;
+
+/**
+ * A flight from one pose to another, keeping the two rules the planet's
+ * flights were measured into:
  *
  * - **No time is charged on the first frame** (`primed`). A flight begins in an
  *   effect, between two frames; the gap before it is not time it has run for.

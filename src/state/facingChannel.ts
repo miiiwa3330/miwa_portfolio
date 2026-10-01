@@ -16,7 +16,7 @@ import type { Stop } from "@/scene/room/layout";
  * the idle drift, and every context change re-renders `Hub`, and therefore
  * `<Canvas>` — whose setup effect in R3F 9 has *no dependency array*, so each
  * one re-runs `configure()` and re-renders the entire three.js tree (the
- * planet, the five landmarks, `FillerCity`'s 290 buildings, every decoration).
+ * room, its furniture, the body, every light).
  * `React.memo` cannot help: `its-fine`'s context bridge, which is how R3F gets
  * context values across the reconciler boundary, reads every context above the
  * canvas during the canvas's own render, so the canvas subscribes to them

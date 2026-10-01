@@ -35,7 +35,7 @@ import { makeCityTexture, makeFloorTexture, makeVideo, makeWallTexture } from ".
 import { panelShown } from "../camera/cssView";
 import { viewNow } from "../camera/viewChannel";
 import { SCREEN_HOLE_LAYER } from "../layers";
-import { hash01 } from "../voxel/rng";
+import { hash01 } from "../hash";
 import { sceneClock } from "../sceneClock";
 import SectionMarkers from "./SectionMarkers";
 import Self from "./Self";

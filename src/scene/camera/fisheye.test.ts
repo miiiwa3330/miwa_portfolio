@@ -8,7 +8,7 @@ import {
   projectLens,
   unprojectLens,
 } from "./fisheye";
-import type { Direction } from "../planet/geometry";
+import type { Direction } from "../direction";
 
 const DEG = Math.PI / 180;
 const HALF = (161 / 2) * DEG;

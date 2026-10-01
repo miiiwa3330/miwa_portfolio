@@ -1,5 +1,5 @@
 import type { SectionType } from "@/types";
-import { adjacentOnTour, TOUR_ORDER } from "@/scene/planet/tour";
+import { SECTION_ORDER, adjacentSection } from "@/scene/room/tour";
 
 /**
  * The arithmetic behind the handheld card rail — which cards are on screen,
@@ -23,20 +23,20 @@ export type RailCard = { section: NonNullable<SectionType>; slot: RailSlot };
  * fixed order has to jump from one end to the other when the camera crosses
  * the seam — and the seam is not a real place, it is an artefact of having
  * laid a loop out as a line. A window that travels with the camera has no
- * seam: stepping off `TOUR_ORDER`'s last entry simply brings its first in
+ * seam: stepping off `SECTION_ORDER`'s last entry simply brings its first in
  * from the right, the same as any other step. Two peeking neighbours are
  * also all that fits beside a card at 390px and still leaves the middle one
  * readable.
  *
  * Slot order is the order they are laid out in, left to right, which is the
- * direction `TOUR_ORDER`'s own index runs — so a drag that pulls the strip
+ * direction `SECTION_ORDER`'s own index runs — so a drag that pulls the strip
  * leftwards advances along the tour, the same way the idle drift does.
  */
 export function railWindow(active: NonNullable<SectionType>): RailCard[] {
   return [
-    { section: adjacentOnTour(active, -1), slot: -1 },
+    { section: adjacentSection(active, -1), slot: -1 },
     { section: active, slot: 0 },
-    { section: adjacentOnTour(active, 1), slot: 1 },
+    { section: adjacentSection(active, 1), slot: 1 },
   ];
 }
 
@@ -63,13 +63,13 @@ export const RAIL_SWIPE_THRESHOLD = 36;
  * nothing.
  *
  * **Dragging left advances** (`+1`). The strip's own order runs the way
- * `TOUR_ORDER`'s index does, so pulling it leftwards brings the card on the
+ * `SECTION_ORDER`'s index does, so pulling it leftwards brings the card on the
  * right into the middle — and that card is the next one along the tour, the
  * one the idle drift would have reached on its own. A carousel that moved
- * the other way would have the planet turning against the thumb.
+ * the other way would have the room turning against the thumb.
  *
  * Vertical dominance is refused rather than ignored: a mostly-vertical drag
- * over the rail is somebody trying to turn the planet, not step the card, and
+ * over the rail is somebody trying to turn the room, not step the card, and
  * answering it with a step would make the rail feel like it was catching
  * gestures meant for the diorama.
  */
@@ -113,4 +113,4 @@ export function railOffsetPx(slot: RailSlot, cardWidth: number): number {
 }
 
 /** The five areas, in the order the rail steps through them. */
-export const RAIL_ORDER = TOUR_ORDER;
+export const RAIL_ORDER = SECTION_ORDER;

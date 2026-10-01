@@ -11,7 +11,7 @@ import {
   ORBIT_RETURN_SPEED,
   orbitStepFraction,
   wrapAngle,
-} from "./camera/cameraLayout";
+} from "./camera/cameraMotion";
 import {
   advanceRoomFlight,
   beginRoomFlight,
@@ -79,8 +79,8 @@ const MAX_PITCH = 70 * (Math.PI / 180);
 const DEG = Math.PI / 180;
 
 // How far apart two fingers must move, in px, before a pinch is read as a
-// deliberate request to switch the free orbit's altitude — not a continuous
-// dial, a single discrete step per gesture (see cameraLayout.ts's `OrbitZoom`).
+// deliberate request to switch the free view's stage — not a continuous dial,
+// a single discrete step per gesture (see `ViewZoom` in room/layout.ts).
 // Crossed once per two-finger gesture; the fingers have to lift and come back
 // down for a second switch, rather than firing repeatedly on a long pinch.
 const PINCH_THRESHOLD_PX = 60;

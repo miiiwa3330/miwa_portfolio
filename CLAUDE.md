@@ -6,7 +6,7 @@
 
 ## プロダクト
 
-学生エンジニア「Miiiwa」の個人ポートフォリオ。トップページは HTML ではなく Three.js で手続き的に生成したボクセルの惑星で、その上に通常の HTML で組んだ詳細ページを重ねるハイブリッド構成。`output: 'export'` の完全な静的サイトなので、**サーバー機能（Route Handlers / Server Actions / ISR など）は使えない。**
+学生エンジニア「Miiiwa」の個人ポートフォリオ。トップページは HTML ではなく Three.js で手続き的に生成した**ロケットのコロニーの中の部屋**で、その中央に立って見渡す。その上に通常の HTML で組んだ詳細ページを重ね、部屋の中の PC の画面とホログラムにも本物の HTML を置くハイブリッド構成。`output: 'export'` の完全な静的サイトなので、**サーバー機能（Route Handlers / Server Actions / ISR など）は使えない。**
 
 ## ミッション
 
@@ -31,14 +31,14 @@ Next.js 16 には破壊的変更が入っている。API・規約・ファイル
 
 ## 技術スタック
 
-Next.js 16（App Router / `output: 'export'`）・React・TypeScript・Tailwind・framer-motion・Three.js + React Three Fiber + drei + camera-controls・Vitest。詳細と設計方針は [docs/tech.md](docs/tech.md)。
+Next.js 16（App Router / `output: 'export'`）・React・TypeScript・Tailwind・framer-motion・Three.js + React Three Fiber + drei・Vitest。詳細と設計方針は [docs/tech.md](docs/tech.md)。
 
 ## コマンド
 
 ```bash
 npm run dev          # 開発サーバー (:3000)
 npm run build        # 静的書き出し → out/
-npm test             # Vitest 一回実行（591件で2秒未満）
+npm test             # Vitest 一回実行（364件で2秒未満）
 npm run test:watch
 npm run lint
 npx tsc --noEmit     # 型のみ検査（テストは .tsx を1つも通らないので必須）
@@ -50,15 +50,15 @@ npx tsc --noEmit     # 型のみ検査（テストは .tsx を1つも通らな�
 
 | これから触るもの | 先に読む |
 | --- | --- |
-| 3Dシーン（カメラ・惑星・マーカー・光・About のクロール） | [docs/scene-invariants.md](docs/scene-invariants.md) ← **必読**。次いで [docs/tech.md](docs/tech.md) |
+| 3Dシーン（カメラ・部屋・レンズ・マーカー・部屋に置く HTML・照明・自分の体） | [docs/scene-invariants.md](docs/scene-invariants.md) ← **必読**。次いで [docs/tech.md](docs/tech.md) |
 | スマホの挙動（判定・ジェスチャ・下部のカードレール） | [docs/scene-invariants.md](docs/scene-invariants.md) の「スマホ」節 ← **必読**。次いで [docs/tech.md](docs/tech.md) の「スマホは別の場面として組む」 |
 | ファイルの追加・移動・改名 | [docs/structure.md](docs/structure.md) |
 | テストの追加・変更 | [docs/testing.md](docs/testing.md) |
 | 見た目の確認・ピクセル計測 | [docs/verification.md](docs/verification.md) |
-| ボクセルアセットの制作 | [docs/voxel-object-creation.md](docs/voxel-object-creation.md) |
 | 未修正の不具合の確認 | [docs/review.md](docs/review.md) |
 | 読み物のページ（制作実績の個別ページ・ノート）の追加や本文の執筆 | [docs/tech.md](docs/tech.md) の「読み物のページ」 |
-| 部屋の中への移行（惑星・ボクセルの置き換え） | [docs/room-migration.md](docs/room-migration.md) |
+| 部屋の仮の値・ユーザーの確認待ちの事項 | [docs/room-migration.md](docs/room-migration.md) の「確認待ちの一覧」 |
+| 惑星の頃の設計・却下案（同じ案が出たとき） | [docs/planet-archive.md](docs/planet-archive.md) |
 
 docs 全体の地図は [docs/README.md](docs/README.md)。
 
@@ -69,7 +69,7 @@ docs 全体の地図は [docs/README.md](docs/README.md)。
 - **不変条件を「直す」前に、それが意図的かを確かめる。** `docs/scene-invariants.md` の項目は**一度試して捨てた案とその実測値**を伴っている。バグに見えるものが判断の結果であることがあるので、消す前に理由を読む
 - **却下済みの案を再提案しない。** 却下理由は docs に数字つきで残してある
 - **値は参考写真・実測から導く。目測で置かない。** `reference/` の写真に合わせるときは、写真から一意に決まる式を書く
-- **純粋ロジックは three.js / React を介さない純関数として切り出し、テストする。** 座標計算は `scene/camera/*.ts` と `scene/planet/*.ts` へ
+- **純粋ロジックは three.js / React を介さない純関数として切り出し、テストする。** 座標計算は `scene/camera/*.ts` と `scene/room/*.ts` へ
 - **同じ数を2箇所に持たない。** 片方だけ直る状態を作らない
 - **無言で失敗する機構を足したら、機能したことを別途テストする**
 - **スマホかどうかの判定は `src/state/useHandheld.ts` ただ1つ。** 2つ目の述語を作らない。PC 用の定数を「スマホで具合が悪い」という理由で書き換えず、スマホ用の定数を別に足す
@@ -110,24 +110,15 @@ docs は**日本語**で、実務レベル一式を揃える。
 | `docs/structure.md` | ディレクトリ構成と命名の規約 | 配置・命名の規約が変わったとき |
 | `docs/testing.md` | テスト方針と、変異テストで得た教訓 | テストの方針が変わったとき |
 | `docs/verification.md` | ヘッドレスでの確認手順と計測の落とし穴 | 手順や罠が増えたとき |
-| `docs/voxel-object-creation.md` | ボクセル制作のワークフローと規約 | 制作フローや規約を決め直したとき |
+| `docs/voxel-object-creation.md` | ボクセル制作のワークフロー（**退役済み**。部屋への移行でボクセルの部品を外した） | 通常は更新しない |
 | `docs/review.md` | 未修正の指摘の台帳。問題点＋解決策＋再現手順 | 指摘を直したら該当項目を消す。恒久的な設計判断になったものは `tech.md` へ移す。**新しい設計をここに書かない** |
 | `docs/planet-migration.md` | 惑星への移行の記録（**完了済み**） | 通常は更新しない |
-| `docs/room-migration.md` | 惑星から「部屋の中」への移行の要件と設計（**進行中**、`feature/room-world`） | 要件・設計を決めたとき、各手順を終えたとき（「手順Nの結果」を足す） |
+| `docs/room-migration.md` | 惑星から「部屋の中」への移行の要件・設計・各手順の結果（**完了済み**、`feature/room-world`）と、ユーザーの確認待ちの一覧 | 確認待ちの事項が決まったとき（一覧から消し、決まった値を `tech.md`・`scene-invariants.md` へ） |
+| `docs/planet-archive.md` | 惑星の頃の不変条件と設計（**退役済み**、却下案と実測値の記録） | 通常は更新しない |
 | `README.md` | サイトの特長、起動手順、ディレクトリ構成 | ユーザーから見える機能や手順が変わったとき |
 | `CLAUDE.md` | 作業の前提とルール | 守るべきルールが増減したとき。**理由や実測値はここではなく docs へ** |
 
-devlog と `planet-migration.md` は**その時点の記録**なので、あとから本文を書き換えない（リンク切れの修正は別）。
-
-## ボクセルアセットの制作
-
-Blockbench デスクトップアプリを MCP（`localhost:3001/bb-mcp`）経由で直接操作して作る。アプリが起動していないとツールは動かないので、`mcp__blockbench__*` が見つからないときは起動を確認してもらうこと。
-
-- キューブは**すべて XYZ = 1,1,1**。1モデル内でサイズを混在させない
-- ネイティブのブロック数は**1辺 10〜80 程度に収める**。実寸に比例させない
-- 実寸への到達は R3F 側の `scale` / `voxelSize` 倍率に任せる
-
-既知のツールのバグと回避策、経緯は [docs/voxel-object-creation.md](docs/voxel-object-creation.md)。
+devlog・`planet-migration.md`・`planet-archive.md` は**その時点の記録**なので、あとから本文を書き換えない（リンク切れの修正は別）。
 
 ## 設定とスキルの置き場所
 

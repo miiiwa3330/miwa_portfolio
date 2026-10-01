@@ -7,6 +7,7 @@ import {
   blendRoomPose,
   placeCamera,
   HANDHELD_CARD_LIFT,
+  MAX_FLIGHT_STEP,
   cardLift,
   freeFraming,
   zoomFraming,
@@ -20,7 +21,7 @@ import {
   verticalFov,
   type RoomPose,
 } from "./roomCamera";
-import { MAX_FLIGHT_STEP } from "./cameraFlight";
+
 import { EYE_HEIGHT, STANDARD_HFOV, standardView, subjectPoint, zoomView } from "../room/layout";
 
 const DEG = Math.PI / 180;

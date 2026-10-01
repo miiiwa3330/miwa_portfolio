@@ -11,7 +11,7 @@ import { Pause, Play } from "lucide-react";
  * resting state to read, so the only thing that can say what just happened is
  * the moment itself — hence a badge that states the new state and leaves,
  * the way a video player's does. It is deliberately *not* a persistent
- * indicator: a permanent "paused" chip over the planet would be one more
+ * indicator: a permanent "paused" chip over the room would be one more
  * thing occupying a screen this whole redesign is trying to clear.
  *
  * Shown only for the tap. The desktop header still has a real pause button

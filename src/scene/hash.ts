@@ -1,7 +1,9 @@
 /**
- * Deterministic hash-based pseudo-randomness for the voxel world.
+ * Deterministic hash-based pseudo-randomness.
  *
- * Everything decorative in the scene — leaf tints, confetti spawn points —
+ * Everything decorative in the room — the books' widths and colours, the
+ * notes on the board, the rust on the wall — and the kinks of the dotted
+ * lightning from the card —
  * needs to look scattered but must NOT come from `Math.random()`. Two reasons:
  * React may discard and recompute a `useMemo`, which with a live RNG would
  * teleport every particle mid-flight; and a scene that renders differently on

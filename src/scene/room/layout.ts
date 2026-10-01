@@ -1,5 +1,5 @@
 import type { Stop } from "@/types";
-import type { Direction } from "../planet/geometry";
+import type { Direction } from "../direction";
 import { RECTILINEAR, STEREOGRAPHIC } from "../camera/fisheye";
 
 /**

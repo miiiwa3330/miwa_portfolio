@@ -1,4 +1,4 @@
-import type { Direction } from "../planet/geometry";
+import type { Direction } from "../direction";
 
 /**
  * The camera's lens: how a direction off the view axis lands on the screen.
