@@ -47,6 +47,8 @@
 
 **`-sTCP:LISTEN` を省かない。** `lsof -ti:3000` は待ち受けているサーバーだけでなく、**ポート3000へ接続している側**も返す。localhost:3000 のタブを開いたままのブラウザがあると、その **Chrome のネットワークプロセス**（`Google Chrome Helper --utility-sub-type=network.mojom.NetworkService`）まで `kill -9` の対象になる（2026-09-18 に実際に巻き込んだ。Chrome は自動で立て直すが、開いていたタブの通信は切れる）。自分で起動したサーバーを止めるだけなら、起動時の PID を控えて `kill <PID>` するのが一番確実。
 
+**バックグラウンドで起動したサーバーの PID は、サブシェルで包まずに取る。** `( python3 -m http.server 8765 & echo $! > server.pid )` の `$!` はサブシェル側の PID になることがあり、`kill $(cat server.pid)` が成功したように見えても `http.server` 本体が残った（2026-10-01、次の起動で `kill` が `no such process` になって気づいた）。`python3 -m http.server 8765 & SERVER=$!` と同じシェルで取り、止めたあとに `lsof -ti:8765 -sTCP:LISTEN` で空いたことを確かめる
+
 **`page.setViewport` で `isMobile`/`hasTouch` を切り替えるとページが再読み込みされる。** アプリの状態（`activeSection` など）が全部リセットされるので、「PC 幅で状態を作ってスマホ幅で確認する」という手は使えない。状態を作る操作はスマホ幅のまま行う。
 
 **AnimatePresence の退場はヘッドレスでは実時間で何倍にもなる。** `exit` が 0.14 秒でも、毎秒3フレームでは DOM から消えるまで1秒以上かかる。「閉じるボタンが効かない」と誤診しかけた（600ms 後に確認して残っていた／1.6秒後には消えていた）。

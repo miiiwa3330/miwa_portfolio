@@ -5,8 +5,13 @@
 <title>room-lab: 部屋の中から見回す試作</title>
 <style>
   html, body { margin: 0; height: 100%; background: #05070d; overflow: hidden; font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; }
-  canvas#view { display: block; }
+  canvas#view { display: block; position: fixed; inset: 0; z-index: 1; }
+  /* HTML を3Dに置く層。後ろの層は canvas の下（穴をあけた所だけ見える）、手前の層は canvas の上 */
+  .css-layer { position: fixed; inset: 0; }
+  #cssBack { z-index: 0; }
+  #cssFront { z-index: 2; pointer-events: none; }
   .box {
+    z-index: 5;
     position: fixed; padding: 12px 14px; background: rgba(10, 12, 20, 0.78);
     border: 1px solid rgba(255,255,255,0.12); border-radius: 10px;
     color: #e8ecf4; font-size: 12px; line-height: 1.6; backdrop-filter: blur(6px);
@@ -19,20 +24,58 @@
   .row input[type="range"], .row select { flex: 1; min-width: 0; }
   .row output { flex: 0 0 44px; text-align: right; opacity: 0.7; font-variant-numeric: tabular-nums; }
   .modes { display: flex; gap: 6px; margin-bottom: 10px; }
-  button {
+  .box button {
     flex: 1; padding: 6px 0; border-radius: 6px; border: 1px solid rgba(255,255,255,0.18);
     background: rgba(255,255,255,0.06); color: #e8ecf4; font: inherit; cursor: pointer;
   }
-  button.on { background: #2fe8ff; color: #05070d; border-color: #2fe8ff; font-weight: 600; }
+  .box button.on { background: #2fe8ff; color: #05070d; border-color: #2fe8ff; font-weight: 600; }
   #readout { margin-top: 8px; opacity: 0.8; font-variant-numeric: tabular-nums; white-space: pre-line; }
   #stops { bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; padding: 8px; }
   #stops button { flex: none; padding: 6px 10px; }
   #map { bottom: 12px; right: 12px; padding: 6px; }
+
+  /* PC の中央の画面（1240×760px を幅0.62mに縮めて貼る） */
+  /* 3Dの変換と遠近がかかった要素に overflow: hidden を付けると、Chrome は当たり判定を一切返さなくなる（見た目は正しいまま）。
+     画面とウィンドウでは使わない（2026-10-01 にヘッドレスで切り分け: 同じ変換で overflow 無し252点 → 有り0点） */
+  .desktop {
+    width: 1240px; height: 760px; position: relative;
+    background: linear-gradient(160deg, #123a63, #0b1a33); color: #e8ecf4;
+    font: 22px/1.6 -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+  }
+  .desktop .icons { position: absolute; top: 24px; left: 24px; display: grid; grid-template-columns: repeat(3, 112px); gap: 16px; }
+  .desktop .icon {
+    all: unset; cursor: pointer; text-align: center; font-size: 18px; padding: 8px 4px; border-radius: 8px;
+  }
+  .desktop .icon:hover { background: rgba(255,255,255,0.12); }
+  .desktop .icon .glyph { display: block; width: 56px; height: 44px; margin: 0 auto 6px; border-radius: 6px; background: #ffd166; }
+  .desktop .icon[data-k="github"] .glyph, .desktop .icon[data-k="x"] .glyph, .desktop .icon[data-k="terminal"] .glyph { background: #9ad1ff; }
+  .desktop .taskbar { position: absolute; bottom: 0; left: 0; right: 0; height: 44px; background: #050b16; padding: 0 20px; font-size: 18px; line-height: 44px; }
+  .desktop .window {
+    position: absolute; width: 760px; height: 560px; background: #f4f6fa; color: #14181f; border-radius: 10px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.5); display: flex; flex-direction: column;
+  }
+  .desktop .titlebar { background: #2b6cb0; color: #fff; padding: 8px 16px; display: flex; justify-content: space-between; font-size: 18px; }
+  .desktop .close { all: unset; cursor: pointer; padding: 0 8px; }
+  .desktop .content { padding: 16px 28px; overflow-y: auto; flex: 1; }
+  .desktop .content h2 { margin: 0 0 8px; font-size: 30px; }
+
+  /* ホログラムの文字（600×640px を幅0.6mに縮めて貼る） */
+  .holo {
+    width: 600px; height: 640px; overflow: hidden;
+    color: #9ff6ff; text-shadow: 0 0 6px #2fe8ff, 0 0 18px #2fe8ff;
+    font: 600 30px/1.8 -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    -webkit-mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+            mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+  }
+  .holo .roll { padding: 0 20px; animation: holo-roll 36s linear infinite; }
+  @keyframes holo-roll { from { transform: translateY(640px); } to { transform: translateY(-100%); } }
 </style>
 </head>
 <body>
 
+<div id="cssBack" class="css-layer"></div>
 <canvas id="view"></canvas>
+<div id="cssFront" class="css-layer"></div>
 
 <div id="panel" class="box">
   <h1>room-lab — 部屋の中から見回す</h1>
@@ -59,6 +102,18 @@
       <option value="narrow">中央のまま画角を狭める</option>
     </select>
   </div>
+  <div class="row"><label>PC画面の重ね方</label>
+    <select id="pcLayer">
+      <option value="back" selected>後ろに置いて穴をあける</option>
+      <option value="front">手前に重ねる</option>
+    </select>
+  </div>
+  <div class="row"><label>ホロの重ね方</label>
+    <select id="holoLayer">
+      <option value="front" selected>手前に重ねる</option>
+      <option value="back">後ろに置いて穴をあける</option>
+    </select>
+  </div>
   <div class="row"><label>部屋の半径 (m)</label><input id="roomRadius" type="range" min="3" max="8" step="0.1" value="3.3"><output></output></div>
   <div class="row"><label>目の高さ (m)</label><input id="eyeHeight" type="range" min="1.1" max="2.0" step="0.05" value="1.55"><output></output></div>
   <div class="row"><label>標準の水平画角 (°)</label><input id="standardHFov" type="range" min="40" max="110" step="1" value="67"><output></output></div>
@@ -82,6 +137,7 @@
 
 <script type="module">
 import * as THREE from "three";
+import { CSS3DRenderer, CSS3DObject } from "three/addons/renderers/CSS3DRenderer.js";
 
 const DEG = Math.PI / 180;
 
@@ -95,14 +151,16 @@ const params = {
   zoomHFov: 30,
   zoomFill: 0.7,         // 「物へ近づく」ズームで、物の幅が水平画角の何割を占める距離まで寄るか
   fisheyeKind: "stereo",
+  pcLayer: "back",
+  holoLayer: "front",
   zoomKind: "approach",
 };
 const WIDE_MAX_HFOV = 165; // 通常の遠近（画角を広げるだけ）で許す上限。180°に近づくほど端が無限に伸びる
 
 // ---- 間取り（docs/room-migration.md の「間取り」）。角度は真上から見て時計回り、PC が 0° ----
 const ITEMS = [
-  { key: "pc",         label: "デスクトップPC（ホーム）",   angle: 0,   stop: true,  focusY: 1.05, frameWidth: 2.1 },
-  { key: "about",      label: "ホログラム（自己紹介）",     angle: 22,  stop: true,  focusY: 1.35, frameWidth: 0.9 },
+  { key: "pc",         label: "デスクトップPC（ホーム）",   angle: 0,   stop: true,  focusY: 1.08, frameWidth: 0.8, zoomEyeY: 1.12 },
+  { key: "about",      label: "ホログラム（自己紹介）",     angle: 22,  stop: true,  focusY: 1.45, frameWidth: 0.9, zoomEyeY: 1.45 },
   { key: "products",   label: "展示棚（制作実績）",         angle: 68,  stop: true,  focusY: 1.2,  frameWidth: 1.6 },
   { key: "skills",     label: "技術書の本棚（スキル）",     angle: 112, stop: true,  focusY: 1.35, frameWidth: 1.3 },
   { key: "porthole",   label: "丸窓＋ハンモック",           angle: 165, stop: false, focusY: 1.5 },
@@ -116,7 +174,8 @@ const DESK_CENTER_ANGLE = 8; // 机は PC（0°）からホログラム（22°�
 
 // ---- 描画の土台 ----
 const canvas = document.getElementById("view");
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setClearColor(0x000000, 0);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -124,7 +183,6 @@ renderer.toneMappingExposure = 1.75;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x05070d);
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.05, 60);
 camera.rotation.order = "YXZ";
 
@@ -171,6 +229,46 @@ const fisheyeMaterial = new THREE.ShaderMaterial({
 const fisheyeScene = new THREE.Scene();
 fisheyeScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), fisheyeMaterial));
 const fisheyeCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+// ---- HTML を3Dに置く（CSS の3D変換で、WebGL と同じカメラから見た位置・向きに貼る） ----
+const cssBackRenderer = new CSS3DRenderer({ element: document.getElementById("cssBack") });
+const cssFrontRenderer = new CSS3DRenderer({ element: document.getElementById("cssFront") });
+const cssBackScene = new THREE.Scene();
+const cssFrontScene = new THREE.Scene();
+// HTML 側は1m＝1000pxの空間で描く。部屋の寸法（m）のまま 0.0005 倍で縮めると、見た目は正しいのにクリックの当たり判定だけが外れた
+const CSS_UNITS = 1000;
+const cssCamera = new THREE.PerspectiveCamera();
+const SAMPLE = "（仮の本文）ここにそのセクションの中身が入る。文字の大きさは、実際に読む本文と同じ22pxにしてある。寄ったときに読めるか、画面の端で歪まないかを確かめるための文章で、内容に意味は無い。";
+const FILES = [["制作実績", "products"], ["スキル", "skills"], ["経歴・活動", "experience"], ["自己紹介", "about"], ["連絡先", "contact"], ["ノート", "notes"], ["GitHub", "github"], ["X", "x"], ["ターミナル", "terminal"]];
+const desktopEl = document.createElement("div");
+desktopEl.className = "desktop";
+desktopEl.innerHTML =
+  `<div class="icons">${FILES.map(([name, key]) => `<button class="icon" data-k="${key}"><span class="glyph"></span>${name}</button>`).join("")}</div>` +
+  `<div class="taskbar">miiiwa-os</div>`;
+let windowCount = 0;
+function openWindow(title) {
+  const w = document.createElement("div");
+  w.className = "window";
+  w.innerHTML = `<div class="titlebar"><span>${title}</span><button class="close" aria-label="閉じる">×</button></div>` +
+    `<div class="content"><h2>${title}</h2><p>${SAMPLE}</p><p>${SAMPLE}</p><p>${SAMPLE}</p></div>`;
+  w.querySelector(".close").addEventListener("click", () => w.remove());
+  w.style.left = 400 + (windowCount % 3) * 40 + "px";
+  w.style.top = 40 + (windowCount % 3) * 30 + "px";
+  windowCount++;
+  desktopEl.appendChild(w);
+}
+desktopEl.querySelectorAll(".icon").forEach((b) => b.addEventListener("click", () => openWindow(b.textContent)));
+const holoEl = document.createElement("div");
+holoEl.className = "holo";
+holoEl.innerHTML = `<div class="roll"><p>（仮の文章）</p><p>はじめまして。ここはホログラムが映す自己紹介の文字。</p><p>文字は部屋の中の物として空中に浮かび、下から上へ流れていく。</p><p>後ろの部屋が透けて見えるか、寄ったときに読めるかを確かめる。</p></div>`;
+const pcCss = new CSS3DObject(desktopEl);
+const holoCss = new CSS3DObject(holoEl);
+const CSS_PANELS = [
+  { obj: pcCss, layerKey: "pcLayer", width: 0.62, px: 1240, anchor: null, hole: null },
+  { obj: holoCss, layerKey: "holoLayer", width: 0.6, px: 600, anchor: null, hole: null },
+];
+// 穴: 後ろの層の HTML が見えるように、その位置の画素を透明（アルファ0）で上書きする板。深度は書くので、手前の物は穴の上に描かれる
+const holeMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, opacity: 0, blending: THREE.NoBlending });
 
 // ---- 決定的な乱数（毎回同じ部屋になるように） ----
 function rng(seed) {
@@ -301,7 +399,7 @@ function label(text) {
 let room = null;
 const labels = [];
 const animated = [];
-const itemDist = {}; // 各物の正面が中心からどれだけ離れているか（ズームの立ち位置に使う）
+const itemDist = {}; // 各物の正面（部屋の中心に向いた面）が中心からどれだけ離れているか。ローカル +Z が中心向きなので、正面は dist - (+Z 側の厚み)
 
 function buildRoom() {
   if (room) {
@@ -360,6 +458,16 @@ function buildRoom() {
       s.position.set(pcX + dx, 1.08, -0.15 + Math.abs(dx) * 0.12);
       s.rotation.y = yaw;
       g.add(s);
+      if (kind === "gui") {
+        const anchor = new THREE.Object3D();
+        anchor.position.z = 0.0225;
+        s.add(anchor);
+        const hole = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.38), holeMaterial);
+        hole.position.z = 0.022;
+        s.add(hole);
+        CSS_PANELS[0].anchor = anchor;
+        CSS_PANELS[0].hole = hole;
+      }
       g.add(box(0.05, 0.28, 0.05, std(0x222428), pcX + dx, 0.9, -0.17 + Math.abs(dx) * 0.12));
     }
     g.add(box(0.5, 0.02, 0.18, std(0x1c1e22), pcX, 0.785, 0.15)); // キーボード
@@ -377,12 +485,46 @@ function buildRoom() {
       new THREE.IcosahedronGeometry(0.2, 1),
       new THREE.MeshBasicMaterial({ color: 0x7bf3ff, wireframe: true, transparent: true, opacity: 0.85, toneMapped: false })
     );
-    holo.position.set(hx, 1.45, 0);
+    holo.position.set(hx, 1.0, 0);
+    holo.scale.setScalar(0.4);
     g.add(holo);
+    {
+      const anchor = new THREE.Object3D();
+      anchor.position.set(hx, 1.45, 0.05);
+      g.add(anchor);
+      const hole = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.64), holeMaterial);
+      hole.position.copy(anchor.position);
+      g.add(hole);
+      CSS_PANELS[1].anchor = anchor;
+      CSS_PANELS[1].hole = hole;
+    }
+    // デスクライト（照明の要件の「デスクライトの入切」の物）。PC の画面の左手前に立てて、画面に重なるようにする
+    {
+      const lx = pcX - 0.42, lz = 0.22;
+      g.add(box(0.16, 0.03, 0.16, std(0x222428), lx, 0.79, lz));
+      g.add(box(0.025, 0.5, 0.025, std(0x2a2d33), lx, 1.04, lz));
+      g.add(box(0.025, 0.025, 0.3, std(0x2a2d33), lx + 0.0, 1.28, lz - 0.14));
+      g.add(box(0.14, 0.08, 0.12, std(0x3a3d44), lx, 1.25, lz - 0.28));
+      g.add(box(0.1, 0.01, 0.08, glow(0xffcf8a, 3), lx, 1.205, lz - 0.28));
+      const lampLight = new THREE.PointLight(0xffcf8a, 1.2, 2.2, 2);
+      lampLight.position.set(lx, 1.15, lz - 0.28);
+      g.add(lampLight);
+    }
     animated.push((t) => { holo.rotation.y = t * 0.6; holo.position.y = 1.45 + Math.sin(t * 1.3) * 0.03; });
     room.add(g);
-    itemDist.pc = dist + d / 2;
-    itemDist.about = dist + d / 2;
+    // 椅子。中央から PC を見ると、背もたれが画面の下端に重なる高さにしてある（穴あけが手前の物に隠れるかを見るため）
+    {
+      const chair = new THREE.Group();
+      const back = dist - 1.0;
+      chair.position.copy(dirOf(1).multiplyScalar(back));
+      chair.rotation.y = -1 * DEG;
+      chair.add(box(0.5, 0.06, 0.48, std(0x1c1e22), 0, 0.5, -0.25));
+      chair.add(box(0.48, 0.62, 0.06, std(0x1c1e22), 0, 0.88, 0));
+      chair.add(box(0.05, 0.45, 0.05, std(0x2a2d33), 0, 0.25, -0.25));
+      room.add(chair);
+    }
+    itemDist.pc = dist + 0.128;   // 中央の画面の面（ローカル z = -0.128）
+    itemDist.about = dist - 0.05;  // ホログラムの文字の面
     const light = new THREE.PointLight(0x5fd8ff, 3, 5, 2);
     light.position.copy(dirOf(10).multiplyScalar(dist - 0.6)).setY(1.4);
     room.add(light);
@@ -414,7 +556,7 @@ function buildRoom() {
       }
     }
     room.add(g);
-    itemDist.products = dist + d / 2;
+    itemDist.products = dist - d / 2;
     const light = new THREE.PointLight(0xffb45a, 2, 3.5, 2);
     light.position.copy(dirOf(68).multiplyScalar(dist - 0.8)).setY(1.2);
     room.add(light);
@@ -451,7 +593,7 @@ function buildRoom() {
     });
     g.add(bookMesh);
     room.add(g);
-    itemDist.skills = dist + d / 2;
+    itemDist.skills = dist - d / 2;
   }
 
   // 丸窓＋ハンモック
@@ -518,7 +660,7 @@ function buildRoom() {
       if (a !== b) g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), lineMat));
     }
     room.add(g);
-    itemDist.experience = dist + d / 2;
+    itemDist.experience = dist - d / 2;
     const light = new THREE.PointLight(0xffc070, 2.5, 4, 2);
     light.position.copy(dirOf(218).multiplyScalar(dist - 1.0)).setY(2.3);
     room.add(light);
@@ -540,7 +682,7 @@ function buildRoom() {
     g.add(box(0.02, 0.6, 0.02, std(0x888888), 0.45, 1.25, -0.2)); // アンテナ
     g.add(box(0.06, 0.04, 0.01, glow(0xffb020, 3), -0.38, 1.05, 0.18));
     room.add(g);
-    itemDist.contact = dist + d / 2;
+    itemDist.contact = dist - d / 2;
     const light = new THREE.PointLight(0x3fffd0, 1.5, 3, 2);
     light.position.copy(dirOf(262).multiplyScalar(dist - 0.7)).setY(1.4);
     room.add(light);
@@ -558,7 +700,7 @@ function buildRoom() {
     g.add(wheel);
     g.add(box(0.7, 0.04, 0.03, glow(0xffb020, 3), 0, 2.24, d / 2 + 0.02));
     room.add(g);
-    itemDist.door = dist + d / 2;
+    itemDist.door = dist - d / 2;
   }
 
   // 作業台（3Dプリンタ）
@@ -578,7 +720,7 @@ function buildRoom() {
     g.add(box(0.08, 0.06, 0.08, glow(0x2fe8ff, 2), 0.35, 1.12, -0.05));
     g.add(box(0.3, 0.12, 0.2, std(0x7a8290), -0.4, 0.985, 0.05));
     room.add(g);
-    itemDist.workbench = dist + d / 2;
+    itemDist.workbench = dist - d / 2;
   }
 
   // ラベル
@@ -601,16 +743,16 @@ function buildRoom() {
 
 // ---- 視点の状態 ----
 // yaw: 真上から見て時計回りの角度（PC が 0°）。dist: 中央から yaw の向きへ出ている距離（「物へ近づく」ズームだけが使う）
-const view = { yaw: 0, pitch: 0, dist: 0, hfov: params.standardHFov };
+const view = { yaw: 0, pitch: 0, dist: 0, hfov: params.standardHFov, height: params.eyeHeight };
 let mode = "standard";
 let tween = null;
 
 const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const wrap180 = (a) => ((((a + 180) % 360) + 360) % 360) - 180;
 
-function pitchToward(item, yawDist) {
+function pitchToward(item, yawDist, eyeY = params.eyeHeight) {
   const horizontal = Math.max(0.3, (itemDist[item.key] ?? params.roomRadius) - yawDist);
-  return Math.atan2(item.focusY - params.eyeHeight, horizontal) / DEG;
+  return Math.atan2(item.focusY - eyeY, horizontal) / DEG;
 }
 function nearestStopIndex() {
   let best = 0, bestDiff = Infinity;
@@ -632,9 +774,11 @@ function targetFor(m, stop) {
     const face = itemDist[stop.key] ?? params.roomRadius;
     const standOff = stop.frameWidth / 2 / params.zoomFill / Math.tan((hfov * DEG) / 2);
     const dist = params.zoomKind === "approach" ? Math.max(0, Math.min(face - 0.4, face - standOff)) : 0;
-    return { yaw: stop.angle, pitch: pitchToward(stop, dist), dist, hfov };
+    // 寄るときは物ごとの目の高さへ（PC は椅子に座った高さで、画面と正面から向き合う）
+    const height = params.zoomKind === "approach" ? stop.zoomEyeY ?? params.eyeHeight : params.eyeHeight;
+    return { yaw: stop.angle, pitch: pitchToward(stop, dist, height), dist, hfov, height };
   }
-  return { yaw: stop ? stop.angle : view.yaw, pitch: stop ? pitchToward(stop, 0) : view.pitch, dist: 0, hfov };
+  return { yaw: stop ? stop.angle : view.yaw, pitch: stop ? pitchToward(stop, 0) : view.pitch, dist: 0, hfov, height: params.eyeHeight };
 }
 function flyTo(target, duration = 0.9) {
   const from = { ...view };
@@ -714,12 +858,14 @@ function bindRange(id, apply) {
 }
 let rebuildTimer = 0;
 bindRange("roomRadius", (v) => { params.roomRadius = v; clearTimeout(rebuildTimer); rebuildTimer = setTimeout(() => { buildRoom(); setMode(mode); }, 120); });
-bindRange("eyeHeight", (v) => { params.eyeHeight = v; });
+bindRange("eyeHeight", (v) => { params.eyeHeight = v; if (mode !== "zoom") view.height = v; });
 bindRange("standardHFov", (v) => { params.standardHFov = v; if (mode === "standard" || (mode === "zoom" && params.zoomKind === "approach")) view.hfov = v; });
 bindRange("fisheyeHFov", (v) => { params.fisheyeHFov = v; if (mode === "fisheye") view.hfov = hfovFor("fisheye"); });
 bindRange("exposure", (v) => { renderer.toneMappingExposure = v; });
 document.getElementById("fisheyeKind").addEventListener("change", (e) => { params.fisheyeKind = e.target.value; if (mode === "fisheye") setMode("fisheye"); });
 document.getElementById("zoomKind").addEventListener("change", (e) => { params.zoomKind = e.target.value; if (mode === "zoom") setMode("zoom"); });
+document.getElementById("pcLayer").addEventListener("change", (e) => { params.pcLayer = e.target.value; });
+document.getElementById("holoLayer").addEventListener("change", (e) => { params.holoLayer = e.target.value; });
 document.getElementById("labels").addEventListener("change", (e) => labels.forEach((s) => (s.visible = e.target.checked)));
 function refreshUi() {
   document.querySelectorAll("[data-mode]").forEach((b) => b.classList.toggle("on", b.dataset.mode === mode));
@@ -753,19 +899,21 @@ const clock = new THREE.Clock();
 const readout = document.getElementById("readout");
 const MODE_NAMES = { zoom: "ズーム", standard: "標準", fisheye: "魚眼" };
 function frame() {
+  // ヘッドレスで DOM のスタイルを固定して調べるときに描画を止める
+  if (window.__lab?.freeze) { requestAnimationFrame(frame); return; }
   const dt = Math.min(clock.getDelta(), 0.1);
   const t = clock.elapsedTime;
   if (tween) {
     tween.t = Math.min(1, tween.t + dt / tween.duration);
     const k = easeInOutCubic(tween.t);
-    for (const key of ["yaw", "pitch", "dist", "hfov"]) view[key] = tween.from[key] + (tween.to[key] - tween.from[key]) * k;
+    for (const key of ["yaw", "pitch", "dist", "hfov", "height"]) view[key] = tween.from[key] + (tween.to[key] - tween.from[key]) * k;
     if (tween.t >= 1) tween = null;
   }
   animated.forEach((f) => f(t));
 
   const aspect = innerWidth / innerHeight;
   const pos = dirOf(view.yaw).multiplyScalar(view.dist);
-  camera.position.set(pos.x, params.eyeHeight, pos.z);
+  camera.position.set(pos.x, view.height, pos.z);
   camera.rotation.set(view.pitch * DEG, -view.yaw * DEG, 0);
   camera.aspect = aspect;
   const barrel = mode === "fisheye" && params.fisheyeKind !== "wide";
@@ -773,6 +921,28 @@ function frame() {
   camera.fov = barrel ? 90 : (2 * Math.atan(Math.tan((view.hfov * DEG) / 2) / aspect)) / DEG;
   camera.updateProjectionMatrix();
   camera.updateMatrixWorld();
+
+  // HTML の板を、それぞれの印（anchor）の位置・向きへ。樽型の魚眼のときは CSS の遠近と合わないので出さない
+  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+  for (const panel of CSS_PANELS) {
+    if (!panel.anchor) continue;
+    const layer = params[panel.layerKey];
+    const targetScene = layer === "back" ? cssBackScene : cssFrontScene;
+    if (panel.obj.parent !== targetScene) targetScene.add(panel.obj);
+    panel.anchor.updateWorldMatrix(true, false);
+    panel.anchor.matrixWorld.decompose(panel.obj.position, panel.obj.quaternion, new THREE.Vector3());
+    panel.obj.position.multiplyScalar(CSS_UNITS);
+    panel.obj.scale.setScalar((panel.width / panel.px) * CSS_UNITS);
+    // カメラの後ろへ回った板は CSS の遠近で裏返って巨大に描かれうるので、前方にあるときだけ出す
+    const toPanel = panel.obj.position.clone().divideScalar(CSS_UNITS).sub(camera.position).normalize();
+    const inFront = toPanel.dot(forward) > 0.15;
+    panel.obj.visible = inFront && !barrel;
+    panel.hole.visible = layer === "back" && !barrel;
+  }
+  const pcFocused = mode === "zoom" && STOPS[nearestStopIndex()].key === "pc";
+  // PC に寄っているあいだだけ、画面の HTML にクリックとホイールを渡す（ズーム中は見回しが止まっているので取り合わない）
+  canvas.style.pointerEvents = pcFocused && params.pcLayer === "back" ? "none" : "auto";
+  desktopEl.style.pointerEvents = pcFocused ? "auto" : "none";
 
   if (barrel) {
     cubeCamera.position.copy(camera.position);
@@ -785,6 +955,16 @@ function frame() {
   } else {
     renderer.render(scene, camera);
   }
+  cssCamera.fov = camera.fov;
+  cssCamera.aspect = camera.aspect;
+  cssCamera.near = camera.near * CSS_UNITS;
+  cssCamera.far = camera.far * CSS_UNITS;
+  cssCamera.updateProjectionMatrix();
+  cssCamera.position.copy(camera.position).multiplyScalar(CSS_UNITS);
+  cssCamera.quaternion.copy(camera.quaternion);
+  cssCamera.updateMatrixWorld();
+  cssBackRenderer.render(cssBackScene, cssCamera);
+  cssFrontRenderer.render(cssFrontScene, cssCamera);
 
   const facing = STOPS[nearestStopIndex()];
   const vfov = barrel ? null : 2 * Math.atan(Math.tan((view.hfov * DEG) / 2) / aspect) / DEG;
@@ -798,7 +978,13 @@ function frame() {
   requestAnimationFrame(frame);
 }
 
-addEventListener("resize", () => renderer.setSize(innerWidth, innerHeight));
+function resizeAll() {
+  renderer.setSize(innerWidth, innerHeight);
+  cssBackRenderer.setSize(innerWidth, innerHeight);
+  cssFrontRenderer.setSize(innerWidth, innerHeight);
+}
+addEventListener("resize", resizeAll);
+resizeAll();
 
 buildRoom();
 Object.assign(view, targetFor("standard", STOPS[0]));
@@ -807,7 +993,10 @@ requestAnimationFrame(frame);
 
 // ヘッドレスで撮るときの入口（アニメーションを飛ばして状態を直接置く）
 window.__lab = {
-  set({ mode: m, fisheyeKind, zoomKind, stop, hfov }) {
+  set({ mode: m, fisheyeKind, zoomKind, stop, hfov, pcLayer, holoLayer, labels: showLabels }) {
+    if (pcLayer) { params.pcLayer = pcLayer; document.getElementById("pcLayer").value = pcLayer; }
+    if (holoLayer) { params.holoLayer = holoLayer; document.getElementById("holoLayer").value = holoLayer; }
+    if (showLabels !== undefined) { document.getElementById("labels").checked = showLabels; labels.forEach((s) => (s.visible = showLabels)); }
     if (fisheyeKind) { params.fisheyeKind = fisheyeKind; document.getElementById("fisheyeKind").value = fisheyeKind; }
     if (zoomKind) { params.zoomKind = zoomKind; document.getElementById("zoomKind").value = zoomKind; }
     if (hfov && m === "fisheye") { params.fisheyeHFov = hfov; }
@@ -816,6 +1005,7 @@ window.__lab = {
     tween = null;
     refreshUi();
   },
+  openWindow,
   view, params,
 };
 </script>
