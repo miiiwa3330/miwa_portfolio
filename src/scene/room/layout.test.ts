@@ -17,7 +17,10 @@ import {
   hfovForZoom,
   markerPoint,
   FISHEYE_HFOV,
-  WIDE_PLACEHOLDER_HFOV,
+  HANDHELD_FISHEYE_HFOV,
+  HANDHELD_REFERENCE_ASPECT,
+  HANDHELD_STANDARD_HFOV,
+  lensForZoom,
   pieceCentreDistance,
   pieceSpan,
   pieceToWorld,
@@ -208,14 +211,40 @@ describe("markerPoint", () => {
 });
 
 describe("hfovForZoom", () => {
-  it("draws the standard stage at the user's 67°", () => {
-    expect(hfovForZoom("standard")).toBe(STANDARD_HFOV);
+  const verticalOf = (hfov: number, aspect: number) => (2 * Math.atan(Math.tan((hfov * Math.PI) / 360) / aspect) * 180) / Math.PI;
+
+  it("draws the desktop's stages at the user's 67° and 161°", () => {
+    expect(hfovForZoom("standard", false)).toBe(STANDARD_HFOV);
+    expect(hfovForZoom("fisheye", false)).toBe(FISHEYE_HFOV);
   });
 
-  it("widens the fisheye stage, but not to the lens's own 161° while it is still a plain perspective", () => {
-    // A rectilinear frame at 161° shrinks the centre to a dot (prototype).
-    expect(hfovForZoom("fisheye")).toBe(WIDE_PLACEHOLDER_HFOV);
-    expect(WIDE_PLACEHOLDER_HFOV).toBeGreaterThan(STANDARD_HFOV);
-    expect(WIDE_PLACEHOLDER_HFOV).toBeLessThan(FISHEYE_HFOV);
+  it("gives a phone its own, narrower stages", () => {
+    // The desktop's width on a portrait phone is ~110° tall (step 2's ceiling).
+    expect(hfovForZoom("standard", true)).toBe(HANDHELD_STANDARD_HFOV);
+    expect(hfovForZoom("fisheye", true)).toBe(HANDHELD_FISHEYE_HFOV);
+    expect(HANDHELD_STANDARD_HFOV).toBeLessThan(STANDARD_HFOV);
+    expect(HANDHELD_FISHEYE_HFOV).toBeLessThan(FISHEYE_HFOV);
+    expect(HANDHELD_FISHEYE_HFOV).toBeGreaterThan(HANDHELD_STANDARD_HFOV);
+  });
+
+  it("keeps a phone's standard view well short of the ceiling-heavy 110° up and down", () => {
+    const vertical = verticalOf(HANDHELD_STANDARD_HFOV, HANDHELD_REFERENCE_ASPECT);
+    expect(vertical).toBeLessThan(90);
+    expect(vertical).toBeGreaterThan(60);
+  });
+
+  it("keeps a phone's fisheye from folding past straight up and down", () => {
+    // Stereographic: a point r half-widths out is 2·atan(r·tan(H/2)) off-axis.
+    // The top edge of a portrait frame is 1/aspect half-widths up.
+    const half = (HANDHELD_FISHEYE_HFOV * Math.PI) / 360;
+    const top = 2 * Math.atan((1 / HANDHELD_REFERENCE_ASPECT) * Math.tan(half / 2));
+    expect(top).toBeLessThan(Math.PI / 2);
+  });
+});
+
+describe("lensForZoom", () => {
+  it("bends only the fisheye", () => {
+    expect(lensForZoom("standard")).toBe(1);
+    expect(lensForZoom("fisheye")).toBe(2);
   });
 });

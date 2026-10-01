@@ -4,7 +4,14 @@ import {
   beginRoomFlight,
   blendRoomPose,
   placeCamera,
+  HANDHELD_CARD_LIFT,
+  cardLift,
+  lensBends,
+  pixelsPerUnitAt,
   poseFromView,
+  projectToScreen,
+  screenRay,
+  projectionLiftPx,
   projectionShiftPx,
   verticalFov,
   type RoomPose,
@@ -14,13 +21,17 @@ import { EYE_HEIGHT, STANDARD_HFOV, standardView, subjectPoint, zoomView } from 
 
 const DEG = Math.PI / 180;
 
+const FLAT = { hfov: STANDARD_HFOV, lens: 1, share: 0, lift: 0 };
+
 const pose = (over: Partial<RoomPose> = {}): RoomPose => ({
   yaw: 0,
   pitch: 0,
   forward: 0,
   eyeHeight: EYE_HEIGHT,
   hfov: STANDARD_HFOV,
+  lens: 1,
   share: 0,
+  lift: 0,
   ...over,
 });
 
@@ -34,7 +45,7 @@ describe("placeCamera", () => {
 
   it("looks straight at each stop's subject from the standing view", () => {
     for (const stop of ["desk", "about", "products", "skills", "experience", "contact"] as const) {
-      const { position, target } = placeCamera(poseFromView(standardView(stop), STANDARD_HFOV, 0));
+      const { position, target } = placeCamera(poseFromView(standardView(stop), FLAT));
       const subject = subjectPoint(stop);
       const ray = [target[0] - position[0], target[1] - position[1], target[2] - position[2]];
       const toSubject = [subject[0] - position[0], subject[1] - position[1], subject[2] - position[2]];
@@ -47,7 +58,7 @@ describe("placeCamera", () => {
 
   it("steps out towards the subject for a zoom, still looking at it", () => {
     const view = zoomView("products");
-    const { position, target } = placeCamera(poseFromView(view, STANDARD_HFOV, 0));
+    const { position, target } = placeCamera(poseFromView(view, FLAT));
     expect(Math.hypot(position[0], position[2])).toBeCloseTo(view.forward, 9);
     const subject = subjectPoint("products");
     const ray = [target[0] - position[0], target[1] - position[1], target[2] - position[2]];
@@ -91,7 +102,104 @@ describe("projectionShiftPx", () => {
   });
 });
 
+describe("projectionLiftPx", () => {
+  it("moves the subject up from centre by lift of the half-height", () => {
+    // A window `height` px tall starting `lift` px down sees the frame's centre
+    // at (height/2 - offset) from its own top; ndc counts up from the bottom.
+    const height = 844;
+    const lift = 0.2;
+    const offset = projectionLiftPx(lift, height);
+    const subjectPx = height / 2 - offset;
+    const ndc = 1 - (subjectPx / height) * 2;
+    expect(ndc).toBeCloseTo(lift, 12);
+  });
+});
+
+describe("cardLift", () => {
+  it("lifts a phone's subject to the middle of the band above the card rail", () => {
+    // The rail's top was measured at 664 of 844 px.
+    const centrePx = 844 / 2 - projectionLiftPx(cardLift(true), 844);
+    expect(centrePx).toBeCloseTo(664 / 2, 9);
+    expect(cardLift(true)).toBe(HANDHELD_CARD_LIFT);
+  });
+
+  it("leaves a desktop, whose card is beside the subject, alone", () => {
+    expect(cardLift(false)).toBe(0);
+  });
+});
+
+describe("projectToScreen", () => {
+  const W = 1600;
+  const H = 900;
+
+  it("puts the view axis where the shifted projection's centre is", () => {
+    // The same arithmetic as `setViewOffset`: the subject ends up
+    // `projectionShiftPx` left of where it would be, i.e. right of centre.
+    const framing = { hfov: 67, lens: 1, share: 0.3, lift: 0 };
+    const p = projectToScreen([0, 0, -1], framing, W, H)!;
+    expect(p.x).toBeCloseTo(W / 2 - projectionShiftPx(0.3, W), 9);
+    expect(p.y).toBeCloseTo(H / 2, 9);
+  });
+
+  it("lifts the view axis by the lift, through either lens", () => {
+    for (const lens of [1, 2]) {
+      const p = projectToScreen([0, 0, -1], { hfov: 100, lens, share: 0, lift: 0.2 }, 390, 844)!;
+      expect(p.y).toBeCloseTo(844 / 2 - projectionLiftPx(0.2, 844), 9);
+    }
+  });
+
+  it("puts something up and to the right, up and to the right", () => {
+    const p = projectToScreen([0.2, 0.1, -1], FLAT, W, H)!;
+    expect(p.x).toBeGreaterThan(W / 2);
+    expect(p.y).toBeLessThan(H / 2);
+  });
+
+  it("is undone by screenRay, through every lens and shift", () => {
+    for (const framing of [FLAT, { hfov: 161, lens: 2, share: 0.22, lift: 0 }, { hfov: 114, lens: 1.5, share: 0, lift: 0.21 }]) {
+      for (const [x, y] of [
+        [800, 450],
+        [100, 80],
+        [1500, 820],
+      ]) {
+        const d = screenRay(x, y, framing, W, H);
+        const p = projectToScreen(d, framing, W, H)!;
+        expect(p.x).toBeCloseTo(x, 6);
+        expect(p.y).toBeCloseTo(y, 6);
+      }
+    }
+  });
+});
+
+describe("pixelsPerUnitAt", () => {
+  it("is focal length over depth through a perspective, as three.js sizes a sprite", () => {
+    const W = 1600;
+    const focal = W / 2 / Math.tan((67 / 2) * DEG);
+    const dir: [number, number, number] = [0.3, -0.1, -1];
+    const distance = 2.5;
+    const depth = (distance * 1) / Math.hypot(...dir);
+    expect(pixelsPerUnitAt(dir, distance, FLAT, W)).toBeCloseTo(focal / depth, 6);
+  });
+});
+
+describe("lensBends", () => {
+  it("draws the plain perspective straight, and anything bent at all through the cube", () => {
+    expect(lensBends(1)).toBe(false);
+    expect(lensBends(1.01)).toBe(true);
+    expect(lensBends(2)).toBe(true);
+  });
+});
+
 describe("blendRoomPose", () => {
+  it("bends the lens and widens the view together, over the whole flight", () => {
+    const from = pose({ hfov: 67, lens: 1 });
+    const to = pose({ hfov: 161, lens: 2 });
+    const mid = blendRoomPose(from, to, 0.5);
+    expect(mid.lens).toBeCloseTo(1.5, 12);
+    expect(mid.hfov).toBeCloseTo(114, 12);
+    // Already bending just after it leaves: no lens swap at the end.
+    expect(lensBends(blendRoomPose(from, to, 0.05).lens)).toBe(true);
+  });
+
   it("turns the short way round across ±π", () => {
     const from = pose({ yaw: 170 * DEG });
     const to = pose({ yaw: -170 * DEG });
@@ -101,8 +209,8 @@ describe("blendRoomPose", () => {
   });
 
   it("arrives exactly at both ends", () => {
-    const from = pose({ yaw: 0.2, pitch: -0.1, forward: 0, eyeHeight: 1.55, hfov: 67, share: 0.22 });
-    const to = pose({ yaw: 1.1, pitch: 0.05, forward: 1.8, eyeHeight: 1.12, hfov: 67, share: 0.3 });
+    const from = pose({ yaw: 0.2, pitch: -0.1, forward: 0, eyeHeight: 1.55, hfov: 161, lens: 2, share: 0.22, lift: 0.2 });
+    const to = pose({ yaw: 1.1, pitch: 0.05, forward: 1.8, eyeHeight: 1.12, hfov: 67, lens: 1, share: 0.3, lift: 0 });
     expect(blendRoomPose(from, to, 0)).toEqual(from);
     const end = blendRoomPose(from, to, 1);
     for (const key of Object.keys(to) as (keyof RoomPose)[]) expect(end[key]).toBeCloseTo(to[key], 12);

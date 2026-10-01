@@ -1,5 +1,6 @@
 import type { SectionType } from "@/types";
 import type { Direction } from "../planet/geometry";
+import { RECTILINEAR, STEREOGRAPHIC } from "../camera/fisheye";
 
 /**
  * The room the camera stands in: one round room inside a rocket colony, seen
@@ -266,15 +267,57 @@ export function facingStop(dir: Direction): Stop {
 export type ViewZoom = "standard" | "fisheye";
 
 /**
- * **A stand-in until the barrel fisheye exists** (step 3 of
- * docs/room-migration.md): the fisheye stage is drawn with an ordinary
- * perspective at this width. The prototype measured that this shrinks the
- * middle of the frame and stretches its edges — it is a placeholder, not the
- * chosen look, which is `FISHEYE_HFOV` through a stereographic lens.
+ * The frame every phone number on the site is chosen against: 390×844.
+ * Phones differ in shape only a little around it (0.46–0.5).
  */
-export const WIDE_PLACEHOLDER_HFOV = 120;
+export const HANDHELD_REFERENCE_ASPECT = 390 / 844;
 
-/** The horizontal field of view a free-view stage is drawn at. */
-export function hfovForZoom(zoom: ViewZoom): number {
-  return zoom === "standard" ? STANDARD_HFOV : WIDE_PLACEHOLDER_HFOV;
+/** The horizontal field of view, in degrees, that a vertical one comes to across a frame of `aspect`. */
+function horizontalFromVertical(vfovDeg: number, aspect: number): number {
+  return (2 * Math.atan(Math.tan((vfovDeg * DEG) / 2) * aspect)) / DEG;
+}
+
+/**
+ * **Provisional (仮) — waiting on the user.** The phone's standard stage, stated
+ * vertically: 78° up and down a portrait frame, about 41° across it.
+ *
+ * A separate constant rather than `STANDARD_HFOV` re-tuned, because the
+ * user's 67° is a width chosen on a landscape screen: kept as a width on a
+ * 0.46-aspect phone it comes to about 110° vertically, and the ceiling took
+ * the top third of the frame (step 2). Stated vertically because on a
+ * portrait frame the height is the long side, the one that decides how much
+ * ceiling and floor come in. Picked from shots at 70/78/86° (step 3 of
+ * docs/room-migration.md), not from a reference photo — there is none for a
+ * phone.
+ */
+export const HANDHELD_STANDARD_VFOV = 78;
+export const HANDHELD_STANDARD_HFOV = horizontalFromVertical(HANDHELD_STANDARD_VFOV, HANDHELD_REFERENCE_ASPECT);
+
+/**
+ * **Provisional (仮) — waiting on the user.** The phone's fisheye, across:
+ * 90°, which the stereographic lens stretches to about 168° up and down a
+ * portrait frame.
+ *
+ * The desktop's 161° across a phone would reach some 245° vertically — past
+ * straight up and straight down, the room folding over onto itself. The
+ * fisheye is for taking in the room around the reader, which on a portrait
+ * frame the height already does, so the width is held to what the standard
+ * view's ~41° roughly doubles to.
+ */
+export const HANDHELD_FISHEYE_HFOV = 90;
+
+/** The horizontal field of view a free-view stage is drawn at, on the frame `handheld` names. */
+export function hfovForZoom(zoom: ViewZoom, handheld: boolean): number {
+  if (handheld) return zoom === "standard" ? HANDHELD_STANDARD_HFOV : HANDHELD_FISHEYE_HFOV;
+  return zoom === "standard" ? STANDARD_HFOV : FISHEYE_HFOV;
+}
+
+/**
+ * The lens a free-view stage is drawn through (`camera/fisheye.ts`): an
+ * ordinary perspective for the standard view, stereographic for the fisheye.
+ * A zoom is always a perspective — HTML placed in the room (the PC's screen,
+ * the hologram) can only be drawn through one.
+ */
+export function lensForZoom(zoom: ViewZoom): number {
+  return zoom === "standard" ? RECTILINEAR : STEREOGRAPHIC;
 }

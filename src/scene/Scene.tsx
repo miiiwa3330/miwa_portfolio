@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, events, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import RoomScene from "./objects/RoomScene";
+import LensRenderer from "./LensRenderer";
 import {
   AUTO_ORBIT_SPEED,
   ORBIT_RETURN_SPEED,
@@ -16,18 +17,24 @@ import {
 import {
   advanceRoomFlight,
   beginRoomFlight,
+  cardLift,
+  lensBends,
   placeCamera,
   poseFromView,
+  projectionLiftPx,
   projectionShiftPx,
+  screenRay,
   verticalFov,
+  type Framing,
   type RoomFlight,
   type RoomPose,
 } from "./camera/roomCamera";
+import { lensNow, publishLens } from "./camera/lensChannel";
 import {
   EYE_HEIGHT,
-  STANDARD_HFOV,
   facingStop,
   hfovForZoom,
+  lensForZoom,
   viewDirection,
   yawOf,
   zoomView,
@@ -537,8 +544,16 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
 
   const home = tourAngles(0);
   // Read fresh each render, for `useFrame`'s closure (recreated every render).
-  const freeHfov = hfovForZoom(viewZoom);
-  const freeShare = orbitCardShare(handheld);
+  // How the free view is drawn at its current stage, and how a zoom is: a
+  // zoom is always through the standard view's perspective, since the HTML
+  // placed in the room can only be drawn through one.
+  const freeFraming: Framing = {
+    hfov: hfovForZoom(viewZoom, handheld),
+    lens: lensForZoom(viewZoom),
+    share: orbitCardShare(handheld),
+    lift: cardLift(handheld),
+  };
+  const zoomHfov = hfovForZoom("standard", handheld);
   const zoomShare = sectionCardShare(handheld);
 
   // The free view's true state. The targets jump the instant a gesture or the
@@ -573,8 +588,7 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     pitch: home.pitch,
     forward: 0,
     eyeHeight: EYE_HEIGHT,
-    hfov: STANDARD_HFOV,
-    share: freeShare,
+    ...freeFraming,
   });
 
   // Turning only makes sense in the free view — lock out drag/wheel input
@@ -596,8 +610,7 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     pitch,
     forward: 0,
     eyeHeight: EYE_HEIGHT,
-    hfov: freeHfov,
-    share: freeShare,
+    ...freeFraming,
   });
 
   /**
@@ -605,6 +618,10 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
    * is re-derived from the frame's aspect every time, and the card's share is a
    * shift of the projection rather than of the camera — both are fractions of
    * the frame, so a resize needs nothing of its own.
+   *
+   * Through a bent lens the camera itself only carries the position and the
+   * direction: `LensRenderer` draws the frame from a cube map, shifting it in
+   * its own shader, so the camera's projection is left unshifted.
    *
    * Only ever called from the frame loop, with the frame's own camera: the
    * camera is three.js state that the frame loop owns, not a value of this
@@ -618,12 +635,17 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     camera.lookAt(target[0], target[1], target[2]);
     camera.fov = verticalFov(pose.hfov, camera.aspect);
     const shift = projectionShiftPx(pose.share, size.width);
-    if (Math.abs(shift) > 0.01) camera.setViewOffset(size.width, size.height, shift, 0, size.width, size.height);
-    else camera.clearViewOffset();
+    const lift = projectionLiftPx(pose.lift, size.height);
+    if (!lensBends(pose.lens) && (Math.abs(shift) > 0.01 || Math.abs(lift) > 0.01)) {
+      camera.setViewOffset(size.width, size.height, shift, lift, size.width, size.height);
+    } else {
+      camera.clearViewOffset();
+    }
     camera.updateProjectionMatrix();
     // Matrices up to date now, not at the next render: the markers project
     // through this camera in the same frame.
     camera.updateMatrixWorld();
+    publishLens(pose);
   };
 
   const startFlight = (to: RoomPose, duration: number, land: RoomFlight["land"]) => {
@@ -677,7 +699,8 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     //    longer a case of its own — its subject is the hologram on the desk.
     if (activeSection) {
       const share = activeSection === "about" ? aboutCardShare(handheld) : zoomShare;
-      startFlight(poseFromView(zoomView(activeSection, STANDARD_HFOV), STANDARD_HFOV, share), duration, null);
+      const framing: Framing = { hfov: zoomHfov, lens: 1, share, lift: freeFraming.lift };
+      startFlight(poseFromView(zoomView(activeSection, zoomHfov), framing), duration, null);
       return;
     }
 
@@ -721,6 +744,12 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     prevPageOpenRef.current = pageOpen;
   }, [pageOpen]);
 
+  // Ahead of every other frame callback (a negative priority still leaves
+  // the rendering to R3F): the markers project through this camera, and if
+  // they ran first they would publish where the marker was a frame ago while
+  // the render drew it where it is now — the dotted line trailing the bolt
+  // by a frame whenever the camera turns. Mounted after the room, this used
+  // to run after the markers.
   useFrame((state, delta) => {
     const camera = state.camera as THREE.PerspectiveCamera;
     const size = state.size;
@@ -781,9 +810,40 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     // because this runs every frame and everything above the canvas is a
     // consumer — see `facingChannel`.
     publishFacing(facingStop(directionFor(yawRef.current, pitchRef.current)));
-  });
+  }, -1);
 
   return null;
+}
+
+const rayDirection = new THREE.Vector3();
+const rayOrigin = new THREE.Vector3();
+
+/**
+ * R3F's pointer events, aimed through the room's lens.
+ *
+ * The stock `compute` asks the camera's projection which way a pixel looks,
+ * and through the fisheye the camera's projection is not what is on screen
+ * (`LensRenderer` draws it from a cube map) — a click on a marker would be
+ * tested along a ray some way off it. `screenRay` is the same lens and the
+ * same shifts the markers are placed with, so the two cannot disagree; for
+ * the plain perspective it is exactly what the stock one does.
+ */
+function roomEvents(store: Parameters<typeof events>[0]) {
+  const manager = events(store);
+  return {
+    ...manager,
+    compute(event: { offsetX: number; offsetY: number }, state: ReturnType<typeof store.getState>) {
+      const { width, height } = state.size;
+      state.pointer.set((event.offsetX / width) * 2 - 1, -(event.offsetY / height) * 2 + 1);
+      const camera = state.camera;
+      camera.updateMatrixWorld();
+      const [x, y, z] = screenRay(event.offsetX, event.offsetY, lensNow(), width, height);
+      rayDirection.set(x, y, z).transformDirection(camera.matrixWorld);
+      state.raycaster.set(camera.getWorldPosition(rayOrigin), rayDirection);
+      // Sprites read the camera off the raycaster to face it.
+      state.raycaster.camera = camera;
+    },
+  };
 }
 
 export default function Scene({
@@ -813,6 +873,7 @@ export default function Scene({
       camera={{ position: [0, EYE_HEIGHT, 0], fov: 45, near: 0.05, far: 60 }}
       dpr={[1, 2]}
       frameloop={obscured ? "demand" : "always"}
+      events={roomEvents}
       style={interactive ? undefined : { pointerEvents: "none" }}
       // The prototype's exposure, for its placeholder lights. Not a design
       // value — it means nothing once the lighting is rebuilt (step 6).
@@ -822,6 +883,7 @@ export default function Scene({
     >
       <RoomScene />
       <CameraController onEmptyTap={onEmptyTap} />
+      <LensRenderer />
       <ScenePause />
       <IdleHeartbeat obscured={obscured} />
     </Canvas>

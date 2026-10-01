@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useCursor } from "@react-three/drei";
 import * as THREE from "three";
-import { markerScaleForScreenRadius } from "../camera/cameraLayout";
 import {
   BOLT_PATH,
   MARKER_FACING_INK,
@@ -18,6 +17,8 @@ import {
 import { markerPoint } from "../room/layout";
 import { SECTION_ORDER } from "../room/tour";
 import { markerOnScreen, publishMarkerScreen } from "../camera/markerScreen";
+import { pixelsPerUnitAt, projectToScreen } from "../camera/roomCamera";
+import { lensNow } from "../camera/lensChannel";
 import { sceneClock } from "../sceneClock";
 import { useAppState } from "@/state/AppStateContext";
 import { facingNow } from "@/state/facingChannel";
@@ -134,8 +135,7 @@ function makeBoltTexture(): THREE.Texture {
   return texture;
 }
 
-/** Scratch vectors; never read across frames. */
-const projected = new THREE.Vector3();
+/** Scratch vector; never read across frames. */
 const viewSpace = new THREE.Vector3();
 
 /**
@@ -175,7 +175,11 @@ export default function SectionMarkers() {
     const time = sceneClock.time(state.clock.elapsedTime);
 
     const camera = state.camera as THREE.PerspectiveCamera;
-    const viewportHeight = state.size.height;
+    const { width, height } = state.size;
+    // The lens the frame is about to be drawn through — the camera published
+    // it earlier this frame. Every marker is placed and sized through it, so
+    // the bolts and the dotted line stay together in the fisheye too.
+    const lens = lensNow();
 
     // Bring the camera's matrices up to date with the position it was just
     // moved to, before anything below reads them.
@@ -231,16 +235,16 @@ export default function SectionMarkers() {
       sprite.visible = radius > MIN_VISIBLE_RADIUS;
 
       // The world scale that makes this bolt reach `radius` px from its centre,
-      // at this sprite's own depth. Depth along the camera's forward axis,
-      // which is what the projection divides by — the straight-line distance is
-      // a different number and would size the bolts at the edges of the frame
-      // wrongly.
+      // where it stands. Through a perspective that is the focal length over
+      // the depth along the camera's forward axis — not the straight-line
+      // distance, which would size the bolts at the edges of the frame wrongly
+      // — and through the fisheye it is the lens's own magnification there;
+      // `pixelsPerUnitAt` is both.
       viewSpace.copy(sprite.position).applyMatrix4(camera.matrixWorldInverse);
-      const depth = -viewSpace.z;
-      if (depth > 0.01) {
-        sprite.scale.setScalar(
-          markerScaleForScreenRadius(radius, depth, camera.fov, viewportHeight)
-        );
+      const distance = viewSpace.length();
+      if (distance > 0.01) {
+        const perUnit = pixelsPerUnitAt([viewSpace.x, viewSpace.y, viewSpace.z], distance, lens, width);
+        sprite.scale.setScalar(radius / (MARKER_GLYPH_FILL * perUnit));
       }
 
       const material = sprite.material as THREE.SpriteMaterial;
@@ -261,10 +265,10 @@ export default function SectionMarkers() {
     const index = MARKED.indexOf(spotlight);
     const anchor = ANCHORS[index];
     if (!anchor) return;
-    projected.copy(anchor).project(camera);
-    const { width, height } = state.size;
-    const screenX = (projected.x * 0.5 + 0.5) * width;
-    const screenY = (-projected.y * 0.5 + 0.5) * height;
+    viewSpace.copy(anchor).applyMatrix4(camera.matrixWorldInverse);
+    const onScreen = projectToScreen([viewSpace.x, viewSpace.y, viewSpace.z], lens, width, height);
+    const screenX = onScreen?.x ?? 0;
+    const screenY = onScreen?.y ?? 0;
 
     publishMarkerScreen(
       screenX,
@@ -282,7 +286,9 @@ export default function SectionMarkers() {
       // or outside the viewport (real, but unseeable — a trail running off the
       // edge points at nothing). The rule itself lives in markerScreen.ts, as
       // a pure function with tests, because it is the sort that fails quietly.
-      markerOnScreen(screenX, screenY, projected.z, width, height)
+      // (`projectToScreen` answers null for the first; `markerOnScreen` takes
+      // that as a depth past the far side.)
+      markerOnScreen(screenX, screenY, onScreen ? 0 : 1, width, height)
     );
   });
 

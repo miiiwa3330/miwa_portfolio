@@ -1,6 +1,8 @@
-import { easeInOutCubic, wrapAngle } from "./cameraLayout";
+import { HANDHELD_RAIL_TOP_PX, easeInOutCubic, wrapAngle } from "./cameraLayout";
 import { MAX_FLIGHT_STEP } from "./cameraFlight";
 import { horizontalAt, viewDirection, type RoomView } from "../room/layout";
+import { lensPixelsPerRadian, projectLens, unprojectLens } from "./fisheye";
+import type { Direction } from "../planet/geometry";
 
 /**
  * The camera inside the room: where it stands, which way it looks, and how
@@ -28,13 +30,29 @@ export type RoomPose = {
   eyeHeight: number;
   /** Horizontal field of view, in degrees. */
   hfov: number;
+  /** The lens's `k` (`camera/fisheye.ts`): 1 an ordinary perspective, 2 the stereographic fisheye. */
+  lens: number;
   /** The share of the frame's width given up to the card on the left; see `projectionShiftPx`. */
   share: number;
+  /** The share of the frame's height given up to the card rail along a phone's bottom; see `projectionLiftPx`. */
+  lift: number;
 };
 
-/** A `RoomView` (degrees, from `room/layout.ts`) as a pose, at a field of view and card share. */
-export function poseFromView(view: RoomView, hfov: number, share: number): RoomPose {
-  return { yaw: view.yaw * DEG, pitch: view.pitch * DEG, forward: view.forward, eyeHeight: view.eyeHeight, hfov, share };
+/** How a pose is drawn, as opposed to where it stands and looks. */
+export type Framing = Pick<RoomPose, "hfov" | "lens" | "share" | "lift">;
+
+/** A `RoomView` (degrees, from `room/layout.ts`) as a pose, drawn with `framing`. */
+export function poseFromView(view: RoomView, framing: Framing): RoomPose {
+  return { yaw: view.yaw * DEG, pitch: view.pitch * DEG, forward: view.forward, eyeHeight: view.eyeHeight, ...framing };
+}
+
+/**
+ * Whether a pose has to be drawn through the fisheye's cube map rather than
+ * straight through a perspective camera — any lens bent at all, including
+ * part-way through a flight between the two.
+ */
+export function lensBends(lens: number): boolean {
+  return lens > 1 + 1e-4;
 }
 
 /** Where the camera stands and the point it looks at — one metre straight ahead. */
@@ -71,6 +89,74 @@ export function projectionShiftPx(share: number, width: number): number {
 }
 
 /**
+ * How far to slide the projection, in px, so the subject sits `lift` of the
+ * half-height above centre — clear of a phone's card rail along the bottom.
+ * `projectionShiftPx`'s vertical counterpart: positive moves the visible
+ * window down, so the scene inside it moves up.
+ */
+export function projectionLiftPx(lift: number, height: number): number {
+  return (lift * height) / 2;
+}
+
+/**
+ * Where a camera-space direction lands on screen, in CSS px from the frame's
+ * top-left — through the pose's lens and its shifts. `null` if the lens
+ * cannot show that direction at all.
+ *
+ * The one projection every screen-space thing in the room uses: the markers
+ * and the dotted lines to them, the click test, and the fisheye shader
+ * (which is its inverse, `screenRay`, run per pixel). For a perspective with
+ * no shift it is exactly what three.js's camera does.
+ */
+export function projectToScreen(
+  dir: Direction,
+  framing: Framing,
+  width: number,
+  height: number
+): { x: number; y: number } | null {
+  const p = projectLens(dir, (framing.hfov * DEG) / 2, width / height, framing.lens);
+  if (!p) return null;
+  return { x: ((p.x + framing.share) * 0.5 + 0.5) * width, y: (0.5 - (p.y + framing.lift) * 0.5) * height };
+}
+
+/** The camera-space direction seen at a point on screen, in CSS px — `projectToScreen` backwards. */
+export function screenRay(x: number, y: number, framing: Framing, width: number, height: number): Direction {
+  const ndcX = (x / width) * 2 - 1 - framing.share;
+  const ndcY = 1 - (y / height) * 2 - framing.lift;
+  return unprojectLens(ndcX, ndcY, (framing.hfov * DEG) / 2, width / height, framing.lens);
+}
+
+/**
+ * How many CSS px one world unit spans, for something `distance` away in
+ * camera-space direction `dir` — what a marker is sized with (`lensPixelsPerRadian`).
+ */
+export function pixelsPerUnitAt(dir: Direction, distance: number, framing: Framing, width: number): number {
+  const length = Math.hypot(dir[0], dir[1], dir[2]);
+  const theta = Math.acos(Math.max(-1, Math.min(1, -dir[2] / length)));
+  return lensPixelsPerRadian(theta, (framing.hfov * DEG) / 2, framing.lens, width / 2) / distance;
+}
+
+/** The frame `HANDHELD_RAIL_TOP_PX` was measured in (390×844). */
+const HANDHELD_FRAME_HEIGHT_PX = 844;
+
+/**
+ * **Provisional (仮) — waiting on the user.** How far a phone lifts the
+ * subject: to the middle of the band above the card rail.
+ *
+ * The rail's top edge was measured at 664 of 844 px; the middle of the band
+ * above it is at 332, 90px above the frame's centre — 0.21 of the half-height.
+ * The planet leaned its subject *down* instead (`HANDHELD_VERTICAL_SHARE`, to
+ * bring the horizon in) and was capped by that same rail; the room has no
+ * horizon to show, and what the rail covers is the floor.
+ */
+export const HANDHELD_CARD_LIFT = 1 - HANDHELD_RAIL_TOP_PX / HANDHELD_FRAME_HEIGHT_PX;
+
+/** The lift for a frame with a card on it: only a phone's rail needs one. */
+export function cardLift(handheld: boolean): number {
+  return handheld ? HANDHELD_CARD_LIFT : 0;
+}
+
+/**
  * `t` of the way from one pose to another. Yaw by the short way round, the
  * rest straight; easing is the flight's business, not this function's.
  */
@@ -81,8 +167,12 @@ export function blendRoomPose(from: RoomPose, to: RoomPose, t: number): RoomPose
     pitch: mix(from.pitch, to.pitch),
     forward: mix(from.forward, to.forward),
     eyeHeight: mix(from.eyeHeight, to.eyeHeight),
+    // The lens and the field of view travel together, so the standard view
+    // bends into the fisheye over the flight rather than swapping in a frame.
     hfov: mix(from.hfov, to.hfov),
+    lens: mix(from.lens, to.lens),
     share: mix(from.share, to.share),
+    lift: mix(from.lift, to.lift),
   };
 }
 
