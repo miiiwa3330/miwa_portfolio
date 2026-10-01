@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { STOP_ORDER, standardView, subjectYaw, viewDirection, yawDelta, yawOf } from "./layout";
-import { ROOM_TOUR, adjacentStop, buildRingTour, stopU } from "./tour";
+import { ROOM_TOUR, SECTION_ORDER, adjacentSection, adjacentStop, buildRingTour, stopU } from "./tour";
 
 const pitchOf = (d: readonly number[]) => Math.asin(d[1]) / (Math.PI / 180);
 
@@ -83,5 +83,18 @@ describe("buildRingTour", () => {
     expect(tour.order).toEqual([0, 2, 1]);
     expect(tour.anchorU(2)).toBeCloseTo(110 / 360, 12);
     expect(tour.anchorU(1)).toBeCloseTo(290 / 360, 12);
+  });
+});
+
+describe("adjacentSection", () => {
+  it("steps between the areas only, never onto the desk", () => {
+    expect(SECTION_ORDER).not.toContain("desk");
+    expect(SECTION_ORDER).toHaveLength(5);
+    // The two areas either side of the desk are each other's neighbours.
+    const first = SECTION_ORDER[0];
+    const last = SECTION_ORDER[SECTION_ORDER.length - 1];
+    expect(adjacentSection(first, -1)).toBe(last);
+    expect(adjacentSection(last, 1)).toBe(first);
+    expect(adjacentSection(first, 1)).toBe(SECTION_ORDER[1]);
   });
 });

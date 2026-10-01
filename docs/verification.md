@@ -69,4 +69,6 @@
 
 **`npm run build` が `ENOTEMPTY: directory not empty, rmdir '.next/server'` で落ちることがある。** 2026-09-19 に1回。直後の `.next/server` は空で、`lsof` で掴んでいるプロセスも無く、そのまま再実行して通った。`.next` ごと消して直そうとしない——ユーザーの `next dev` が `.next/dev` を使って動いていることがある（2026-09-19 の devlog の「踏んだ罠」）。2026-09-20 にも1回。**直後の `.next/server` には `.DS_Store`（Finder が作るファイル）が1つだけ残っていた**——削除の途中で Finder が作り直した可能性がある（未検証）。このときも再実行で通った
 
+**カードの見出しを `document.querySelector("h3")` で読まない。** 先に見つかるのは `hub/SemanticSEO.tsx` の画面に出ない見出しで、どの状態でも同じ文字（制作実績の1件目の名前）が返る（2026-10-01、ホイールで回しても「変わらない」と読み違えかけた）。画面の状態は撮った画像で判断するか、`.sr-only` の外の要素に絞る
+
 **「画面に見える文字」を `document.body.innerText` で数えない。** `sr-only` は `clip` で見えなくしているだけで `display: none` ではないので、`innerText` に入る。2026-09-20 に本番トップを測ったら3,407字と出たが、約3,300字は `hub/SemanticSEO.tsx` の画面に出ない文章だった。見えるリンクや文字を数えるときは、要素ごとに `el.closest(".sr-only")` で除き、`getBoundingClientRect()` の幅と高さが0でないものだけを取る（この方法で、トップの初期表示に見えるリンクは PC で `/privacy` の1本、スマホで0本と出た）

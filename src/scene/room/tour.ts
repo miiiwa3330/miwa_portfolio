@@ -1,5 +1,6 @@
 import type { Tour } from "../planet/tour";
 import type { Direction } from "../planet/geometry";
+import type { SectionType } from "@/types";
 import { STOP_ORDER, standardView, viewDirection, yawDelta, yawOf, type Stop } from "./layout";
 
 /**
@@ -87,4 +88,21 @@ export function adjacentStop(stop: Stop, step: number): Stop {
   const n = STOP_ORDER.length;
   const i = STOP_ORDER.indexOf(stop);
   return STOP_ORDER[(((i + step) % n) + n) % n];
+}
+
+/** The areas alone, in tour order — the stops a card can be about. */
+export const SECTION_ORDER = STOP_ORDER.filter((stop): stop is NonNullable<SectionType> => stop !== "desk");
+
+/**
+ * The area `step` places from `section`, skipping the desk.
+ *
+ * The card's own step (wheel or swipe on the card) moves between the areas
+ * only. The desk is on the tour — scrolling the room stops there — but it has
+ * no card (docs/room-migration.md), so a card step that landed on it would
+ * leave nothing on screen to step back from.
+ */
+export function adjacentSection(section: NonNullable<SectionType>, step: number): NonNullable<SectionType> {
+  const n = SECTION_ORDER.length;
+  const i = SECTION_ORDER.indexOf(section);
+  return SECTION_ORDER[(((i + step) % n) + n) % n];
 }

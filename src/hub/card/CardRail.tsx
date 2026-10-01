@@ -16,7 +16,7 @@ import {
 import { useStepGate } from "./useStepGate";
 import { MARKER_TRAIL_INK } from "@/scene/markerBolt";
 import { useFacing } from "@/state/facingChannel";
-import { adjacentOnTour } from "@/scene/planet/tour";
+import { adjacentSection } from "@/scene/room/tour";
 import type { SectionType } from "@/types";
 
 /**
@@ -55,33 +55,44 @@ function railCardsForStep(
 ): { section: NonNullable<SectionType>; slot: RailSlot }[] {
   if (slideStep > 0) {
     return [
-      { section: adjacentOnTour(active, -1), slot: -1 },
+      { section: adjacentSection(active, -1), slot: -1 },
       { section: active, slot: 0 },
-      { section: adjacentOnTour(active, 1), slot: 1 },
-      { section: adjacentOnTour(active, 2), slot: 2 },
+      { section: adjacentSection(active, 1), slot: 1 },
+      { section: adjacentSection(active, 2), slot: 2 },
     ];
   }
   if (slideStep < 0) {
     return [
-      { section: adjacentOnTour(active, -2), slot: -2 },
-      { section: adjacentOnTour(active, -1), slot: -1 },
+      { section: adjacentSection(active, -2), slot: -2 },
+      { section: adjacentSection(active, -1), slot: -1 },
       { section: active, slot: 0 },
-      { section: adjacentOnTour(active, 1), slot: 1 },
+      { section: adjacentSection(active, 1), slot: 1 },
     ];
   }
   return railWindow(active);
 }
 
-export default function CardRail({
+/**
+ * Empty while the desk is in front — it is on the tour but has no card
+ * (docs/room-migration.md). Split from the rail's own body for the same reason
+ * as `SectionCard`: the hooks there always run for an area.
+ */
+export default function CardRail(props: Props) {
+  const facing = useFacing();
+  const section = props.focusedSection ?? facing;
+  if (section === "desk") return null;
+  return <CardRailBody {...props} section={section} />;
+}
+
+function CardRailBody({
+  section,
   focusedSection,
   isJa,
   anchorRef,
   onOpen,
   onStep,
   onHome,
-}: Props) {
-  const facing = useFacing();
-  const section = focusedSection ?? facing;
+}: Props & { section: NonNullable<SectionType> }) {
   const focused = !!focusedSection;
   const browsable = !focused;
 
@@ -129,7 +140,7 @@ export default function CardRail({
       return;
     }
 
-    const forwardNext = adjacentOnTour(activeSectionRef.current, 1);
+    const forwardNext = adjacentSection(activeSectionRef.current, 1);
     const step = forwardNext === section ? 1 : -1;
     const targetOffset = -step * cardWidth * RAIL_NEIGHBOUR_SHARE;
 
@@ -194,7 +205,7 @@ export default function CardRail({
     }
 
     const targetOffset = -step * cardWidth * RAIL_NEIGHBOUR_SHARE;
-    const nextSection = adjacentOnTour(activeSectionRef.current, step);
+    const nextSection = adjacentSection(activeSectionRef.current, step);
 
     isAnimating.current = true;
     setSlideStep(step);

@@ -135,19 +135,21 @@ export type Subject = {
   local: readonly [number, number, number];
   frameWidth: number;
   zoomEyeHeight: number;
+  /** How high the area's marker floats — clear of the top of the thing it marks. */
+  markerY: number;
 };
 
 export const SUBJECTS: Record<Stop, Subject> = {
   // The centre monitor's face, 0.13 m behind the desk's middle. Framed on
   // the one monitor, not the whole desk: framing the desk shrank the 22px body
   // text to about 6px.
-  desk: { piece: "desk", local: [0, 1.08, -0.13], frameWidth: 0.8, zoomEyeHeight: SEATED_EYE_HEIGHT },
+  desk: { piece: "desk", local: [0, 1.08, -0.13], frameWidth: 0.8, zoomEyeHeight: SEATED_EYE_HEIGHT, markerY: 1.5 },
   // The hologram stands on the same desk, to the PC's right.
-  about: { piece: "desk", local: [0.95, 1.45, 0.05], frameWidth: 0.9, zoomEyeHeight: 1.45 },
-  products: { piece: "shelf", local: [0, 1.2, PIECES.shelf.depth / 2], frameWidth: 1.6, zoomEyeHeight: EYE_HEIGHT },
-  skills: { piece: "bookcase", local: [0, 1.35, PIECES.bookcase.depth / 2], frameWidth: 1.3, zoomEyeHeight: EYE_HEIGHT },
-  experience: { piece: "board", local: [0, 1.55, PIECES.board.depth / 2], frameWidth: 2.9, zoomEyeHeight: EYE_HEIGHT },
-  contact: { piece: "comms", local: [0, 1.15, PIECES.comms.depth / 2], frameWidth: 1.1, zoomEyeHeight: EYE_HEIGHT },
+  about: { piece: "desk", local: [0.95, 1.45, 0.05], frameWidth: 0.9, zoomEyeHeight: 1.45, markerY: 1.85 },
+  products: { piece: "shelf", local: [0, 1.2, PIECES.shelf.depth / 2], frameWidth: 1.6, zoomEyeHeight: EYE_HEIGHT, markerY: 2.2 },
+  skills: { piece: "bookcase", local: [0, 1.35, PIECES.bookcase.depth / 2], frameWidth: 1.3, zoomEyeHeight: EYE_HEIGHT, markerY: 2.65 },
+  experience: { piece: "board", local: [0, 1.55, PIECES.board.depth / 2], frameWidth: 2.9, zoomEyeHeight: EYE_HEIGHT, markerY: 2.45 },
+  contact: { piece: "comms", local: [0, 1.15, PIECES.comms.depth / 2], frameWidth: 1.1, zoomEyeHeight: EYE_HEIGHT, markerY: 1.75 },
 };
 
 export const STOP_KEYS = Object.keys(SUBJECTS) as Stop[];
@@ -156,6 +158,21 @@ export const STOP_KEYS = Object.keys(SUBJECTS) as Stop[];
 export function subjectPoint(stop: Stop): [number, number, number] {
   const subject = SUBJECTS[stop];
   return pieceToWorld(PIECES[subject.piece], subject.local);
+}
+
+/**
+ * Where a stop's marker floats: above its subject, pulled a little towards the
+ * centre so the thing it marks (a shelf's top, the board's frame) does not cut
+ * through the sprite — markers are depth-tested so that furniture in front can
+ * hide them.
+ */
+export const MARKER_PULL = 0.15;
+
+export function markerPoint(stop: Stop): [number, number, number] {
+  const [x, , z] = subjectPoint(stop);
+  const d = Math.hypot(x, z);
+  const k = (d - MARKER_PULL) / d;
+  return [x * k, SUBJECTS[stop].markerY, z * k];
 }
 
 /** The yaw a stop's subject lies at from the centre. */
@@ -238,4 +255,26 @@ export function facingStop(dir: Direction): Stop {
     }
   }
   return best;
+}
+
+/**
+ * The free view's two stages: standing at the centre and looking, or the
+ * widened fisheye that takes in the room — the room's counterpart of the
+ * planet's near/far altitudes. (A zoom into one stop is the third stage, and
+ * is a focused section rather than a value of this.)
+ */
+export type ViewZoom = "standard" | "fisheye";
+
+/**
+ * **A stand-in until the barrel fisheye exists** (step 3 of
+ * docs/room-migration.md): the fisheye stage is drawn with an ordinary
+ * perspective at this width. The prototype measured that this shrinks the
+ * middle of the frame and stretches its edges — it is a placeholder, not the
+ * chosen look, which is `FISHEYE_HFOV` through a stereographic lens.
+ */
+export const WIDE_PLACEHOLDER_HFOV = 120;
+
+/** The horizontal field of view a free-view stage is drawn at. */
+export function hfovForZoom(zoom: ViewZoom): number {
+  return zoom === "standard" ? STANDARD_HFOV : WIDE_PLACEHOLDER_HFOV;
 }

@@ -14,6 +14,10 @@ import {
   ZOOM_FILL,
   ZOOM_MIN_CLEARANCE,
   facingStop,
+  hfovForZoom,
+  markerPoint,
+  FISHEYE_HFOV,
+  WIDE_PLACEHOLDER_HFOV,
   pieceCentreDistance,
   pieceSpan,
   pieceToWorld,
@@ -186,5 +190,32 @@ describe("zoomView", () => {
 
   it("keeps the camera inside the room", () => {
     for (const stop of STOP_KEYS) expect(zoomView(stop).forward).toBeLessThan(ROOM_RADIUS);
+  });
+});
+
+describe("markerPoint", () => {
+  it("floats above its subject and a little nearer the centre", () => {
+    for (const stop of STOP_KEYS) {
+      const [mx, my, mz] = markerPoint(stop);
+      const [sx, sy, sz] = subjectPoint(stop);
+      expect(my).toBeGreaterThan(sy);
+      expect(Math.hypot(mx, mz)).toBeLessThan(Math.hypot(sx, sz));
+      // Same direction from the centre: the marker is over its own subject.
+      expect(Math.abs(yawDelta(yawOf(mx, mz), yawOf(sx, sz)))).toBeLessThan(1e-9);
+      expect(my).toBeLessThan(3.4);
+    }
+  });
+});
+
+describe("hfovForZoom", () => {
+  it("draws the standard stage at the user's 67°", () => {
+    expect(hfovForZoom("standard")).toBe(STANDARD_HFOV);
+  });
+
+  it("widens the fisheye stage, but not to the lens's own 161° while it is still a plain perspective", () => {
+    // A rectilinear frame at 161° shrinks the centre to a dot (prototype).
+    expect(hfovForZoom("fisheye")).toBe(WIDE_PLACEHOLDER_HFOV);
+    expect(WIDE_PLACEHOLDER_HFOV).toBeGreaterThan(STANDARD_HFOV);
+    expect(WIDE_PLACEHOLDER_HFOV).toBeLessThan(FISHEYE_HFOV);
   });
 });

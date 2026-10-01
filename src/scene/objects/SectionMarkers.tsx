@@ -7,7 +7,6 @@ import * as THREE from "three";
 import { markerScaleForScreenRadius } from "../camera/cameraLayout";
 import {
   BOLT_PATH,
-  MARKER_CLEARANCE,
   MARKER_FACING_INK,
   MARKER_GLOW_FILL,
   MARKER_GLYPH_FILL,
@@ -16,7 +15,8 @@ import {
   boltFlicker,
   strikeIndex,
 } from "../markerBolt";
-import { PLANET_SECTION_KEYS, sectionDirection } from "../planet/sections";
+import { markerPoint } from "../room/layout";
+import { SECTION_ORDER } from "../room/tour";
 import { markerOnScreen, publishMarkerScreen } from "../camera/markerScreen";
 import { sceneClock } from "../sceneClock";
 import { useAppState } from "@/state/AppStateContext";
@@ -137,32 +137,14 @@ function makeBoltTexture(): THREE.Texture {
 /** Scratch vectors; never read across frames. */
 const projected = new THREE.Vector3();
 const viewSpace = new THREE.Vector3();
-const cornerScratch = new THREE.Vector3();
-const normalScratch = new THREE.Vector3();
 
 /**
- * How far a box reaches outward from its own centre, in direction `normal`.
- *
- * The successor to `box.max.y` — which was only ever "how far up" because the
- * old world's buildings had no reason to be anything but Y-up. On the sphere
- * a building's own foundation (see `FOUNDATION_DEPTH` in ProceduralObjects.tsx)
- * makes its bounding box reach much further inward, towards the planet's
- * centre, than outward towards the roof — a bounding *sphere* centred on the
- * box would be inflated by that buried depth and park the marker further from
- * the roof than the roof needs. Walking the box's 8 corners and keeping only
- * the outward side answers "how far out does the visible part reach" without
- * being fooled by the part nobody sees.
+ * The five areas' markers, in tour order. The desk has none yet: stepping in
+ * to the PC is step 4 of docs/room-migration.md.
  */
-function outwardExtent(box: THREE.Box3, centre: THREE.Vector3, normal: THREE.Vector3): number {
-  let farthest = 0;
-  for (const x of [box.min.x, box.max.x])
-    for (const y of [box.min.y, box.max.y])
-      for (const z of [box.min.z, box.max.z]) {
-        cornerScratch.set(x, y, z).sub(centre);
-        farthest = Math.max(farthest, cornerScratch.dot(normal));
-      }
-  return farthest;
-}
+const MARKED = SECTION_ORDER;
+/** Where each marker floats — from the room's layout, not measured off the meshes. */
+const ANCHORS = MARKED.map((section) => new THREE.Vector3(...markerPoint(section)));
 
 export default function SectionMarkers() {
   const { activeSection, setActiveSection } = useAppState();
@@ -172,8 +154,6 @@ export default function SectionMarkers() {
   useEffect(() => () => texture.dispose(), [texture]);
 
   const sprites = useRef<(THREE.Sprite | null)[]>([]);
-  const anchors = useRef<THREE.Vector3[]>([]);
-  const placed = useRef(false);
   /** Eased half-height per marker, in px, so hiding and revealing are not a pop. */
   const radii = useRef<number[]>([]);
   /** The half-height each bolt was actually drawn at this frame, pulse included. */
@@ -194,33 +174,6 @@ export default function SectionMarkers() {
     // both of which still move while the scene is paused.
     const time = sceneClock.time(state.clock.elapsedTime);
 
-    // Park each bolt just clear of its building's real bounds, once the voxel
-    // meshes exist. Reading the scene beats hand-tuned heights: the buildings
-    // are procedural and still changing shape, and a number typed in by hand
-    // silently ends up buried inside a roof the moment one grows.
-    if (!placed.current) {
-      const box = new THREE.Box3();
-      const centre = new THREE.Vector3();
-      let complete = true;
-
-      PLANET_SECTION_KEYS.forEach((section, i) => {
-        const building = state.scene.getObjectByName(section);
-        const sprite = sprites.current[i];
-        if (!building || !sprite) {
-          complete = false;
-          return;
-        }
-        box.setFromObject(building);
-        box.getCenter(centre);
-        const [nx, ny, nz] = sectionDirection(section);
-        normalScratch.set(nx, ny, nz);
-        const reach = outwardExtent(box, centre, normalScratch) + MARKER_CLEARANCE;
-        sprite.position.copy(centre).addScaledVector(normalScratch, reach);
-        anchors.current[i] = sprite.position.clone();
-      });
-      placed.current = complete;
-    }
-
     const camera = state.camera as THREE.PerspectiveCamera;
     const viewportHeight = state.size.height;
 
@@ -238,7 +191,7 @@ export default function SectionMarkers() {
     // end opened turning one way and closed turning the other.
     camera.updateMatrixWorld();
 
-    PLANET_SECTION_KEYS.forEach((section, i) => {
+    MARKED.forEach((section, i) => {
       const sprite = sprites.current[i];
       if (!sprite) return;
 
@@ -301,9 +254,12 @@ export default function SectionMarkers() {
       else material.color.lerp(wanted, EASE);
     });
 
-    // Hand the facing marker's screen position to the DOM leader line.
-    const index = PLANET_SECTION_KEYS.indexOf(spotlight);
-    const anchor = anchors.current[index];
+    // Hand the facing marker's screen position to the DOM leader line. The
+    // desk has no marker (and no card to draw a trail from), so nothing is
+    // published while it is in front — the trail is off then anyway.
+    if (spotlight === "desk") return;
+    const index = MARKED.indexOf(spotlight);
+    const anchor = ANCHORS[index];
     if (!anchor) return;
     projected.copy(anchor).project(camera);
     const { width, height } = state.size;
@@ -332,9 +288,10 @@ export default function SectionMarkers() {
 
   return (
     <>
-      {PLANET_SECTION_KEYS.map((section, i) => (
+      {MARKED.map((section, i) => (
         <sprite
           key={section}
+          position={ANCHORS[i]}
           ref={(el) => {
             sprites.current[i] = el;
           }}

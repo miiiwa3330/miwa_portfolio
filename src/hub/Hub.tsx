@@ -22,7 +22,7 @@ import HomeButton from "./HomeButton";
 import SemanticSEO from "./SemanticSEO";
 import About from "./about/About";
 import type { ZoomStage } from "./ZoomControl";
-import { adjacentOnTour, TOUR_ORDER } from "@/scene/planet/tour";
+import { adjacentSection } from "@/scene/room/tour";
 import Sheet from "@/detail/Sheet";
 import { exitDirectionFor, type ExitDirection } from "@/detail/detailSheet";
 
@@ -58,8 +58,8 @@ export default function Hub() {
     turnTo,
     paused,
     togglePaused,
-    orbitZoom,
-    goToOrbit,
+    viewZoom,
+    goToView,
   } = useAppState();
   const { language, toggleLanguage } = useLanguage();
   const { openTerminal } = useTerminal();
@@ -118,18 +118,37 @@ export default function Hub() {
    * — and with it the `<Canvas>` and the whole three.js tree — several times a
    * lap of the idle drift. See `facingChannel`.
    */
-  const cardSection = () => activeSection ?? facingNow();
+  //
+  // Null while the desk is in front: it is on the tour but has no card, so
+  // there is no area for the card's own handlers to act on (and the card is
+  // not on screen to fire them — see `SectionCard`).
+  const cardSection = (): NonNullable<SectionType> | null => {
+    const stop = activeSection ?? facingNow();
+    return stop === "desk" ? null : stop;
+  };
+  const openCard = () => {
+    const section = cardSection();
+    if (section) openPage(section);
+  };
+  const stepCard = (step: number) => {
+    const section = cardSection();
+    if (section) turnTo(adjacentSection(section, step));
+  };
   const openedAt = useRef(0);
 
   // What the zoom control highlights: any focused section (including About)
-  // reads as its own "building" stage, same as a pinch reaching the closest
-  // step — otherwise it's whichever free-orbit altitude orbitZoom names.
-  const zoomStage: ZoomStage = activeSection ? "building" : orbitZoom;
+  // reads as its own "zoom" stage, same as a pinch reaching the closest step —
+  // otherwise it's whichever free-view stage viewZoom names.
+  const zoomStage: ZoomStage = activeSection ? "zoom" : viewZoom;
   const handleZoomSelect = (stage: ZoomStage) => {
-    if (stage === "building") {
-      setActiveSection(facingNow());
+    if (stage === "zoom") {
+      // Stepping in to the desk is the PC's own zoom, which does not exist yet
+      // (step 4 of docs/room-migration.md). Until then the zoom stage only
+      // reaches the five areas.
+      const section = cardSection();
+      if (section) setActiveSection(section);
     } else {
-      goToOrbit(stage);
+      goToView(stage);
     }
   };
 
@@ -186,9 +205,9 @@ export default function Hub() {
     // was in front *before* this one was opened — and the card and the trail,
     // which both read it, pointed at the wrong spot until the flight landed.
     if (resetCamera) {
-      // The tour's own starting point (u = 0) is what HOME actually flies to
-      // — see the destination effect's "reset" branch in Scene.tsx.
-      publishFacing(TOUR_ORDER[0]);
+      // The tour's own starting point (u = 0), the desk, is what HOME actually
+      // flies to — see the destination effect's "reset" branch in Scene.tsx.
+      publishFacing("desk");
       goHome();
     } else {
       if (activeSection) publishFacing(activeSection);
@@ -272,16 +291,14 @@ export default function Hub() {
           more. */}
       <div className="fixed inset-0 w-full h-full z-0 bg-[#070a14]" />
 
-      {/* Self-intro crawl: floating text straight over the space colour,
-          *underneath* the (now transparent) canvas. The planet, buildings and
-          satellites the canvas draws occlude the crawl per-pixel wherever
-          they paint an opaque pixel — a z-index alone could never do this,
-          since the canvas is one flat layer and cannot have part of its own
-          content behind DOM and part in front of it. Moved out of HubDock
-          (where it used to live inside the z-40 chrome stack, on top of
-          everything) for exactly this reason. `pointer-events-none` on the
-          wrapper, same as before — the scroller inside opts itself back in. */}
-      <div className="fixed inset-0 z-[5] pointer-events-none">
+      {/* Self-intro crawl. **A stand-in until the hologram (step 5 of
+          docs/room-migration.md):** it used to sit *underneath* the
+          transparent canvas so the planet could occlude it per-pixel, but the
+          room covers every pixel of the frame, and underneath it the crawl
+          could never be seen. Over the canvas (z-15) for now, the way it
+          originally sat. `pointer-events-none` on the wrapper, same as before
+          — the scroller inside opts itself back in. */}
+      <div className="fixed inset-0 z-[15] pointer-events-none">
         <AnimatePresence>
           {aboutShowing && (
             // `closePage`, not a fly-home. The scroll that carried the text
@@ -367,8 +384,8 @@ export default function Hub() {
                 focusedSection={activeSection}
                 isJa={isJa}
                 anchorRef={anchorDotRef}
-                onOpen={() => openPage(cardSection())}
-                onStep={(step) => turnTo(adjacentOnTour(cardSection(), step))}
+                onOpen={openCard}
+                onStep={stepCard}
                 // The HOME button, moved onto the rail's own corner — the
                 // desktop keeps it at the bottom of the frame, where on a
                 // phone it landed on top of the rail itself.
@@ -383,8 +400,8 @@ export default function Hub() {
                   // Both read the area in front when they fire rather than
                   // closing over it, so this component never has to re-render
                   // for it — see `facingChannel` for why that matters here.
-                  onOpen={() => openPage(cardSection())}
-                  onStep={(step) => turnTo(adjacentOnTour(cardSection(), step))}
+                  onOpen={openCard}
+                  onStep={stepCard}
                 />
               </div>
             ))}
