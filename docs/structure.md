@@ -7,9 +7,10 @@
 | 置き場 | 何が入るか |
 | --- | --- |
 | `scene/Scene.tsx` | キャンバスとカメラの制御。**行き先を決める effect はここ1つだけ**（[scene-invariants.md](scene-invariants.md) の「カメラ — 行き先と飛行」） |
-| `scene/camera/` | 構図・飛行・画面への射影（`cameraLayout` / `cameraFlight` / `markerScreen`）。three.js を持ち込まない |
+| `scene/camera/` | 構図・飛行・画面への射影（`cameraLayout` / `cameraFlight` / `markerScreen` / `fisheye`）。three.js を持ち込まない |
 | `scene/objects/` | シーンに置かれる R3F コンポーネント。`PlanetScene.tsx` がその根 |
 | `scene/planet/` | 球面の幾何と配置の純粋関数（`geometry` / `sections` / `tour` / `shell` / `city` / `decor`） |
+| `scene/room/` | 部屋の配置と巡回の純粋関数（`layout` / `tour`）。2026-10-01 に部屋の中への移行（[room-migration.md](room-migration.md)）のために足した。移行が終わるまで `scene/planet/` と並んで存在し、`Direction` 型などは `planet/geometry.ts` から借りている（`scene/planet/` を外す手順で置き場を移す） |
 | `scene/voxel/` | ボクセルエンジン |
 | `scene/` 直下のその他 | 層をまたぐもの（`sceneClock` / `markerBolt` / `sunLight` / `planetPlacement`）と、入力の交通整理（`pointerClaim` / `viewGesture`）だけ。**迷ったらここではない** |
 
