@@ -6,6 +6,7 @@ import Wordmark from "@/ui/Wordmark";
 import { navItemForSection } from "./nav";
 import NavPills from "./NavPills";
 import ZoomControl, { type ZoomStage } from "./ZoomControl";
+import LightMenu from "./LightMenu";
 
 type Props = {
   activeSection: SectionType;
@@ -128,6 +129,7 @@ export default function HubHeader({
             </button>
           ) : (
             <>
+              <LightMenu isJa={isJa} compact={false} />
               {/* Freeze the town */}
               <button
                 onClick={togglePaused}
@@ -170,6 +172,8 @@ export default function HubHeader({
               <X size={20} />
             </button>
           ) : (
+            <>
+            <LightMenu isJa={isJa} compact />
             <button
               onClick={onMenuOpen}
               title={isJa ? "セクション一覧" : "Menu"}
@@ -179,6 +183,7 @@ export default function HubHeader({
             >
               <Menu size={20} />
             </button>
+            </>
           ))}
       </div>
     </header>

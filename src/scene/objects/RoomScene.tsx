@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import {
@@ -17,11 +17,15 @@ import {
   chairBackZ,
   horizontalAt,
   pieceCentreDistance,
+  pieceToWorld,
   type MonitorKey,
   type PieceKey,
 } from "../room/layout";
 import { DESK_SCREEN, HOLOGRAM_PANEL, type Panel } from "../room/screens";
 import { useAppState } from "@/state/AppStateContext";
+import { useCursor } from "@react-three/drei";
+import { AMBIENT_FLOOR, neonTheme, type LightSwitch, type NeonTheme, type RoomLights } from "../room/lighting";
+import { pointerClaim } from "../pointerClaim";
 import { panelShown } from "../camera/cssView";
 import { viewNow } from "../camera/viewChannel";
 import { SCREEN_HOLE_LAYER } from "../layers";
@@ -77,7 +81,7 @@ function Box({ size, at, color, glow, glowStrength = 2, rotation }: BoxProps) {
   );
 }
 
-function Shell() {
+function Shell({ ceiling }: { ceiling: boolean }) {
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
@@ -103,7 +107,7 @@ function Shell() {
       ))}
       <mesh position={[0, WALL_HEIGHT - 0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.5, 0.04, 8, 48]} />
-        <meshStandardMaterial color="#000000" emissive="#ffe0b8" emissiveIntensity={1.5} />
+        <meshStandardMaterial color="#000000" emissive="#ffe0b8" emissiveIntensity={ceiling ? 1.5 : 0.04} />
       </mesh>
     </group>
   );
@@ -156,7 +160,9 @@ function Desk() {
   // The hologram is projecting the self-introduction while About is focused.
   // Read from the app's state, which changes only when an area is entered or
   // left — cheap enough to re-render the desk on.
-  const projecting = useAppState().activeSection === "about";
+  const { activeSection, lights } = useAppState();
+  const projecting = activeSection === "about";
+  const lamp = lights.desk;
   // Where the cone of light meets the bottom of the text.
   const beamTop = SUBJECTS.about.local[1] - HOLOGRAM_PANEL.height / 2;
   const holo = useRef<THREE.Mesh>(null);
@@ -212,7 +218,7 @@ function Desk() {
       <Box size={[0.16, 0.03, 0.16]} at={[pcX - 0.42, 0.79, 0.22]} color="#222428" />
       <Box size={[0.025, 0.5, 0.025]} at={[pcX - 0.42, 1.04, 0.22]} color="#2a2d33" />
       <Box size={[0.14, 0.08, 0.12]} at={[pcX - 0.42, 1.25, -0.06]} color="#3a3d44" />
-      <Box size={[0.1, 0.01, 0.08]} at={[pcX - 0.42, 1.205, -0.06]} color="#000000" glow="#ffcf8a" glowStrength={3} />
+      <Box size={[0.1, 0.01, 0.08]} at={DESK_LAMP_BULB} color="#000000" glow="#ffcf8a" glowStrength={lamp ? 3 : 0} />
       {/* The chair, where the reader sits down at the PC: its back just behind
           the seated eye (`chairBackZ`). Its back stops below the line of sight
           from the centre to the bottom of the screen — a taller back (the
@@ -227,7 +233,7 @@ function Desk() {
   );
 }
 
-function Shelf() {
+function Shelf({ neon }: { neon: NeonTheme }) {
   const { width, depth } = PIECES.shelf;
   const gadgets = useMemo(
     () =>
@@ -248,7 +254,7 @@ function Shelf() {
         <Box key={i} size={[width, 0.03, depth]} at={[0, 0.05 + i * 0.45, 0]} color="#3a3d44" />
       ))}
       {[0, 1, 2, 3].map((i) => (
-        <Box key={i} size={[width - 0.1, 0.015, 0.02]} at={[0, 0.47 + i * 0.45, depth / 2 - 0.02]} color="#000000" glow="#ffb020" glowStrength={2.5} />
+        <Box key={i} size={[width - 0.1, 0.015, 0.02]} at={[0, 0.47 + i * 0.45, depth / 2 - 0.02]} color="#000000" glow={neon.warm} glowStrength={2.5} />
       ))}
       {gadgets.map(({ row, column, kind, color }) => (
         <mesh key={`${row}-${column}`} position={[-width / 2 + 0.25 + column * 0.37, 0.19 + row * 0.45, 0]}>
@@ -351,14 +357,14 @@ function Board() {
   );
 }
 
-function Comms() {
+function Comms({ neon }: { neon: NeonTheme }) {
   const { width, depth } = PIECES.comms;
   return (
     <Piece name="comms">
       <Box size={[width, 0.95, depth]} at={[0, 0.475, 0]} color="#3d4148" />
       <group position={[0, 1.28, -0.12]} rotation={[-0.25, 0, 0]}>
         <Box size={[0.62, 0.42, 0.05]} at={[0, 0, 0]} color="#1a1c20" />
-        <Box size={[0.56, 0.36, 0.01]} at={[0, 0, 0.03]} color="#000000" glow="#3fffd0" glowStrength={2.5} />
+        <Box size={[0.56, 0.36, 0.01]} at={[0, 0, 0.03]} color="#000000" glow={neon.cool} glowStrength={2.5} />
       </group>
       <Box size={[0.3, 0.16, 0.25]} at={[-0.38, 1.03, 0.05]} color="#55504a" />
       <Box size={[0.02, 0.6, 0.02]} at={[0.45, 1.25, -0.2]} color="#888888" />
@@ -366,7 +372,7 @@ function Comms() {
   );
 }
 
-function Door() {
+function Door({ neon }: { neon: NeonTheme }) {
   const { width, depth } = PIECES.door;
   return (
     <Piece name="door">
@@ -376,12 +382,13 @@ function Door() {
         <torusGeometry args={[0.18, 0.025, 8, 32]} />
         <meshStandardMaterial color="#8a8e96" metalness={0.8} />
       </mesh>
-      <Box size={[0.7, 0.04, 0.03]} at={[0, 2.24, depth / 2 + 0.02]} color="#000000" glow="#ffb020" glowStrength={3} />
+      <Box size={[0.7, 0.04, 0.03]} at={[0, 2.24, depth / 2 + 0.02]} color="#000000" glow={neon.warm} glowStrength={3} />
+      <LightSwitches />
     </Piece>
   );
 }
 
-function Workbench() {
+function Workbench({ neon }: { neon: NeonTheme }) {
   const { width, depth } = PIECES.workbench;
   return (
     <Piece name="workbench">
@@ -394,49 +401,124 @@ function Workbench() {
       {/* The 3D printer. */}
       <Box size={[0.5, 0.04, 0.45]} at={[0.3, 0.945, -0.05]} color="#222428" />
       <Box size={[0.5, 0.03, 0.45]} at={[0.3, 1.47, -0.05]} color="#cfd4dc" />
-      <Box size={[0.08, 0.06, 0.08]} at={[0.3, 1.12, -0.05]} color="#000000" glow="#2fe8ff" glowStrength={2} />
+      <Box size={[0.08, 0.06, 0.08]} at={[0.3, 1.12, -0.05]} color="#000000" glow={neon.cool} glowStrength={2} />
       <Box size={[0.3, 0.12, 0.2]} at={[-0.35, 0.985, 0.05]} color="#7a8290" />
     </Piece>
   );
 }
 
+/** Where the desk lamp's bulb is, in the desk's frame — its light shines from there. */
+const DESK_LAMP_BULB: [number, number, number] = [SUBJECTS.desk.local[0] - 0.42, 1.205, -0.06];
+
 /**
- * Placeholder lighting, as in the prototype — a ceiling light, a cool fill,
- * and a few coloured lamps near the things that glow. The real lighting
- * (switchable ceiling light, desk light and neon colours) is step 6.
+ * The switch plate by the door: three buttons, top to bottom the ceiling
+ * light, the desk lamp and the neon's colours. Each lights up while its
+ * light is on (the neon's shows the pair it is on).
+ *
+ * The same switches as the header's light menu — both only call
+ * `flipLight`. Claims the pointer on the way down (`pointerClaim`), as the
+ * markers do: on a phone a tap on empty room pauses it, and a tap on a
+ * switch is not empty room.
  */
-function RoomLights() {
+function LightSwitches() {
+  const { lights, flipLight } = useAppState();
+  const neon = neonTheme(lights);
+  const [hovered, setHovered] = useState<LightSwitch | null>(null);
+  useCursor(hovered !== null);
+  const { width } = PIECES.door;
+  const buttons: { key: LightSwitch; y: number; lit: string; on: boolean }[] = [
+    { key: "ceiling", y: 0.07, lit: "#ffe0b8", on: lights.ceiling },
+    { key: "desk", y: 0, lit: "#ffcf8a", on: lights.desk },
+    { key: "neon", y: -0.07, lit: neon.warm, on: true },
+  ];
+  return (
+    <group position={[width / 2 + 0.2, 1.25, 0]}>
+      <Box size={[0.1, 0.22, 0.02]} at={[0, 0, 0]} color="#2a2d33" />
+      {buttons.map(({ key, y, lit, on }) => (
+        <mesh
+          key={key}
+          position={[0, y, 0.016]}
+          scale={hovered === key ? 1.15 : 1}
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            setHovered(key);
+          }}
+          onPointerOut={() => setHovered(null)}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            pointerClaim.claim(e.pointerId);
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            flipLight(key);
+          }}
+        >
+          <boxGeometry args={[0.06, 0.045, 0.014]} />
+          <meshStandardMaterial color="#14161a" emissive={lit} emissiveIntensity={on ? 2.2 : 0.15} toneMapped={false} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/**
+ * **Provisional (仮)** strengths of the switchable lights, set by eye
+ * against the prototype's look; the exposure (1.75 in `Scene.tsx`) is still
+ * the prototype's too. What is not by eye is the floor under them
+ * (`AMBIENT_FLOOR`), which is measured.
+ */
+const CEILING_LIGHT = 4;
+const DESK_LAMP_LIGHT = 2.5;
+
+/**
+ * The room's lights: a floor of ambient light that is always there, the two
+ * switchable lights, and the neon's coloured glow near the things that glow.
+ */
+function Lights({ lights }: { lights: RoomLights }) {
+  const neon = neonTheme(lights);
   const at = (angle: number, distance: number, y: number): [number, number, number] => {
     const [x, z] = horizontalAt(angle);
     return [x * distance, y, z * distance];
   };
   return (
     <>
-      <hemisphereLight args={["#8fa8ff", "#201810", 0.6]} />
-      <ambientLight intensity={0.25} />
-      <pointLight position={[0, WALL_HEIGHT - 0.3, 0]} color="#ffe6c8" intensity={4} distance={9} decay={2} />
-      <pointLight position={at(8, 2.0, 1.4)} color="#5fd8ff" intensity={3} distance={5} decay={2} />
-      <pointLight position={at(68, 2.2, 1.2)} color="#ffb45a" intensity={2} distance={3.5} decay={2} />
+      <hemisphereLight args={["#8fa8ff", "#201810", AMBIENT_FLOOR.hemisphere]} />
+      <ambientLight intensity={AMBIENT_FLOOR.ambient} />
+      <pointLight position={[0, WALL_HEIGHT - 0.3, 0]} color="#ffe6c8" intensity={lights.ceiling ? CEILING_LIGHT : 0} distance={9} decay={2} />
+      <pointLight
+        position={pieceToWorld(PIECES.desk, DESK_LAMP_BULB)}
+        color="#ffcf8a"
+        intensity={lights.desk ? DESK_LAMP_LIGHT : 0}
+        distance={3}
+        decay={2}
+      />
+      <pointLight position={at(8, 2.0, 1.4)} color={neon.cool} intensity={3} distance={5} decay={2} />
+      <pointLight position={at(68, 2.2, 1.2)} color={neon.warm} intensity={2} distance={3.5} decay={2} />
+      {/* The window's light is the colony outside, not the room's neon. */}
       <pointLight position={at(165, 2.4, 1.8)} color="#ff4fd8" intensity={1.5} distance={3} decay={2} />
-      <pointLight position={at(218, 1.9, 2.3)} color="#ffc070" intensity={2.5} distance={4} decay={2} />
-      <pointLight position={at(260, 2.2, 1.4)} color="#3fffd0" intensity={1.5} distance={3} decay={2} />
+      <pointLight position={at(218, 1.9, 2.3)} color={neon.warm} intensity={2.5} distance={4} decay={2} />
+      <pointLight position={at(260, 2.2, 1.4)} color={neon.cool} intensity={1.5} distance={3} decay={2} />
     </>
   );
 }
 
 export default function RoomScene() {
+  // The lights change only when a switch is flipped, so reading them from
+  // the app's state here re-renders the room rarely.
+  const { lights } = useAppState();
+  const neon = neonTheme(lights);
   return (
     <group>
-      <RoomLights />
-      <Shell />
+      <Lights lights={lights} />
+      <Shell ceiling={lights.ceiling} />
       <Desk />
-      <Shelf />
+      <Shelf neon={neon} />
       <Bookcase />
       <PortholeAndHammock />
       <Board />
-      <Comms />
-      <Door />
-      <Workbench />
+      <Comms neon={neon} />
+      <Door neon={neon} />
+      <Workbench neon={neon} />
       <ScreenHole panel={DESK_SCREEN} />
       <SectionMarkers />
     </group>

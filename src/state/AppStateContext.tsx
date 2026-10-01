@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { hasSheet, hashForState, sectionFromHash } from "./sectionUrl";
 import type { Focus, SectionType } from "@/types";
 import type { ViewZoom } from "@/scene/room/layout";
+import { DEFAULT_LIGHTS, flipLight as flip, type LightSwitch, type RoomLights } from "@/scene/room/lighting";
 
 interface AppStateContextType {
   /**
@@ -61,6 +62,13 @@ interface AppStateContextType {
    * leaving a section resets to.
    */
   goToView: (zoom: ViewZoom) => void;
+  /**
+   * The room's lights — the ceiling light, the desk lamp and the neon's
+   * colours. The one copy: the switch plate in the room and the light menu in
+   * the header both only call `flipLight` (see `scene/room/lighting.ts`).
+   */
+  lights: RoomLights;
+  flipLight: (which: LightSwitch) => void;
 }
 
 const AppStateContext = createContext<AppStateContextType | undefined>(undefined);
@@ -72,6 +80,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [turnRequest, setTurnRequest] = useState<{ section: NonNullable<SectionType>; nonce: number } | null>(null);
   const [paused, setPaused] = useState(false);
   const [viewZoom, setViewZoom] = useState<ViewZoom>("standard");
+  const [lights, setLights] = useState<RoomLights>(DEFAULT_LIGHTS);
+  const flipLight = useCallback((which: LightSwitch) => setLights((current) => flip(current, which)), []);
 
   const togglePaused = useCallback(() => setPaused((p) => !p), []);
 
@@ -173,9 +183,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       activeSection, setActiveSection, pageOpen, setPageOpen, openPage, closePage, goHome, homeNonce,
-      turnTo, turnRequest, paused, togglePaused, viewZoom, setViewZoom, goToView,
+      turnTo, turnRequest, paused, togglePaused, viewZoom, setViewZoom, goToView, lights, flipLight,
     }),
-    [activeSection, pageOpen, openPage, closePage, goHome, homeNonce, turnTo, turnRequest, paused, togglePaused, viewZoom, goToView]
+    [activeSection, pageOpen, openPage, closePage, goHome, homeNonce, turnTo, turnRequest, paused, togglePaused, viewZoom, goToView, lights, flipLight]
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
