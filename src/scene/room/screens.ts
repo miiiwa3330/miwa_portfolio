@@ -1,4 +1,13 @@
-import { MONITOR_SCREEN, PIECES, horizontalAt, monitorFace, pieceToWorld, type PieceKey } from "./layout";
+import {
+  MONITOR_SCREEN,
+  PIECES,
+  SUBJECTS,
+  horizontalAt,
+  monitorFace,
+  pieceCentreDistance,
+  pieceToWorld,
+  type PieceKey,
+} from "./layout";
 
 /**
  * Flat things in the room that carry HTML: the PC's screen now, the
@@ -66,3 +75,28 @@ export const DESK_SCREEN_PX = { width: 1240, height: 760 } as const;
 
 const gui = monitorFace("gui");
 export const DESK_SCREEN: Panel = piecePanel("desk", gui.centre, gui.yaw, MONITOR_SCREEN, DESK_SCREEN_PX);
+
+/**
+ * The hologram's text, standing in the air over the device on the desk and
+ * turned to face the middle of the room — so the zoom, which steps out along
+ * the line from the centre to it, meets it square on.
+ *
+ * Drawn in front of the canvas (`RoomHtmlLayer`, no cut-out): a hologram has
+ * to let the room show through it, and nothing stands between it and the
+ * reader, from the middle or from the zoom (prototype 2). **Keep it that
+ * way** — anything placed in front of it would be drawn behind the text.
+ *
+ * **Provisional (仮)** size: 0.56 × 0.54 m, about the width the zoom frames
+ * (`SUBJECTS.about.frameWidth` at 70% of the view) and no taller than 80% of
+ * the view at that distance, which leaves the header and the HOME button
+ * clear — at 0.63 m its top ran under the header. Laid out at 640 × 617 px,
+ * which the zoom draws at about its own size on a 1600px frame.
+ */
+export const HOLOGRAM_PX = { width: 640, height: 617 } as const;
+export const HOLOGRAM_SIZE = { width: 0.56, height: 0.54 } as const;
+
+const holo = SUBJECTS.about.local;
+// The room's centre, in the desk's own frame, is straight out along +Z at the
+// desk's distance; turn the panel's face to it.
+const holoYaw = Math.atan2(-holo[0], pieceCentreDistance(PIECES.desk) - holo[2]);
+export const HOLOGRAM_PANEL: Panel = piecePanel("desk", [holo[0], holo[1], holo[2]], holoYaw, HOLOGRAM_SIZE, HOLOGRAM_PX);

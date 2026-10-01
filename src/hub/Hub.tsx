@@ -20,13 +20,13 @@ import { navItemForSection } from "./nav";
 import PauseFlash from "./PauseFlash";
 import HomeButton from "./HomeButton";
 import SemanticSEO from "./SemanticSEO";
-import About from "./about/About";
+import Hologram from "./about/Hologram";
 import type { ZoomStage } from "./ZoomControl";
 import { adjacentSection } from "@/scene/room/tour";
 import Sheet from "@/detail/Sheet";
 import { RoomHtmlLayer, RoomPanel } from "./room/RoomHtml";
 import DeskScreen from "./desk/DeskScreen";
-import { DESK_SCREEN } from "@/scene/room/screens";
+import { DESK_SCREEN, HOLOGRAM_PANEL } from "@/scene/room/screens";
 import { exitDirectionFor, type ExitDirection } from "@/detail/detailSheet";
 
 // Each transparent spacer bracketing the detail page is exactly one viewport
@@ -272,15 +272,13 @@ export default function Hub() {
     }
   };
 
-  // Whether the self-intro crawl is on screen — read by both the crawl's own
-  // layer below and the canvas's pointer-events toggle, so the two can never
-  // disagree about which one is meant to catch a gesture.
-  const aboutShowing = !pageOpen && activeSection === "about";
+  // Whether the hologram is projecting the self-introduction.
+  const aboutFocused = !pageOpen && activeSection === "about";
 
   // Whether the reader is sitting at the PC. The PC's screen is HTML behind
   // the canvas (seen through a hole in it), so while seated the canvas lets
-  // every gesture through to it — the same switch the crawl uses. Turning the
-  // head is locked out at the desk anyway, as it is in every focused area.
+  // every gesture through to it. Turning the head is locked out at the desk
+  // anyway, as it is in every focused area.
   const seated = !pageOpen && activeSection === "desk";
 
   // The area the overlay talks about, if any. The desk is focused like an
@@ -313,27 +311,6 @@ export default function Hub() {
         </RoomPanel>
       </RoomHtmlLayer>
 
-      {/* Self-intro crawl. **A stand-in until the hologram (step 5 of
-          docs/room-migration.md):** it used to sit *underneath* the
-          transparent canvas so the planet could occlude it per-pixel, but the
-          room covers every pixel of the frame, and underneath it the crawl
-          could never be seen. Over the canvas (z-15) for now, the way it
-          originally sat. `pointer-events-none` on the wrapper, same as before
-          — the scroller inside opts itself back in. */}
-      <div className="fixed inset-0 z-[15] pointer-events-none">
-        <AnimatePresence>
-          {aboutShowing && (
-            // `closePage`, not a fly-home. The scroll that carried the text
-            // off the screen carried the camera home with it (see the About
-            // branch of Scene's frame loop), so by now it is already in the
-            // home framing, and a flight would only be a second arrival on
-            // top of the one the reader just made. Facing is published by
-            // the scene from the angle it actually stopped at.
-            <About onFinish={closePage} />
-          )}
-        </AnimatePresence>
-      </div>
-
       {/* 3D scene, transparent, painted over both layers above. */}
       {/* z-10, not -z-10. Behind a negative index the canvas painted *under*
           <main> and stopped hit-testing entirely, which silently killed every
@@ -356,17 +333,37 @@ export default function Hub() {
           other half of this — see its own prop comment for why turning off
           pointer-events on just this wrapper div is not enough by itself. */}
       <div
-        className={`fixed inset-0 w-full h-full z-10 touch-none ${aboutShowing || seated ? "pointer-events-none" : ""}`}
+        className={`fixed inset-0 w-full h-full z-10 touch-none ${seated ? "pointer-events-none" : ""}`}
       >
         <Scene
           obscured={sceneObscured}
-          interactive={!aboutShowing && !seated}
+          interactive={!seated}
           // Only a phone gets the tap: a desktop still has a pause button, and
           // handing the gesture over as well would mean a stray click on the
           // starfield froze the town with nothing to say why.
           onEmptyTap={handheld ? handleEmptyTap : undefined}
         />
       </div>
+
+      {/* The hologram's self-introduction, in front of the canvas: a
+          hologram has to let the room show through it (no cut-out), and
+          nothing stands between it and the reader. On a phone the panel in
+          the room is too small to read at any zoom the frame allows, so the
+          same text is projected flat over the lower part of the frame instead
+          — provisional, see docs/room-migration.md (step 5). */}
+      {handheld ? (
+        aboutFocused && (
+          <div className="fixed inset-x-4 top-[38%] bottom-28 z-[15]">
+            <Hologram isJa={isJa} active onFinish={() => closeToHome("down", false)} />
+          </div>
+        )
+      ) : (
+        <RoomHtmlLayer className="z-[15]">
+          <RoomPanel panel={HOLOGRAM_PANEL} interactive={aboutFocused} hidden={!aboutFocused}>
+            <Hologram isJa={isJa} active={aboutFocused} onFinish={() => closeToHome("down", false)} />
+          </RoomPanel>
+        </RoomHtmlLayer>
+      )}
 
       {/* --- PERSISTENT CHROME (always visible in both modes) --- */}
       {/* `safe-inset` on the outside and the usual padding on the inside:
@@ -436,18 +433,17 @@ export default function Hub() {
         </div>
       </div>
 
-      {/* HOME button — zoomed into a building, page not yet open.
-          About is the exception: its column is read to the end to leave it, so
-          a button offering the same thing would be a second, competing way out
-          of the one area that already has a natural one.
+      {/* HOME button — zoomed into an area, page not yet open. About has one
+          too now: reading the hologram to the end still takes the reader
+          back, but the crawl that made reading the only way out is gone, and
+          with it the reason for a second exit to compete with.
 
-          Not here on a phone, where the bottom of the frame is the card
-          rail — it landed on top of the rail, the links button and the
-          copyright all at once (measured at 390x844). The rail carries its
-          own copy, just above the card; see `CardRail`. */}
-      {/* The desk is the exception on a phone: it has no rail to carry the
-          button, so it sits at the bottom of the frame as on a desktop. */}
-      {(!handheld || activeSection === "desk") && activeSection && activeSection !== "about" && !pageOpen && (
+          On a phone only where there is no card rail (the desk, About): the
+          bottom of the frame is otherwise the rail — the button landed on
+          top of the rail, the links button and the copyright all at once
+          (measured at 390x844) — and the rail carries its own copy, just
+          above the card; see `CardRail`. */}
+      {activeSection && !pageOpen && (!handheld || !cardShowing) && (
         <HomeButton
           onClick={() => closeToHome("down", true)}
           className="fixed bottom-6 left-1/2 -translate-x-1/2"

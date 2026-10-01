@@ -7,6 +7,8 @@ import {
   placeCamera,
   HANDHELD_CARD_LIFT,
   cardLift,
+  freeFraming,
+  zoomFraming,
   lensBends,
   pixelsPerUnitAt,
   poseFromView,
@@ -267,5 +269,36 @@ describe("advanceRoomFlight", () => {
     const last = advanceRoomFlight(flight, 0.1);
     expect(last.done).toBe(true);
     expect(last.landed).toBeNull();
+  });
+});
+
+describe("zoomFraming", () => {
+  it("draws every zoom through a plain perspective, which is all the HTML in the room can be drawn through", () => {
+    for (const stop of ["desk", "about", "products", "skills", "experience", "contact"] as const) {
+      for (const handheld of [false, true]) expect(zoomFraming(stop, handheld).lens).toBe(1);
+    }
+  });
+
+  it("leaves the desk and the hologram square in the frame — neither has a card to clear", () => {
+    for (const stop of ["desk", "about"] as const) {
+      for (const handheld of [false, true]) {
+        expect(zoomFraming(stop, handheld).share).toBe(0);
+        expect(zoomFraming(stop, handheld).lift).toBe(0);
+      }
+    }
+  });
+
+  it("still clears the card for an area that has one", () => {
+    expect(zoomFraming("products", false).share).toBeGreaterThan(0);
+    expect(zoomFraming("products", true).lift).toBeGreaterThan(0);
+  });
+});
+
+describe("freeFraming", () => {
+  it("bends only the fisheye, and clears the card at both stages", () => {
+    expect(freeFraming("standard", false).lens).toBe(1);
+    expect(freeFraming("fisheye", false).lens).toBe(2);
+    expect(freeFraming("fisheye", false).share).toBe(freeFraming("standard", false).share);
+    expect(freeFraming("fisheye", true).lift).toBe(HANDHELD_CARD_LIFT);
   });
 });

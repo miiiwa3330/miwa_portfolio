@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { DESK_SCREEN, DESK_SCREEN_PX, piecePanel } from "./screens";
-import { MONITOR_BEZEL, MONITOR_FACE_Z, MONITOR_GLASS, MONITOR_SCREEN, monitorFace, subjectPoint } from "./layout";
+import { DESK_SCREEN, DESK_SCREEN_PX, HOLOGRAM_PANEL, piecePanel } from "./screens";
+import { STANDARD_HFOV, ZOOM_FILL, zoomView, MONITOR_BEZEL, MONITOR_FACE_Z, MONITOR_GLASS, MONITOR_SCREEN, monitorFace, subjectPoint } from "./layout";
 
 const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
@@ -45,5 +45,26 @@ describe("piecePanel", () => {
     expect(panel.normal[2]).toBeCloseTo(Math.cos(left.yaw), 9);
     // Still at right angles to its own right-hand edge.
     expect(dot(panel.normal, panel.right)).toBeCloseTo(0, 12);
+  });
+});
+
+describe("the hologram's text", () => {
+  it("stands where the zoom into About looks, facing the middle of the room square on", () => {
+    const subject = subjectPoint("about");
+    for (let i = 0; i < 3; i++) expect(HOLOGRAM_PANEL.centre[i]).toBeCloseTo(subject[i], 12);
+    const [x, , z] = HOLOGRAM_PANEL.centre;
+    const toCentre = [-x, 0, -z].map((v) => v / Math.hypot(x, z));
+    expect(dot(HOLOGRAM_PANEL.normal, toCentre)).toBeCloseTo(1, 9);
+  });
+
+  it("fits the zoomed view: no wider than the framed width, and clear of the header and HOME above and below", () => {
+    const view = zoomView("about", STANDARD_HFOV);
+    const [x, , z] = HOLOGRAM_PANEL.centre;
+    const away = Math.hypot(x, z) - view.forward;
+    const halfWidth = away * Math.tan(((STANDARD_HFOV / 2) * Math.PI) / 180);
+    // 16:9 frame: the half-height is the half-width over the aspect.
+    const halfHeight = halfWidth / (16 / 9);
+    expect(HOLOGRAM_PANEL.width / 2).toBeLessThan(halfWidth * ZOOM_FILL);
+    expect(HOLOGRAM_PANEL.height / 2).toBeLessThan(halfHeight * 0.8);
   });
 });

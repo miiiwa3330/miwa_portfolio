@@ -9,16 +9,14 @@ import { SCREEN_HOLE_LAYER } from "./layers";
 import {
   AUTO_ORBIT_SPEED,
   ORBIT_RETURN_SPEED,
-  aboutCardShare,
   orbitStepFraction,
-  orbitCardShare,
-  sectionCardShare,
   wrapAngle,
 } from "./camera/cameraLayout";
 import {
   advanceRoomFlight,
   beginRoomFlight,
-  cardLift,
+  freeFraming,
+  zoomFraming,
   lensBends,
   placeCamera,
   poseFromView,
@@ -26,7 +24,6 @@ import {
   projectionShiftPx,
   screenRay,
   verticalFov,
-  type Framing,
   type RoomFlight,
   type RoomPose,
 } from "./camera/roomCamera";
@@ -34,8 +31,6 @@ import { publishView, viewNow } from "./camera/viewChannel";
 import {
   EYE_HEIGHT,
   facingStop,
-  hfovForZoom,
-  lensForZoom,
   viewDirection,
   yawOf,
   zoomView,
@@ -548,14 +543,7 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
   // How the free view is drawn at its current stage, and how a zoom is: a
   // zoom is always through the standard view's perspective, since the HTML
   // placed in the room can only be drawn through one.
-  const freeFraming: Framing = {
-    hfov: hfovForZoom(viewZoom, handheld),
-    lens: lensForZoom(viewZoom),
-    share: orbitCardShare(handheld),
-    lift: cardLift(handheld),
-  };
-  const zoomHfov = hfovForZoom("standard", handheld);
-  const zoomShare = sectionCardShare(handheld);
+  const free = freeFraming(viewZoom, handheld);
 
   // The free view's true state. The targets jump the instant a gesture or the
   // tour asks for something new; `yawRef`/`pitchRef` are what is drawn,
@@ -589,7 +577,7 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     pitch: home.pitch,
     forward: 0,
     eyeHeight: EYE_HEIGHT,
-    ...freeFraming,
+    ...free,
   });
 
   // Turning only makes sense in the free view — lock out drag/wheel input
@@ -615,7 +603,7 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     pitch,
     forward: 0,
     eyeHeight: EYE_HEIGHT,
-    ...freeFraming,
+    ...free,
   });
 
   /**
@@ -703,12 +691,8 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     // 1. A section was focused: step out towards its subject. About is no
     //    longer a case of its own — its subject is the hologram on the desk.
     if (activeSection) {
-      // The desk has no card to clear, sideways or above a phone's rail: the
-      // PC's screen is what the reader is there to use, square in the frame.
-      const desk = activeSection === "desk";
-      const share = desk ? 0 : activeSection === "about" ? aboutCardShare(handheld) : zoomShare;
-      const framing: Framing = { hfov: zoomHfov, lens: 1, share, lift: desk ? 0 : freeFraming.lift };
-      startFlight(poseFromView(zoomView(activeSection, zoomHfov), framing), duration, null);
+      const framing = zoomFraming(activeSection, handheld);
+      startFlight(poseFromView(zoomView(activeSection, framing.hfov), framing), duration, null);
       return;
     }
 

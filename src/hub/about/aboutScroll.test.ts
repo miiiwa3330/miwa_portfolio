@@ -1,15 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  ABOUT_SETTLE_MS,
-  aboutReturn,
-  aboutReturnProgress,
-  aboutScrollProgress,
-  autoScrollStep,
-  scrollCatchUp,
-  settleRetryDelay,
-  shouldReturnHome,
-  wheelScrollStep,
-} from "./aboutScroll";
+import { ABOUT_SETTLE_MS, aboutScrollProgress, autoScrollStep, shouldReturnHome } from "./aboutScroll";
 
 describe("aboutScrollProgress", () => {
   it("is 0 at the top and 1 once scrollTop reaches proseBottom", () => {
@@ -83,41 +73,8 @@ describe("shouldReturnHome", () => {
   });
 });
 
-describe("wheelScrollStep", () => {
-  // Literals, not ABOUT_SCROLL_RATE: written against the constant every one of
-  // these holds at a rate of 1, which is the setting they exist to rule out —
-  // it is the browser's own pace, i.e. the thing this replaced.
-  it("damps the wheel well below the browser's own pace", () => {
-    expect(wheelScrollStep(100, 0, 950)).toBe(20);
-    expect(wheelScrollStep(240, 0, 950)).toBe(48);
-  });
-
-  it("scrolls back up as readily as down", () => {
-    expect(wheelScrollStep(-100, 0, 950)).toBe(-20);
-  });
-
-  // Firefox reports lines, not pixels: three of them damped as though they
-  // were three pixels would leave the column all but frozen.
-  it("reads a delta in lines as lines", () => {
-    expect(wheelScrollStep(3, 1, 950)).toBe(24);
-    expect(wheelScrollStep(-3, 1, 950)).toBe(-24);
-  });
-
-  // A page is the reader's own viewport, so this one cannot be a fixed figure.
-  it("reads a delta in pages against the column's own height", () => {
-    expect(wheelScrollStep(1, 2, 950)).toBe(190);
-    expect(wheelScrollStep(1, 2, 600)).toBe(120);
-  });
-
-  it("never travels further than the browser would have", () => {
-    for (const delta of [-500, -100, -1, 1, 16, 100, 2000]) {
-      expect(Math.abs(wheelScrollStep(delta, 0, 950))).toBeLessThan(Math.abs(delta));
-    }
-  });
-});
-
 describe("autoScrollStep", () => {
-  /** A believable computed line height for the crawl at a desktop breakpoint. */
+  /** A round line height, so the expected steps are easy to read. */
   const LINE = 100;
 
   it("is zero for no elapsed time", () => {
@@ -125,11 +82,11 @@ describe("autoScrollStep", () => {
   });
 
   // Literals, not the constant: this is checking the multiplication itself
-  // happens, not restating whatever the rate is set to. Half a line a second
-  // of a 100px line is 50px/s, so 0.05s is 2.5px.
+  // happens, not restating whatever the rate is set to. 0.3 of a line a second
+  // of a 100px line is 30px/s, so 0.05s is 1.5px.
   it("scales linearly with elapsed time below the clamp", () => {
-    expect(autoScrollStep(0.05, LINE)).toBeCloseTo(2.5, 9);
-    expect(autoScrollStep(0.1, LINE)).toBeCloseTo(5, 9);
+    expect(autoScrollStep(0.05, LINE)).toBeCloseTo(1.5, 9);
+    expect(autoScrollStep(0.1, LINE)).toBeCloseTo(3, 9);
   });
 
   // The whole point of measuring the pace in lines: the same elapsed time has
@@ -147,8 +104,8 @@ describe("autoScrollStep", () => {
   // in a single step would jump over lines — or past ABOUT_RETURN_AT — rather
   // than simply keep the crawl playing at its usual pace.
   it("clamps a large gap instead of jumping the column forward", () => {
-    expect(autoScrollStep(1, LINE)).toBeCloseTo(5, 9);
-    expect(autoScrollStep(5, LINE)).toBeCloseTo(5, 9);
+    expect(autoScrollStep(1, LINE)).toBeCloseTo(3, 9);
+    expect(autoScrollStep(5, LINE)).toBeCloseTo(3, 9);
   });
 
   // `getComputedStyle(...).lineHeight` reports the keyword `normal` on an
@@ -162,148 +119,3 @@ describe("autoScrollStep", () => {
   });
 });
 
-describe("scrollCatchUp", () => {
-  const FRAME = 1 / 60;
-
-  /** Walk a column from `from` towards `target` for `seconds`, one frame at a time. */
-  const settle = (from: number, target: number, seconds: number) => {
-    let at = from;
-    for (let t = 0; t < seconds; t += FRAME) at += scrollCatchUp(at, target, FRAME);
-    return at;
-  };
-
-  it("splits one flick across many frames instead of applying it whole", () => {
-    // The reason this exists: the camera's framing is a direct function of
-    // scrollTop, so a wheel event written straight through put the trackpad's
-    // own delta pattern onto the planet.
-    const flick = 600;
-    const firstFrame = scrollCatchUp(0, flick, FRAME);
-    expect(firstFrame).toBeGreaterThan(0);
-    expect(firstFrame).toBeLessThan(flick / 4);
-  });
-
-  it("gets there, and quickly enough that a flick still reads as a flick", () => {
-    expect(settle(0, 600, 0.25)).toBeGreaterThan(600 * 0.9);
-    expect(settle(0, 600, 1)).toBeCloseTo(600, 1);
-  });
-
-  it("never overshoots, however long the frame was", () => {
-    // A tab returning from the background hands the loop a multi-second step.
-    // Sailing past the target and coming back would be a bounce nobody asked
-    // for — and would take the camera with it.
-    for (const delta of [FRAME, 0.5, 5, 120]) {
-      expect(scrollCatchUp(0, 600, delta)).toBeLessThanOrEqual(600);
-      expect(scrollCatchUp(600, 0, delta)).toBeGreaterThanOrEqual(-600);
-    }
-  });
-
-  it("backs up the same way it goes forward", () => {
-    // Scrolling up to re-read a line is the same journey in reverse, and the
-    // camera follows it back out — the trip home is not one-way.
-    expect(settle(600, 0, 0.25)).toBeLessThan(60);
-    expect(scrollCatchUp(600, 0, FRAME)).toBeCloseTo(-scrollCatchUp(0, 600, FRAME), 10);
-  });
-
-  it("stands still when there is nowhere to go, or no time to do it in", () => {
-    expect(scrollCatchUp(400, 400, FRAME)).toBe(0);
-    expect(scrollCatchUp(0, 600, 0)).toBe(0);
-    expect(scrollCatchUp(0, 600, -1)).toBe(0);
-  });
-
-  it("yields no movement rather than a NaN scrollTop", () => {
-    // The same trap `autoScrollStep` guards: a NaN written to scrollTop lands
-    // as 0 and strands the column at the top with nothing to say why.
-    expect(scrollCatchUp(0, Number.NaN, FRAME)).toBe(0);
-    expect(scrollCatchUp(Number.NaN, 600, FRAME)).toBe(0);
-  });
-});
-
-describe("settleRetryDelay", () => {
-  // The case it exists for: a flick that reaches the bottom during the
-  // entrance is refused, and at the bottom there is no further scroll event
-  // to ask again with — the reader would be left facing a screen the text has
-  // already left. A literal, not ABOUT_SETTLE_MS - 100: the delay has to
-  // outlast the window from *this* moment, not from the opening.
-  it("waits out what is left of the window", () => {
-    expect(settleRetryDelay(1, 100)).toBe(401);
-    expect(settleRetryDelay(1, 400)).toBe(101);
-  });
-
-  it("does not wait once the window has passed — that scroll went home", () => {
-    expect(settleRetryDelay(1, ABOUT_SETTLE_MS + 1)).toBe(0);
-    expect(settleRetryDelay(1, 5000)).toBe(0);
-  });
-
-  // Part way down the column there is nothing to reconsider: the reader has
-  // more to scroll, and scrolling it will ask again by itself.
-  it("does not wait part way down the column", () => {
-    expect(settleRetryDelay(0, 100)).toBe(0);
-    expect(settleRetryDelay(0.9, 100)).toBe(0);
-  });
-
-  // Whatever the retry waits, waking on it has to be enough: shouldReturnHome
-  // wants the age *past* the window, not level with it.
-  it("wakes late enough for the return to be allowed", () => {
-    const arrivedAt = 120;
-    const delay = settleRetryDelay(1, arrivedAt);
-    expect(shouldReturnHome(1, arrivedAt + delay)).toBe(true);
-  });
-});
-
-describe("aboutReturnProgress", () => {
-  // Literals rather than ABOUT_RETURN_FROM: what is being pinned down is that
-  // the camera holds still for the first *third* of the column and not for
-  // some other share of it. Written against the constant, every one of these
-  // would hold for any starting point at all, including 0 (a camera already
-  // leaving while the first paragraph is being read) and 0.99 (a snap at the
-  // end). The odd-looking figures below are the quarter points of the span
-  // that is left, worked out from 0.35 rather than chosen for looks.
-  it("holds still through the first third of the column", () => {
-    expect(aboutReturnProgress(0)).toBe(0);
-    expect(aboutReturnProgress(0.2)).toBe(0);
-    expect(aboutReturnProgress(0.35)).toBe(0);
-  });
-
-  // Deliberately asserted at 0.5 too: that used to be the moment the camera
-  // was still standing still, so a revert to the old constant fails here
-  // rather than silently passing the checks either side of it.
-  it("is already on its way by the middle of the column", () => {
-    expect(aboutReturnProgress(0.5)).toBeGreaterThan(0.2);
-  });
-
-  it("spends the rest of the column getting home", () => {
-    expect(aboutReturnProgress(0.5125)).toBeCloseTo(0.25, 9);
-    expect(aboutReturnProgress(0.675)).toBeCloseTo(0.5, 9);
-    expect(aboutReturnProgress(0.8375)).toBeCloseTo(0.75, 9);
-  });
-
-  // The two ends have to agree: ABOUT_RETURN_AT is exactly 1 (see its own
-  // comment), so the column handing over and the camera finishing its trip
-  // home are the same instant — nothing here is a jump the camera makes with
-  // nobody scrolling.
-  it("has landed by the bottom of the column", () => {
-    expect(aboutReturnProgress(1)).toBe(1);
-  });
-
-  // Rubber-banding hands back positions past both ends, and this feeds an
-  // interpolation between two framings: outside 0..1 it does not read as
-  // "past the end" but as a camera thrown somewhere neither framing is.
-  it("clamps an overscroll at either end", () => {
-    expect(aboutReturnProgress(1.4)).toBe(1);
-    expect(aboutReturnProgress(-0.2)).toBe(0);
-  });
-});
-
-describe("aboutReturn", () => {
-  it("hands the column's latest reading to whoever asks", () => {
-    aboutReturn.publish(0);
-    expect(aboutReturn.progress()).toBe(0);
-    aboutReturn.publish(0.4);
-    expect(aboutReturn.progress()).toBe(0.4);
-    aboutReturn.publish(1);
-    expect(aboutReturn.progress()).toBe(1);
-    // Reversible: scrolling back up has to take the camera back out again.
-    aboutReturn.publish(0.2);
-    expect(aboutReturn.progress()).toBe(0.2);
-  });
-});

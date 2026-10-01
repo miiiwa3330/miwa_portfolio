@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { cssCameraStyle, cssPanelTransform, panelShown } from "@/scene/camera/cssView";
-import { onView } from "@/scene/camera/viewChannel";
+import { onView, viewNow } from "@/scene/camera/viewChannel";
 import type { Panel } from "@/scene/room/screens";
 
 /**
@@ -71,26 +71,40 @@ export function RoomHtmlLayer({ className = "", children }: { className?: string
  *
  * `interactive` decides whether it takes the pointer at all. Off, every
  * gesture goes through it to whatever is under it, as if it were paint.
+ * `hidden` takes it off the screen whatever the camera can see — the
+ * hologram's text, which is only projected while About is focused.
  */
 export function RoomPanel({
   panel,
   interactive,
+  hidden = false,
   children,
 }: {
   panel: Panel;
   interactive: boolean;
+  hidden?: boolean;
   children: ReactNode;
 }) {
   const element = useRef<HTMLDivElement>(null);
   const transform = useMemo(() => cssPanelTransform(panel), [panel]);
 
-  useEffect(
-    () =>
-      onView(({ pose }) => {
-        if (element.current) element.current.style.visibility = panelShown(panel, pose) ? "visible" : "hidden";
-      }),
-    [panel]
-  );
+  // Written after hydration rather than rendered: the matrix is trigonometry
+  // on the panel's placement, and the server's last digit need not match the
+  // browser's — rendered, the whole style attribute failed to hydrate
+  // (React's "attributes didn't match" warning, step 5).
+  useEffect(() => {
+    if (element.current) element.current.style.transform = transform;
+  }, [transform]);
+
+  useEffect(() => {
+    const show = (pose: ReturnType<typeof viewNow>["pose"]) => {
+      if (element.current) element.current.style.visibility = !hidden && panelShown(panel, pose) ? "visible" : "hidden";
+    };
+    // Now, for a change of `hidden` with the camera standing still, and then
+    // with every move of the camera.
+    show(viewNow().pose);
+    return onView(({ pose }) => show(pose));
+  }, [panel, hidden]);
 
   return (
     <div
@@ -99,7 +113,6 @@ export function RoomPanel({
       style={{
         width: panel.pxWidth,
         height: panel.pxHeight,
-        transform,
         backfaceVisibility: "hidden",
         pointerEvents: interactive ? "auto" : "none",
       }}

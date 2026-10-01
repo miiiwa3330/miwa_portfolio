@@ -20,7 +20,8 @@ import {
   type MonitorKey,
   type PieceKey,
 } from "../room/layout";
-import { DESK_SCREEN, type Panel } from "../room/screens";
+import { DESK_SCREEN, HOLOGRAM_PANEL, type Panel } from "../room/screens";
+import { useAppState } from "@/state/AppStateContext";
 import { panelShown } from "../camera/cssView";
 import { viewNow } from "../camera/viewChannel";
 import { SCREEN_HOLE_LAYER } from "../layers";
@@ -152,6 +153,12 @@ function Desk() {
   const { width, depth } = PIECES.desk;
   const pcX = SUBJECTS.desk.local[0];
   const holoX = SUBJECTS.about.local[0];
+  // The hologram is projecting the self-introduction while About is focused.
+  // Read from the app's state, which changes only when an area is entered or
+  // left — cheap enough to re-render the desk on.
+  const projecting = useAppState().activeSection === "about";
+  // Where the cone of light meets the bottom of the text.
+  const beamTop = SUBJECTS.about.local[1] - HOLOGRAM_PANEL.height / 2;
   const holo = useRef<THREE.Mesh>(null);
   useFrame((state) => {
     const t = sceneClock.time(state.clock.elapsedTime);
@@ -179,12 +186,27 @@ function Desk() {
         );
       })}
       <Box size={[0.5, 0.02, 0.18]} at={[pcX, 0.785, 0.15]} color="#1c1e22" />
-      {/* The hologram's device, and a placeholder for what it shows. */}
+      {/* The hologram's device. Idle, it turns a wireframe over itself;
+          focused, it projects the self-introduction instead — the text is
+          HTML in front of the canvas (`HOLOGRAM_PANEL`), and a cone of light
+          joins it to the device. */}
       <Box size={[0.28, 0.08, 0.2]} at={[holoX, 0.815, 0]} color="#2a2d33" />
       <Box size={[0.2, 0.01, 0.12]} at={[holoX, 0.86, 0]} color="#000000" glow="#2fe8ff" glowStrength={3} />
-      <mesh ref={holo} position={[holoX, SUBJECTS.about.local[1], SUBJECTS.about.local[2]]}>
+      <mesh ref={holo} visible={!projecting} position={[holoX, SUBJECTS.about.local[1], SUBJECTS.about.local[2]]}>
         <icosahedronGeometry args={[0.16, 1]} />
         <meshBasicMaterial color="#7bf3ff" wireframe transparent opacity={0.85} toneMapped={false} />
+      </mesh>
+      <mesh position={[holoX, (0.865 + beamTop) / 2, SUBJECTS.about.local[2]]}>
+        <cylinderGeometry args={[HOLOGRAM_PANEL.width / 2, 0.08, beamTop - 0.865, 32, 1, true]} />
+        <meshBasicMaterial
+          color="#2fe8ff"
+          transparent
+          opacity={projecting ? 0.16 : 0.05}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
       </mesh>
       {/* Desk lamp (the "desk light" the lighting requirement switches). */}
       <Box size={[0.16, 0.03, 0.16]} at={[pcX - 0.42, 0.79, 0.22]} color="#222428" />

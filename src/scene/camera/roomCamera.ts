@@ -1,7 +1,8 @@
-import { HANDHELD_RAIL_TOP_PX, easeInOutCubic, wrapAngle } from "./cameraLayout";
+import { HANDHELD_RAIL_TOP_PX, easeInOutCubic, orbitCardShare, sectionCardShare, wrapAngle } from "./cameraLayout";
 import { MAX_FLIGHT_STEP } from "./cameraFlight";
-import { horizontalAt, viewDirection, type RoomView } from "../room/layout";
-import { lensPixelsPerRadian, projectLens, unprojectLens } from "./fisheye";
+import { hfovForZoom, horizontalAt, lensForZoom, viewDirection, type RoomView, type ViewZoom } from "../room/layout";
+import { RECTILINEAR, lensPixelsPerRadian, projectLens, unprojectLens } from "./fisheye";
+import type { Stop } from "@/types";
 import type { Direction } from "../planet/geometry";
 
 /**
@@ -181,6 +182,28 @@ export const HANDHELD_CARD_LIFT = 1 - HANDHELD_RAIL_TOP_PX / HANDHELD_FRAME_HEIG
 /** The lift for a frame with a card on it: only a phone's rail needs one. */
 export function cardLift(handheld: boolean): number {
   return handheld ? HANDHELD_CARD_LIFT : 0;
+}
+
+/** How the free view is drawn at a stage: its lens and width, and the shifts that clear the card. */
+export function freeFraming(zoom: ViewZoom, handheld: boolean): Framing {
+  return { hfov: hfovForZoom(zoom, handheld), lens: lensForZoom(zoom), share: orbitCardShare(handheld), lift: cardLift(handheld) };
+}
+
+/**
+ * How a zoom into `stop` is drawn: always through the standard view's
+ * perspective — the HTML placed in the room can only be drawn through one —
+ * and shifted clear of the card only where there is a card. The desk and
+ * the hologram have none: what the reader stepped in for (the PC's screen,
+ * the hologram's text) sits square in the frame.
+ */
+export function zoomFraming(stop: Stop, handheld: boolean): Framing {
+  const bare = stop === "desk" || stop === "about";
+  return {
+    hfov: hfovForZoom("standard", handheld),
+    lens: RECTILINEAR,
+    share: bare ? 0 : sectionCardShare(handheld),
+    lift: bare ? 0 : cardLift(handheld),
+  };
 }
 
 /**
