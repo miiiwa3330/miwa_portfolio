@@ -408,3 +408,22 @@ export const CHAIR_SEAT_FORWARD = 0.25;
 export function chairBackZ(): number {
   return pieceCentreDistance(PIECES.desk) - (zoomView("desk").forward - CHAIR_BACK_BEHIND_EYE);
 }
+
+/** The wall's upright ribs: one every 22.5°, at the panels' seams. */
+export const RIB_STEP = 22.5;
+/** How far, in degrees, a rib keeps clear of the edge of the door or the porthole. */
+export const RIB_CLEARANCE = 4;
+
+/**
+ * Where the wall's upright ribs stand — every `RIB_STEP` round the room,
+ * except where one would run down through the door or across the porthole.
+ * Behind the other furniture they are simply hidden.
+ */
+export function wallRibAngles(): number[] {
+  return Array.from({ length: 360 / RIB_STEP }, (_, i) => i * RIB_STEP + RIB_STEP / 2).filter((angle) =>
+    (["door", "porthole"] as const).every((key) => {
+      const { from, to } = pieceSpan(PIECES[key]);
+      return Math.abs(yawDelta((from + to) / 2, angle)) > (to - from) / 2 + RIB_CLEARANCE;
+    })
+  );
+}

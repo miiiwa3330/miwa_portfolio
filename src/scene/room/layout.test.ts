@@ -37,6 +37,8 @@ import {
   MONITOR_SCREEN,
   MONITOR_Y,
   chairBackZ,
+  wallRibAngles,
+  RIB_STEP,
   HAND_Y,
   KEYBOARD,
 } from "./layout";
@@ -289,5 +291,24 @@ describe("the chair", () => {
     const screenBottom = MONITOR_Y - MONITOR_SCREEN.height / 2;
     const sightAtChair = EYE_HEIGHT + ((screenBottom - EYE_HEIGHT) * backFromCentre) / screenDistance;
     expect(CHAIR_BACK_HEIGHT).toBeLessThan(sightAtChair);
+  });
+});
+
+describe("wallRibAngles", () => {
+  it("keeps every rib off the door and the porthole", () => {
+    for (const angle of wallRibAngles()) {
+      for (const key of ["door", "porthole"] as const) {
+        const { from, to } = pieceSpan(PIECES[key]);
+        // Signed, across the seam at 0°/360° — not `% 360` (step 1's trap).
+        expect(Math.abs(yawDelta((from + to) / 2, angle))).toBeGreaterThan((to - from) / 2);
+      }
+    }
+  });
+
+  it("leaves out only the ribs those two would have cut through", () => {
+    // 16 seams round the room; the door and the porthole each lose one or two.
+    const ribs = wallRibAngles();
+    expect(ribs.length).toBeGreaterThanOrEqual(360 / RIB_STEP - 4);
+    expect(ribs.length).toBeLessThan(360 / RIB_STEP);
   });
 });

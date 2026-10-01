@@ -22,6 +22,7 @@ import {
   horizontalAt,
   pieceCentreDistance,
   pieceToWorld,
+  wallRibAngles,
   type MonitorKey,
   type PieceKey,
 } from "../room/layout";
@@ -30,6 +31,7 @@ import { useAppState } from "@/state/AppStateContext";
 import { useCursor } from "@react-three/drei";
 import { AMBIENT_FLOOR, neonTheme, type LightSwitch, type NeonTheme, type RoomLights } from "../room/lighting";
 import { pointerClaim } from "../pointerClaim";
+import { makeCityTexture, makeFloorTexture, makeVideo, makeWallTexture } from "./roomTextures";
 import { panelShown } from "../camera/cssView";
 import { viewNow } from "../camera/viewChannel";
 import { SCREEN_HOLE_LAYER } from "../layers";
@@ -87,30 +89,87 @@ function Box({ size, at, color, glow, glowStrength = 2, rotation }: BoxProps) {
   );
 }
 
-function Shell({ ceiling }: { ceiling: boolean }) {
+const RIB_ANGLES = wallRibAngles();
+
+/**
+ * The cables slung under the ceiling (`reference/4/2.png`): each runs from a
+ * point near the top of the wall to the ring round the ceiling light, sagging
+ * on the way.
+ */
+function useCables(): THREE.TubeGeometry[] {
+  const cables = useMemo(
+    () =>
+      Array.from({ length: 14 }, (_, i) => {
+        const angle = (i / 14) * 360 + hash01(i + 400) * 18;
+        const [x, z] = horizontalAt(angle);
+        const [ex, ez] = horizontalAt(angle + 40 + hash01(i + 410) * 60);
+        const from = new THREE.Vector3(x * (ROOM_RADIUS - 0.1), WALL_HEIGHT - 0.1 - hash01(i + 420) * 0.2, z * (ROOM_RADIUS - 0.1));
+        const to = new THREE.Vector3(ex * 0.6, WALL_HEIGHT - 0.06, ez * 0.6);
+        const mid = from.clone().lerp(to, 0.5);
+        mid.y -= 0.25 + hash01(i + 430) * 0.35;
+        return new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(from, mid, to), 24, 0.012 + hash01(i + 440) * 0.014, 6);
+      }),
+    []
+  );
+  useEffect(() => () => cables.forEach((c) => c.dispose()), [cables]);
+  return cables;
+}
+
+function Shell({ ceiling, neon }: { ceiling: boolean; neon: NeonTheme }) {
+  const wall = useMemo(() => makeWallTexture(), []);
+  const floor = useMemo(() => makeFloorTexture(), []);
+  useEffect(
+    () => () => {
+      wall.dispose();
+      floor.dispose();
+    },
+    [wall, floor]
+  );
+  const cables = useCables();
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[ROOM_RADIUS, 96]} />
-        <meshStandardMaterial color="#23262c" roughness={0.45} metalness={0.5} />
+        {/* A little gloss, so the neon pools on it the way it does in the reference. */}
+        <meshStandardMaterial map={floor} roughness={0.32} metalness={0.55} />
       </mesh>
       <mesh position={[0, WALL_HEIGHT / 2, 0]}>
         <cylinderGeometry args={[ROOM_RADIUS, ROOM_RADIUS, WALL_HEIGHT, 128, 1, true]} />
-        <meshStandardMaterial color="#353941" roughness={0.8} metalness={0.3} side={THREE.BackSide} />
+        <meshStandardMaterial map={wall} roughness={0.75} metalness={0.4} side={THREE.BackSide} />
       </mesh>
+      {RIB_ANGLES.map((angle) => {
+        const [x, z] = horizontalAt(angle);
+        return (
+          <mesh key={angle} position={[x * (ROOM_RADIUS - 0.04), WALL_HEIGHT / 2, z * (ROOM_RADIUS - 0.04)]} rotation={[0, -angle * DEG, 0]}>
+            <boxGeometry args={[0.1, WALL_HEIGHT, 0.08]} />
+            <meshStandardMaterial color="#2a2e35" roughness={0.6} metalness={0.6} />
+          </mesh>
+        );
+      })}
       <mesh position={[0, WALL_HEIGHT, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <circleGeometry args={[ROOM_RADIUS, 96]} />
-        <meshStandardMaterial color="#1a1c21" />
+        <meshStandardMaterial color="#15171b" roughness={0.9} />
       </mesh>
       {[
         [ROOM_RADIUS - 0.25, WALL_HEIGHT - 0.18, 0.06],
         [ROOM_RADIUS - 0.45, WALL_HEIGHT - 0.3, 0.04],
+        [ROOM_RADIUS - 0.33, WALL_HEIGHT - 0.12, 0.03],
       ].map(([radius, y, tube]) => (
         <mesh key={radius} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]}>
           <torusGeometry args={[radius, tube, 8, 96]} />
-          <meshStandardMaterial color="#3b3f47" />
+          <meshStandardMaterial color="#3b3f47" roughness={0.5} metalness={0.7} />
         </mesh>
       ))}
+      {cables.map((geometry, i) => (
+        <mesh key={i} geometry={geometry}>
+          <meshStandardMaterial color={i % 4 === 0 ? "#3a2a1c" : "#101216"} roughness={0.7} />
+        </mesh>
+      ))}
+      {/* A strip of the neon's cool colour round the top of the wall. */}
+      <mesh position={[0, WALL_HEIGHT - 0.42, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[ROOM_RADIUS - 0.06, 0.012, 6, 128]} />
+        <meshBasicMaterial color={neon.cool} toneMapped={false} />
+      </mesh>
       <mesh position={[0, WALL_HEIGHT - 0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.5, 0.04, 8, 48]} />
         <meshStandardMaterial color="#000000" emissive="#ffe0b8" emissiveIntensity={ceiling ? 1.5 : 0.04} />
@@ -156,6 +215,29 @@ function ScreenHole({ panel }: { panel: Panel }) {
   );
 }
 
+/**
+ * The left monitor's video — a procedural loop until there is footage
+ * (`makeVideo`). Repainted about fifteen times a second on the room's clock,
+ * so the pause button stops it like everything else that moves by itself.
+ */
+function VideoFeed() {
+  const video = useMemo(() => makeVideo(), []);
+  useEffect(() => () => video.texture.dispose(), [video]);
+  const last = useRef(-1);
+  useFrame((state) => {
+    const t = sceneClock.time(state.clock.elapsedTime);
+    if (Math.abs(t - last.current) < 1 / 15) return;
+    last.current = t;
+    video.draw(t);
+  });
+  return (
+    <mesh position={[0, 0, MONITOR_GLASS.z + MONITOR_GLASS.thickness / 2 + 0.0002]}>
+      <planeGeometry args={[MONITOR_SCREEN.width, MONITOR_SCREEN.height]} />
+      <meshBasicMaterial map={video.texture} />
+    </mesh>
+  );
+}
+
 /** The lit colour each monitor shows where no HTML is drawn on it: the fisheye's view, and the two side screens. */
 const MONITOR_GLOW: Record<MonitorKey, string> = { video: "#c45ad0", gui: "#1f5f9e", camera: "#3a3d3a" };
 
@@ -179,8 +261,33 @@ function Desk() {
   return (
     <Piece name="desk">
       <Box size={[width, 0.05, depth]} at={[0, 0.75, 0]} color="#55504a" />
-      <Box size={[0.5, 0.72, depth - 0.05]} at={[-width / 2 + 0.3, 0.36, 0]} color="#3d4148" />
-      <Box size={[0.5, 0.72, depth - 0.05]} at={[width / 2 - 0.3, 0.36, 0]} color="#3d4148" />
+      {[-1, 1].map((side) => (
+        <group key={side} position={[side * (width / 2 - 0.3), 0, 0]}>
+          <Box size={[0.5, 0.72, depth - 0.05]} at={[0, 0.36, 0]} color="#3d4148" />
+          {/* Three drawers: a seam and a handle each. */}
+          {[0.6, 0.38, 0.16].map((y) => (
+            <group key={y}>
+              <Box size={[0.48, 0.008, 0.01]} at={[0, y + 0.1, (depth - 0.05) / 2 + 0.003]} color="#15171b" />
+              <Box size={[0.16, 0.02, 0.02]} at={[0, y, (depth - 0.05) / 2 + 0.01]} color="#8a8e96" />
+            </group>
+          ))}
+        </group>
+      ))}
+      {/* What lives on the desk: a mug, a cup of pens. */}
+      <mesh position={[0.55, 0.825, 0.2]}>
+        <cylinderGeometry args={[0.04, 0.035, 0.1, 16]} />
+        <meshStandardMaterial color="#d9d4c7" roughness={0.6} />
+      </mesh>
+      <mesh position={[-0.68, 0.83, 0.28]}>
+        <cylinderGeometry args={[0.035, 0.035, 0.11, 12]} />
+        <meshStandardMaterial color="#3a3d44" roughness={0.5} metalness={0.5} />
+      </mesh>
+      {[-0.012, 0.01, 0.0].map((dx, i) => (
+        <mesh key={i} position={[-0.68 + dx, 0.9, 0.28 + (i - 1) * 0.012]} rotation={[0.1 * (i - 1), 0, 0.15 * (i - 1)]}>
+          <cylinderGeometry args={[0.005, 0.005, 0.14, 6]} />
+          <meshStandardMaterial color={["#ff6a1a", "#2fe8ff", "#e8e8e8"][i]} />
+        </mesh>
+      ))}
       {/* Three monitors: video, the PC's own screen, the security camera. */}
       {(Object.keys(MONITORS) as MonitorKey[]).map((key) => {
         const { x, z, yaw } = MONITORS[key];
@@ -195,6 +302,7 @@ function Desk() {
               glowStrength={1.2}
             />
             {key === "camera" && <SecurityFeed />}
+            {key === "video" && <VideoFeed />}
           </group>
         );
       })}
@@ -235,10 +343,98 @@ function Desk() {
           home. */}
       <group position={[pcX, 0, chairBackZ()]}>
         <Box size={[0.5, 0.06, 0.48]} at={[0, CHAIR_SEAT_TOP - 0.03, -CHAIR_SEAT_FORWARD]} color="#1c1e22" />
-        <Box size={[0.48, 0.4, 0.06]} at={[0, CHAIR_BACK_HEIGHT - 0.2, 0]} color="#1c1e22" />
-        <Box size={[0.05, 0.45, 0.05]} at={[0, 0.24, -CHAIR_SEAT_FORWARD]} color="#2a2d33" />
+        <Box size={[0.48, 0.4, 0.04]} at={[0, CHAIR_BACK_HEIGHT - 0.2, 0]} color="#16181c" />
+        <Box size={[0.04, 0.3, 0.04]} at={[0, CHAIR_SEAT_TOP - 0.03 + 0.15, 0]} color="#2a2d33" />
+        {/* The gas lift and the five-legged base on its castors. */}
+        <mesh position={[0, 0.27, -CHAIR_SEAT_FORWARD]}>
+          <cylinderGeometry args={[0.025, 0.025, 0.4, 10]} />
+          <meshStandardMaterial color="#8a8e96" metalness={0.8} roughness={0.3} />
+        </mesh>
+        {[0, 1, 2, 3, 4].map((i) => {
+          const a = (i / 5) * Math.PI * 2;
+          return (
+            <group key={i} position={[0, 0.07, -CHAIR_SEAT_FORWARD]} rotation={[0, a, 0]}>
+              <Box size={[0.03, 0.03, 0.3]} at={[0, 0, 0.15]} color="#1c1e22" />
+              <mesh position={[0, -0.04, 0.29]}>
+                <sphereGeometry args={[0.025, 8, 6]} />
+                <meshStandardMaterial color="#111" />
+              </mesh>
+            </group>
+          );
+        })}
       </group>
     </Piece>
+  );
+}
+
+/**
+ * One of the owner's gadgets on the shelf, standing for a product
+ * (docs/room-migration.md: "各サービスの雰囲気に合ったガジェット"). **Provisional
+ * (仮)**: three kinds — a little robot, a rocket, a rover — none of them
+ * tied to a particular product yet, and none of them voxels, which is still
+ * undecided.
+ */
+function Gadget({ kind, color }: { kind: number; color: string }) {
+  const metal = <meshStandardMaterial color={color} metalness={0.6} roughness={0.4} />;
+  if (kind === 0)
+    return (
+      <group>
+        <mesh position={[0, 0.07, 0]}>
+          <boxGeometry args={[0.12, 0.12, 0.1]} />
+          {metal}
+        </mesh>
+        <mesh position={[0, 0.18, 0]}>
+          <boxGeometry args={[0.1, 0.08, 0.08]} />
+          {metal}
+        </mesh>
+        <mesh position={[0, 0.19, 0.041]}>
+          <boxGeometry args={[0.06, 0.015, 0.002]} />
+          <meshBasicMaterial color="#2fe8ff" toneMapped={false} />
+        </mesh>
+        <mesh position={[0.03, 0.25, 0]}>
+          <cylinderGeometry args={[0.004, 0.004, 0.06, 4]} />
+          {metal}
+        </mesh>
+      </group>
+    );
+  if (kind === 1)
+    return (
+      <group>
+        <mesh position={[0, 0.12, 0]}>
+          <cylinderGeometry args={[0.035, 0.04, 0.18, 12]} />
+          <meshStandardMaterial color="#e8e6e0" metalness={0.3} roughness={0.5} />
+        </mesh>
+        <mesh position={[0, 0.25, 0]}>
+          <coneGeometry args={[0.035, 0.08, 12]} />
+          {metal}
+        </mesh>
+        {[0, 1, 2].map((i) => (
+          <mesh key={i} position={[Math.sin((i * Math.PI * 2) / 3) * 0.04, 0.05, Math.cos((i * Math.PI * 2) / 3) * 0.04]} rotation={[0, (i * Math.PI * 2) / 3, 0]}>
+            <boxGeometry args={[0.005, 0.06, 0.04]} />
+            {metal}
+          </mesh>
+        ))}
+      </group>
+    );
+  return (
+    <group>
+      <mesh position={[0, 0.06, 0]}>
+        <boxGeometry args={[0.18, 0.05, 0.1]} />
+        {metal}
+      </mesh>
+      {[-0.07, 0.07].map((x) =>
+        [-0.05, 0.05].map((z) => (
+          <mesh key={`${x}${z}`} position={[x, 0.03, z]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.025, 0.025, 0.02, 12]} />
+            <meshStandardMaterial color="#1a1a1a" />
+          </mesh>
+        ))
+      )}
+      <mesh position={[0.05, 0.13, 0]}>
+        <sphereGeometry args={[0.03, 12, 8]} />
+        <meshStandardMaterial color="#2fe8ff" emissive="#2fe8ff" emissiveIntensity={0.6} />
+      </mesh>
+    </group>
   );
 }
 
@@ -246,9 +442,9 @@ function Shelf({ neon }: { neon: NeonTheme }) {
   const { width, depth } = PIECES.shelf;
   const gadgets = useMemo(
     () =>
-      Array.from({ length: 16 }, (_, i) => ({
-        row: Math.floor(i / 4),
-        column: i % 4,
+      Array.from({ length: 12 }, (_, i) => ({
+        row: Math.floor(i / 3),
+        column: i % 3,
         kind: Math.floor(hash01(i + 1) * 3),
         color: ["#9aa4b2", "#c9a86a", "#5aa0c8", "#b8604a", "#7fbf7f"][Math.floor(hash01(i + 101) * 5)],
       })),
@@ -256,7 +452,8 @@ function Shelf({ neon }: { neon: NeonTheme }) {
   );
   return (
     <Piece name="shelf">
-      <Box size={[width, 2.0, 0.03]} at={[0, 1.0, -depth / 2]} color="#3a3d44" />
+      {/* The back glows in the neon's warm colour, the cabinet lit from inside (reference/4/2.png). */}
+      <Box size={[width, 2.0, 0.03]} at={[0, 1.0, -depth / 2]} color="#1a1208" glow={neon.warm} glowStrength={0.1} />
       <Box size={[0.04, 2.0, depth]} at={[-width / 2, 1.0, 0]} color="#3a3d44" />
       <Box size={[0.04, 2.0, depth]} at={[width / 2, 1.0, 0]} color="#3a3d44" />
       {[0, 1, 2, 3, 4].map((i) => (
@@ -266,12 +463,41 @@ function Shelf({ neon }: { neon: NeonTheme }) {
         <Box key={i} size={[width - 0.1, 0.015, 0.02]} at={[0, 0.47 + i * 0.45, depth / 2 - 0.02]} color="#000000" glow={neon.warm} glowStrength={2.5} />
       ))}
       {gadgets.map(({ row, column, kind, color }) => (
-        <mesh key={`${row}-${column}`} position={[-width / 2 + 0.25 + column * 0.37, 0.19 + row * 0.45, 0]}>
-          {kind === 0 ? <boxGeometry args={[0.16, 0.2, 0.16]} /> : kind === 1 ? <sphereGeometry args={[0.1, 16, 12]} /> : <coneGeometry args={[0.08, 0.28, 12]} />}
-          <meshStandardMaterial color={color} metalness={0.6} roughness={0.5} />
-        </mesh>
+        <group key={`${row}-${column}`} position={[-width / 2 + 0.3 + column * 0.5, 0.065 + row * 0.45, 0]} rotation={[0, (hash01(row * 3 + column + 50) - 0.5) * 0.8, 0]}>
+          <Gadget kind={kind} color={color} />
+        </group>
       ))}
     </Piece>
+  );
+}
+
+/**
+ * Every book on the bookcase in one draw — about two hundred of them, which
+ * as separate meshes were two hundred draws (docs/scene-invariants.md: one
+ * model, one draw call).
+ */
+function Books({ books, depth }: { books: { x: number; y: number; w: number; h: number; color: string }[]; depth: number }) {
+  const mesh = useRef<THREE.InstancedMesh>(null);
+  useEffect(() => {
+    const m = mesh.current;
+    if (!m) return;
+    const placed = new THREE.Object3D();
+    const color = new THREE.Color();
+    books.forEach((b, i) => {
+      placed.position.set(b.x, b.y, 0);
+      placed.scale.set(b.w, b.h, depth);
+      placed.updateMatrix();
+      m.setMatrixAt(i, placed.matrix);
+      m.setColorAt(i, color.set(b.color));
+    });
+    m.instanceMatrix.needsUpdate = true;
+    if (m.instanceColor) m.instanceColor.needsUpdate = true;
+  }, [books, depth]);
+  return (
+    <instancedMesh ref={mesh} args={[undefined, undefined, books.length]}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial roughness={0.75} metalness={0.1} />
+    </instancedMesh>
   );
 }
 
@@ -301,9 +527,7 @@ function Bookcase() {
       {[0, 1, 2, 3, 4, 5].map((i) => (
         <Box key={i} size={[width, 0.03, depth]} at={[0, 0.04 + i * 0.41, 0]} color="#4a3a2c" />
       ))}
-      {books.map((b, i) => (
-        <Box key={i} size={[b.w, b.h, depth * 0.8]} at={[b.x, b.y, 0]} color={b.color} />
-      ))}
+      <Books books={books} depth={depth * 0.8} />
     </Piece>
   );
 }
@@ -345,6 +569,8 @@ function Reflection() {
 }
 
 function PortholeAndHammock() {
+  const city = useMemo(() => makeCityTexture(), []);
+  useEffect(() => () => city.dispose(), [city]);
   const curve = useMemo(
     () =>
       new THREE.CatmullRomCurve3([
@@ -362,7 +588,7 @@ function PortholeAndHammock() {
       <group position={[0, 1.85, -PIECES.porthole.depth / 2 + 0.02]}>
         <mesh>
           <circleGeometry args={[0.62, 48]} />
-          <meshBasicMaterial color="#5a2a8a" toneMapped={false} />
+          <meshBasicMaterial map={city} toneMapped={false} />
         </mesh>
         <Reflection />
         <mesh position={[0, 0, 0.03]}>
@@ -392,13 +618,41 @@ function Board() {
       })),
     [width, cy]
   );
+  const strings = useMemo(() => {
+    const out: number[] = [];
+    papers.forEach((p, i) => {
+      for (const step of [3, 7]) {
+        const q = papers[(i + step) % papers.length];
+        if (hash01(i * 17 + step) > 0.55) out.push(p.x, p.y + p.h / 2 - 0.02, 0, q.x, q.y + q.h / 2 - 0.02, 0);
+      }
+    });
+    return new Float32Array(out);
+  }, [papers]);
   return (
     <Piece name="board">
       <Box size={[width + 0.1, 1.6, depth]} at={[0, cy, 0]} color="#3a2a1c" />
+      {/* A strip lamp over the board. */}
+      <Box size={[1.2, 0.05, 0.12]} at={[0, cy + 0.88, 0.08]} color="#2a2d33" />
+      <Box size={[1.1, 0.01, 0.08]} at={[0, cy + 0.85, 0.08]} color="#000000" glow="#ffcf8a" glowStrength={2.2} />
       <Box size={[width, 1.5, depth + 0.01]} at={[0, cy, 0.002]} color="#b08a5a" />
       {papers.map((p, i) => (
         <Box key={i} size={[p.w, p.h, 0.004]} at={[p.x, p.y, depth / 2 + 0.01 + i * 0.0005]} color={p.color} />
       ))}
+      {/* Pins, and the red string between them — a detective's wall (reference/3/sousa-board1.png).
+          Which notes are joined is decoration for now; the string is meant to
+          follow the links from the experience entries to the products. */}
+      {papers.map((p, i) => (
+        <mesh key={i} position={[p.x, p.y + p.h / 2 - 0.02, depth / 2 + 0.025]}>
+          <sphereGeometry args={[0.012, 8, 6]} />
+          <meshStandardMaterial color="#c0262d" roughness={0.4} />
+        </mesh>
+      ))}
+      <lineSegments position={[0, 0, depth / 2 + 0.03]}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[strings, 3]} />
+        </bufferGeometry>
+        <lineBasicMaterial color="#d0202a" />
+      </lineSegments>
     </Piece>
   );
 }
@@ -410,10 +664,37 @@ function Comms({ neon }: { neon: NeonTheme }) {
       <Box size={[width, 0.95, depth]} at={[0, 0.475, 0]} color="#3d4148" />
       <group position={[0, 1.28, -0.12]} rotation={[-0.25, 0, 0]}>
         <Box size={[0.62, 0.42, 0.05]} at={[0, 0, 0]} color="#1a1c20" />
-        <Box size={[0.56, 0.36, 0.01]} at={[0, 0, 0.03]} color="#000000" glow={neon.cool} glowStrength={2.5} />
+        <Box size={[0.56, 0.36, 0.01]} at={[0, 0, 0.03]} color="#000000" glow={neon.cool} glowStrength={0.9} />
       </group>
+      {/* The radio set: a box of dials and a readout, and a microphone on a stalk. */}
       <Box size={[0.3, 0.16, 0.25]} at={[-0.38, 1.03, 0.05]} color="#55504a" />
+      <Box size={[0.12, 0.04, 0.005]} at={[-0.42, 1.07, 0.178]} color="#000000" glow={neon.warm} glowStrength={2} />
+      {[-0.48, -0.38, -0.28].map((x) => (
+        <mesh key={x} position={[x, 1.0, 0.18]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.018, 0.018, 0.02, 12]} />
+          <meshStandardMaterial color="#c8ccd2" metalness={0.8} roughness={0.3} />
+        </mesh>
+      ))}
       <Box size={[0.02, 0.6, 0.02]} at={[0.45, 1.25, -0.2]} color="#888888" />
+      <mesh position={[0.3, 1.1, 0.12]} rotation={[0.4, 0, 0]}>
+        <cylinderGeometry args={[0.006, 0.006, 0.2, 6]} />
+        <meshStandardMaterial color="#2a2d33" />
+      </mesh>
+      <mesh position={[0.3, 1.2, 0.16]}>
+        <sphereGeometry args={[0.025, 10, 8]} />
+        <meshStandardMaterial color="#1a1c20" roughness={0.9} />
+      </mesh>
+      {/* A row of status lights along the front of the cabinet. */}
+      {Array.from({ length: 8 }, (_, i) => (
+        <Box
+          key={i}
+          size={[0.03, 0.015, 0.005]}
+          at={[-0.4 + i * 0.11, 0.85, depth / 2 + 0.003]}
+          color="#000000"
+          glow={hash01(i + 900) > 0.4 ? neon.cool : neon.warm}
+          glowStrength={2}
+        />
+      ))}
     </Piece>
   );
 }
@@ -430,6 +711,13 @@ function Door({ neon }: { neon: NeonTheme }) {
       </mesh>
       <Box size={[0.7, 0.04, 0.03]} at={[0, 2.24, depth / 2 + 0.02]} color="#000000" glow={neon.warm} glowStrength={3} />
       <LightSwitches />
+      {/* Wall lamps either side of the door, in the neon's warm colour. */}
+      {[-1, 1].map((side) => (
+        <group key={side} position={[side * (width / 2 + 0.2), 2.05, 0]}>
+          <Box size={[0.16, 0.08, 0.06]} at={[0, 0, 0]} color="#2a2d33" />
+          <Box size={[0.13, 0.05, 0.005]} at={[0, 0, 0.032]} color="#000000" glow={neon.warm} glowStrength={2.5} />
+        </group>
+      ))}
     </Piece>
   );
 }
@@ -556,7 +844,7 @@ export default function RoomScene() {
   return (
     <group>
       <Lights lights={lights} />
-      <Shell ceiling={lights.ceiling} />
+      <Shell ceiling={lights.ceiling} neon={neon} />
       <Desk />
       <Shelf neon={neon} />
       <Bookcase />
