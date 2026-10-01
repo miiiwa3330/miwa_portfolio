@@ -14,11 +14,10 @@ import {
   boltFlicker,
   strikeIndex,
 } from "../markerBolt";
-import { markerPoint } from "../room/layout";
-import { SECTION_ORDER } from "../room/tour";
+import { STOP_ORDER, markerPoint } from "../room/layout";
 import { markerOnScreen, publishMarkerScreen } from "../camera/markerScreen";
 import { pixelsPerUnitAt, projectToScreen } from "../camera/roomCamera";
-import { lensNow } from "../camera/lensChannel";
+import { viewNow } from "../camera/viewChannel";
 import { sceneClock } from "../sceneClock";
 import { useAppState } from "@/state/AppStateContext";
 import { facingNow } from "@/state/facingChannel";
@@ -139,10 +138,10 @@ function makeBoltTexture(): THREE.Texture {
 const viewSpace = new THREE.Vector3();
 
 /**
- * The five areas' markers, in tour order. The desk has none yet: stepping in
- * to the PC is step 4 of docs/room-migration.md.
+ * Every stop's marker, in tour order: the five areas and the desk. Clicking
+ * the desk's sits the reader down at the PC.
  */
-const MARKED = SECTION_ORDER;
+const MARKED = STOP_ORDER;
 /** Where each marker floats — from the room's layout, not measured off the meshes. */
 const ANCHORS = MARKED.map((section) => new THREE.Vector3(...markerPoint(section)));
 
@@ -179,7 +178,7 @@ export default function SectionMarkers() {
     // The lens the frame is about to be drawn through — the camera published
     // it earlier this frame. Every marker is placed and sized through it, so
     // the bolts and the dotted line stay together in the fisheye too.
-    const lens = lensNow();
+    const lens = viewNow().pose;
 
     // Bring the camera's matrices up to date with the position it was just
     // moved to, before anything below reads them.

@@ -5,6 +5,7 @@ import { Canvas, events, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import RoomScene from "./objects/RoomScene";
 import LensRenderer from "./LensRenderer";
+import { SCREEN_HOLE_LAYER } from "./layers";
 import {
   AUTO_ORBIT_SPEED,
   ORBIT_RETURN_SPEED,
@@ -29,7 +30,7 @@ import {
   type RoomFlight,
   type RoomPose,
 } from "./camera/roomCamera";
-import { lensNow, publishLens } from "./camera/lensChannel";
+import { publishView, viewNow } from "./camera/viewChannel";
 import {
   EYE_HEIGHT,
   facingStop,
@@ -46,7 +47,7 @@ import { pointerClaim } from "./pointerClaim";
 import { useAppState } from "@/state/AppStateContext";
 import { useHandheld } from "@/state/useHandheld";
 import { publishFacing } from "@/state/facingChannel";
-import type { SectionType } from "@/types";
+import type { Focus } from "@/types";
 import { twoFingerGesture } from "./viewGesture";
 
 /**
@@ -575,7 +576,7 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
    * same gap and only one of them is a return.
    */
   const returningRef = useRef(false);
-  const prevSectionRef = useRef<SectionType>(null);
+  const prevSectionRef = useRef<Focus>(null);
   const prevNonceRef = useRef(homeNonce);
   const prevZoomRef = useRef(viewZoom);
   const prevPageOpenRef = useRef(pageOpen);
@@ -601,9 +602,13 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
   useViewInput(yawTargetRef, pitchTargetRef, tourURef, draggingRef, returningRef, lockedRef, flightRef, setViewZoom);
 
   // The tap that replaces the pause button. Off while the detail sheet covers
-  // the canvas, and during About, where a tap beside the text is not asking
-  // for the room to freeze.
-  useTapGesture(!!onEmptyTap && !pageOpen && activeSection !== "about", flightRef, onEmptyTap ?? noop);
+  // the canvas, during About, where a tap beside the text is not asking for
+  // the room to freeze, and at the desk, where a tap is on the PC's screen.
+  useTapGesture(
+    !!onEmptyTap && !pageOpen && activeSection !== "about" && activeSection !== "desk",
+    flightRef,
+    onEmptyTap ?? noop
+  );
 
   const freePose = (yaw: number, pitch: number): RoomPose => ({
     yaw,
@@ -645,7 +650,7 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     // Matrices up to date now, not at the next render: the markers project
     // through this camera in the same frame.
     camera.updateMatrixWorld();
-    publishLens(pose);
+    publishView(pose, size.width, size.height);
   };
 
   const startFlight = (to: RoomPose, duration: number, land: RoomFlight["land"]) => {
@@ -698,8 +703,11 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     // 1. A section was focused: step out towards its subject. About is no
     //    longer a case of its own — its subject is the hologram on the desk.
     if (activeSection) {
-      const share = activeSection === "about" ? aboutCardShare(handheld) : zoomShare;
-      const framing: Framing = { hfov: zoomHfov, lens: 1, share, lift: freeFraming.lift };
+      // The desk has no card to clear, sideways or above a phone's rail: the
+      // PC's screen is what the reader is there to use, square in the frame.
+      const desk = activeSection === "desk";
+      const share = desk ? 0 : activeSection === "about" ? aboutCardShare(handheld) : zoomShare;
+      const framing: Framing = { hfov: zoomHfov, lens: 1, share, lift: desk ? 0 : freeFraming.lift };
       startFlight(poseFromView(zoomView(activeSection, zoomHfov), framing), duration, null);
       return;
     }
@@ -837,7 +845,7 @@ function roomEvents(store: Parameters<typeof events>[0]) {
       state.pointer.set((event.offsetX / width) * 2 - 1, -(event.offsetY / height) * 2 + 1);
       const camera = state.camera;
       camera.updateMatrixWorld();
-      const [x, y, z] = screenRay(event.offsetX, event.offsetY, lensNow(), width, height);
+      const [x, y, z] = screenRay(event.offsetX, event.offsetY, viewNow().pose, width, height);
       rayDirection.set(x, y, z).transformDirection(camera.matrixWorld);
       state.raycaster.set(camera.getWorldPosition(rayOrigin), rayDirection);
       // Sprites read the camera off the raycaster to face it.
@@ -877,8 +885,10 @@ export default function Scene({
       style={interactive ? undefined : { pointerEvents: "none" }}
       // The prototype's exposure, for its placeholder lights. Not a design
       // value — it means nothing once the lighting is rebuilt (step 6).
-      onCreated={({ gl }) => {
+      onCreated={({ gl, camera }) => {
         gl.toneMappingExposure = 1.75;
+        // The reader's eye is the one camera that draws the screen cut-outs.
+        camera.layers.enable(SCREEN_HOLE_LAYER);
       }}
     >
       <RoomScene />

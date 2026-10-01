@@ -1,17 +1,29 @@
 "use client";
 
-import { useMemo, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import {
+  MONITORS,
+  MONITOR_BEZEL,
+  MONITOR_GLASS,
+  MONITOR_SCREEN,
+  MONITOR_Y,
   PIECES,
   ROOM_RADIUS,
   SUBJECTS,
   WALL_HEIGHT,
+  CHAIR_BACK_HEIGHT,
+  chairBackZ,
   horizontalAt,
   pieceCentreDistance,
+  type MonitorKey,
   type PieceKey,
 } from "../room/layout";
+import { DESK_SCREEN, type Panel } from "../room/screens";
+import { panelShown } from "../camera/cssView";
+import { viewNow } from "../camera/viewChannel";
+import { SCREEN_HOLE_LAYER } from "../layers";
 import { hash01 } from "../voxel/rng";
 import { sceneClock } from "../sceneClock";
 import SectionMarkers from "./SectionMarkers";
@@ -96,6 +108,46 @@ function Shell() {
   );
 }
 
+/**
+ * A cut-out in the picture where HTML placed in the room shows through: a
+ * rectangle that writes depth, and colour and alpha of zero. The HTML sits in
+ * a layer *behind* the canvas (`hub/room/RoomHtml.tsx`), so anything in front
+ * of the screen — the chair, the lamp — still draws over it, which HTML laid
+ * over the canvas could never do (prototype 2, docs/room-migration.md).
+ *
+ * Shown exactly when the HTML is (`panelShown`), so there is never a hole
+ * with nothing behind it. Only the reader's own camera draws it
+ * (`SCREEN_HOLE_LAYER`); through the fisheye, the screen's lit face shows.
+ */
+function ScreenHole({ panel }: { panel: Panel }) {
+  const mesh = useRef<THREE.Mesh>(null);
+  const quaternion = useMemo(() => {
+    const basis = new THREE.Matrix4().makeBasis(
+      new THREE.Vector3(...panel.right),
+      new THREE.Vector3(...panel.up),
+      new THREE.Vector3(...panel.normal)
+    );
+    return new THREE.Quaternion().setFromRotationMatrix(basis);
+  }, [panel]);
+  useEffect(() => {
+    mesh.current?.layers.set(SCREEN_HOLE_LAYER);
+  }, []);
+  useFrame(() => {
+    if (mesh.current) mesh.current.visible = panelShown(panel, viewNow().pose);
+  });
+  return (
+    <mesh ref={mesh} position={panel.centre} quaternion={quaternion}>
+      <planeGeometry args={[panel.width, panel.height]} />
+      {/* No blending, so the zero alpha is written as it is rather than mixed
+          with what was already drawn there. */}
+      <meshBasicMaterial color="#000000" opacity={0} blending={THREE.NoBlending} toneMapped={false} />
+    </mesh>
+  );
+}
+
+/** The lit colour each monitor shows where no HTML is drawn on it: the fisheye's view, and the two side screens. */
+const MONITOR_GLOW: Record<MonitorKey, string> = { video: "#c45ad0", gui: "#1f5f9e", camera: "#3a3d3a" };
+
 function Desk() {
   const { width, depth } = PIECES.desk;
   const pcX = SUBJECTS.desk.local[0];
@@ -111,18 +163,21 @@ function Desk() {
       <Box size={[0.5, 0.72, depth - 0.05]} at={[-width / 2 + 0.3, 0.36, 0]} color="#3d4148" />
       <Box size={[0.5, 0.72, depth - 0.05]} at={[width / 2 - 0.3, 0.36, 0]} color="#3d4148" />
       {/* Three monitors: video, the PC's own screen, the security camera. */}
-      {(
-        [
-          [-0.7, 0.35, "#c45ad0"],
-          [0, 0, "#1f5f9e"],
-          [0.7, -0.35, "#3a3d3a"],
-        ] as const
-      ).map(([dx, yaw, glow]) => (
-        <group key={dx} position={[pcX + dx, 1.08, -0.15 + Math.abs(dx) * 0.12]} rotation={[0, yaw, 0]}>
-          <Box size={[0.66, 0.42, 0.04]} at={[0, 0, 0]} color="#111318" />
-          <Box size={[0.62, 0.38, 0.005]} at={[0, 0, 0.022]} color="#000000" glow={glow} glowStrength={1.2} />
-        </group>
-      ))}
+      {(Object.keys(MONITORS) as MonitorKey[]).map((key) => {
+        const { x, z, yaw } = MONITORS[key];
+        return (
+          <group key={key} position={[x, MONITOR_Y, z]} rotation={[0, yaw, 0]}>
+            <Box size={[MONITOR_BEZEL.width, MONITOR_BEZEL.height, MONITOR_BEZEL.depth]} at={[0, 0, 0]} color="#111318" />
+            <Box
+              size={[MONITOR_SCREEN.width, MONITOR_SCREEN.height, MONITOR_GLASS.thickness]}
+              at={[0, 0, MONITOR_GLASS.z]}
+              color="#000000"
+              glow={MONITOR_GLOW[key]}
+              glowStrength={1.2}
+            />
+          </group>
+        );
+      })}
       <Box size={[0.5, 0.02, 0.18]} at={[pcX, 0.785, 0.15]} color="#1c1e22" />
       {/* The hologram's device, and a placeholder for what it shows. */}
       <Box size={[0.28, 0.08, 0.2]} at={[holoX, 0.815, 0]} color="#2a2d33" />
@@ -136,13 +191,14 @@ function Desk() {
       <Box size={[0.025, 0.5, 0.025]} at={[pcX - 0.42, 1.04, 0.22]} color="#2a2d33" />
       <Box size={[0.14, 0.08, 0.12]} at={[pcX - 0.42, 1.25, -0.06]} color="#3a3d44" />
       <Box size={[0.1, 0.01, 0.08]} at={[pcX - 0.42, 1.205, -0.06]} color="#000000" glow="#ffcf8a" glowStrength={3} />
-      {/* The chair, tucked in. Its back stops at 0.98 m: from the centre, the
-          line of sight to the bottom of the monitors passes about 1.07 m above
-          the floor where the chair stands, so a taller back (the prototype's
-          1.19 m) blacked out the lower half of the PC's screen at home. */}
-      <group position={[pcX, 0, 0.6]}>
+      {/* The chair, where the reader sits down at the PC: its back just behind
+          the seated eye (`chairBackZ`). Its back stops below the line of sight
+          from the centre to the bottom of the screen — a taller back (the
+          prototype's 1.19 m) blacked out the lower half of the PC's screen at
+          home. */}
+      <group position={[pcX, 0, chairBackZ()]}>
         <Box size={[0.5, 0.06, 0.48]} at={[0, 0.48, -0.25]} color="#1c1e22" />
-        <Box size={[0.48, 0.4, 0.06]} at={[0, 0.78, 0]} color="#1c1e22" />
+        <Box size={[0.48, 0.4, 0.06]} at={[0, CHAIR_BACK_HEIGHT - 0.2, 0]} color="#1c1e22" />
         <Box size={[0.05, 0.45, 0.05]} at={[0, 0.24, -0.25]} color="#2a2d33" />
       </group>
     </Piece>
@@ -359,6 +415,7 @@ export default function RoomScene() {
       <Comms />
       <Door />
       <Workbench />
+      <ScreenHole panel={DESK_SCREEN} />
       <SectionMarkers />
     </group>
   );

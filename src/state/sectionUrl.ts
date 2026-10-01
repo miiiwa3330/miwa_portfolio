@@ -1,4 +1,4 @@
-import type { SectionType } from "@/types";
+import type { Focus, SectionType } from "@/types";
 
 /**
  * The open section, expressed in the URL.
@@ -18,15 +18,36 @@ import type { SectionType } from "@/types";
  * invisible to anything that does not run JavaScript.
  */
 
-const SECTION_IDS = ["about", "products", "skills", "experience", "contact"] as const;
+const FOCUS_IDS = ["about", "products", "skills", "experience", "contact", "desk"] as const;
 
-/** Parse a section out of a location hash. Unknown values read as none. */
-export function sectionFromHash(hash: string): SectionType {
+/** Parse a section — or the desk — out of a location hash. Unknown values read as none. */
+export function sectionFromHash(hash: string): Focus {
   const id = hash.replace(/^#/, "");
-  return (SECTION_IDS as readonly string[]).includes(id) ? (id as SectionType) : null;
+  return (FOCUS_IDS as readonly string[]).includes(id) ? (id as Focus) : null;
 }
 
-/** The hash a section should be shown at. Empty for "no section". */
-export function hashForSection(section: SectionType): string {
+/** The hash a section (or the desk) should be shown at. Empty for "no section". */
+export function hashForSection(section: Focus): string {
   return section ? `#${section}` : "";
+}
+
+/**
+ * Whether focusing this opens the detail sheet: every area but About, which
+ * is read off the hologram, and the desk, which is read on the PC's own
+ * screen (docs/room-migration.md).
+ */
+export function hasSheet(focus: Focus): focus is Exclude<NonNullable<SectionType>, "about"> {
+  return focus !== null && focus !== "about" && focus !== "desk";
+}
+
+/**
+ * The hash the address bar should show for this state: an area while its
+ * sheet is open, and the desk while the reader is sitting at it — the user
+ * asked for the PC to have a URL of its own (`/#desk`, 2026-10-01), so that a
+ * link can open the room with the reader already seated. Nothing otherwise:
+ * turning round the room is not a place to link to.
+ */
+export function hashForState(focus: Focus, pageOpen: boolean): string {
+  if (focus === "desk") return hashForSection(focus);
+  return hashForSection(pageOpen ? focus : null);
 }

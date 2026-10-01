@@ -1,14 +1,18 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, ReactNode } from "react";
-import { hashForSection, sectionFromHash } from "./sectionUrl";
-import type { SectionType } from "@/types";
+import { hasSheet, hashForState, sectionFromHash } from "./sectionUrl";
+import type { Focus, SectionType } from "@/types";
 import type { ViewZoom } from "@/scene/room/layout";
 
 interface AppStateContextType {
-  /** Which building the camera is focused on (null = home diorama view). */
-  activeSection: SectionType;
-  setActiveSection: (section: SectionType) => void;
+  /**
+   * What the camera has stepped in to (null = standing in the middle of the
+   * room): one of the areas, or the desk — the PC, which is focused like an
+   * area but has no detail page and no card.
+   */
+  activeSection: Focus;
+  setActiveSection: (section: Focus) => void;
   /** Whether the detail page (About…Footer) is shown and scrollable. */
   pageOpen: boolean;
   setPageOpen: (open: boolean) => void;
@@ -62,7 +66,7 @@ interface AppStateContextType {
 const AppStateContext = createContext<AppStateContextType | undefined>(undefined);
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
-  const [activeSection, setActiveSection] = useState<SectionType>(null);
+  const [activeSection, setActiveSection] = useState<Focus>(null);
   const [pageOpen, setPageOpen] = useState(false);
   const [homeNonce, setHomeNonce] = useState(0);
   const [turnRequest, setTurnRequest] = useState<{ section: NonNullable<SectionType>; nonce: number } | null>(null);
@@ -122,7 +126,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     const applyUrl = (fromHistory: boolean) => {
       const section = sectionFromHash(window.location.hash);
       setActiveSection(section);
-      setPageOpen(!!section && section !== "about");
+      setPageOpen(hasSheet(section));
       // Bypasses openPage()/closePage() (it calls the raw setters above
       // directly, to apply both section and page-open in one pass), so the
       // same "always land at near" normalization those two carry has to be
@@ -151,7 +155,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     // Until the incoming hash has been read, writing to the URL would erase it.
     if (!urlApplied.current) return;
 
-    const wanted = hashForSection(pageOpen ? activeSection : null);
+    const wanted = hashForState(activeSection, pageOpen);
     // Already correct — which is exactly the case when this state came *from*
     // the URL, so following a link or going back never pushes a second entry.
     if (window.location.hash === wanted) return;

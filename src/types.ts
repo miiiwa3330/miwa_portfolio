@@ -7,3 +7,13 @@
 export type Language = "ja" | "en";
 
 export type SectionType = "about" | "products" | "skills" | "experience" | "contact" | null;
+
+/** A place the tour stops at: the five areas, plus the desktop PC that is not one of them. */
+export type Stop = NonNullable<SectionType> | "desk";
+
+/**
+ * What the camera has stepped in to, if anything: one of the areas, or the
+ * desk. The desk is focused like an area — the camera steps in, sits down at
+ * it — but it has no detail page and no card.
+ */
+export type Focus = Stop | null;

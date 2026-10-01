@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   advanceRoomFlight,
   beginRoomFlight,
+  toCameraSpace,
   blendRoomPose,
   placeCamera,
   HANDHELD_CARD_LIFT,
@@ -67,6 +68,24 @@ describe("placeCamera", () => {
       (ray[0] * toSubject[0] + ray[1] * toSubject[1] + ray[2] * toSubject[2]) /
       (Math.hypot(...ray) * Math.hypot(...toSubject));
     expect(cos).toBeCloseTo(1, 9);
+  });
+});
+
+describe("toCameraSpace", () => {
+  it("puts what the camera looks at straight ahead, above it up and to its right right", () => {
+    for (const p of [pose({ yaw: 0.4, pitch: 0.1 }), pose({ yaw: -2, pitch: -0.3, forward: 1.2 })]) {
+      const { position, target } = placeCamera(p);
+      const ahead = toCameraSpace(p, target);
+      expect(ahead[0]).toBeCloseTo(0, 9);
+      expect(ahead[1]).toBeCloseTo(0, 9);
+      expect(ahead[2]).toBeCloseTo(-1, 9);
+      // World up, a little above the target: up in the picture.
+      expect(toCameraSpace(p, [target[0], target[1] + 0.1, target[2]])[1]).toBeGreaterThan(0);
+      // Seen from above, clockwise of the view is to the right (yaw grows clockwise).
+      const yawRight = p.yaw + 0.1;
+      const side: [number, number, number] = [position[0] + Math.sin(yawRight), target[1], position[2] - Math.cos(yawRight)];
+      expect(toCameraSpace(p, side)[0]).toBeGreaterThan(0);
+    }
   });
 });
 

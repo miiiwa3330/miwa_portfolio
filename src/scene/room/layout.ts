@@ -1,4 +1,4 @@
-import type { SectionType } from "@/types";
+import type { Stop } from "@/types";
 import type { Direction } from "../planet/geometry";
 import { RECTILINEAR, STEREOGRAPHIC } from "../camera/fisheye";
 
@@ -15,8 +15,7 @@ import { RECTILINEAR, STEREOGRAPHIC } from "../camera/fisheye";
 
 const DEG = Math.PI / 180;
 
-/** A place the tour stops at: the five areas, plus the desktop PC that is not one of them. */
-export type Stop = NonNullable<SectionType> | "desk";
+export type { Stop };
 
 /** Chosen by the user in `sandbox/room-lab.html` (2026-10-01). */
 export const ROOM_RADIUS = 3.3;
@@ -140,11 +139,43 @@ export type Subject = {
   markerY: number;
 };
 
+/**
+ * The PC's three monitors, in the desk's own frame (`Piece`): the left plays
+ * a video, the middle is the PC's own screen — the GUI the reader operates —
+ * and the right shows the security camera (docs/room-migration.md). The side
+ * ones are turned in towards the chair and stand a little forward.
+ *
+ * Both the monitors' meshes (`RoomScene`) and the HTML laid on the middle
+ * screen (`room/screens.ts`) read these, so the two cannot drift apart.
+ */
+export type MonitorKey = "video" | "gui" | "camera";
+export const MONITOR_Y = 1.08;
+export const MONITOR_BEZEL = { width: 0.66, height: 0.42, depth: 0.04 } as const;
+export const MONITOR_SCREEN = { width: 0.62, height: 0.38 } as const;
+/** The lit glass in front of the bezel: its centre's depth in the monitor's frame, and its thickness. */
+export const MONITOR_GLASS = { z: MONITOR_BEZEL.depth / 2 + 0.002, thickness: 0.005 } as const;
+/**
+ * The screen's surface — where HTML is laid on it (`room/screens.ts`): half a
+ * millimetre proud of the glass, so the cut-out that shows the HTML through
+ * (`ScreenHole`) wins the depth test against the glass behind it.
+ */
+export const MONITOR_FACE_Z = MONITOR_GLASS.z + MONITOR_GLASS.thickness / 2 + 0.0005;
+export const MONITORS: Record<MonitorKey, { x: number; z: number; yaw: number }> = {
+  video: { x: -0.7, z: -0.066, yaw: 0.35 },
+  gui: { x: 0, z: -0.15, yaw: 0 },
+  camera: { x: 0.7, z: -0.066, yaw: -0.35 },
+};
+
+/** A monitor's screen surface in the desk's frame: its centre, and how far it is turned about +Y (radians). */
+export function monitorFace(key: MonitorKey): { centre: [number, number, number]; yaw: number } {
+  const { x, z, yaw } = MONITORS[key];
+  return { centre: [x + Math.sin(yaw) * MONITOR_FACE_Z, MONITOR_Y, z + Math.cos(yaw) * MONITOR_FACE_Z], yaw };
+}
+
 export const SUBJECTS: Record<Stop, Subject> = {
-  // The centre monitor's face, 0.13 m behind the desk's middle. Framed on
-  // the one monitor, not the whole desk: framing the desk shrank the 22px body
-  // text to about 6px.
-  desk: { piece: "desk", local: [0, 1.08, -0.13], frameWidth: 0.8, zoomEyeHeight: SEATED_EYE_HEIGHT, markerY: 1.5 },
+  // The middle monitor's face. Framed on the one monitor, not the whole desk:
+  // framing the desk shrank the 22px body text to about 6px.
+  desk: { piece: "desk", local: monitorFace("gui").centre, frameWidth: 0.8, zoomEyeHeight: SEATED_EYE_HEIGHT, markerY: 1.5 },
   // The hologram stands on the same desk, to the PC's right.
   about: { piece: "desk", local: [0.95, 1.45, 0.05], frameWidth: 0.9, zoomEyeHeight: 1.45, markerY: 1.85 },
   products: { piece: "shelf", local: [0, 1.2, PIECES.shelf.depth / 2], frameWidth: 1.6, zoomEyeHeight: EYE_HEIGHT, markerY: 2.2 },
@@ -223,7 +254,13 @@ export function zoomView(stop: Stop, hfovDeg: number = STANDARD_HFOV): RoomView 
   const subject = SUBJECTS[stop];
   const [, y] = subjectPoint(stop);
   const face = subjectDistance(stop);
-  const standOff = subject.frameWidth / 2 / ZOOM_FILL / Math.tan((hfovDeg * DEG) / 2);
+  // Sitting down at the PC is a place, not a framing: the reader sits in the
+  // chair, so the distance is the same on every screen — the one the
+  // standard view's width frames the monitor at. A narrower phone sees the
+  // screen fill more of its width from the same seat, rather than being sat
+  // further back, behind the chair.
+  const frameHfov = stop === "desk" ? STANDARD_HFOV : hfovDeg;
+  const standOff = subject.frameWidth / 2 / ZOOM_FILL / Math.tan((frameHfov * DEG) / 2);
   const forward = Math.max(0, Math.min(face - ZOOM_MIN_CLEARANCE, face - standOff));
   return {
     yaw: subjectYaw(stop),
@@ -320,4 +357,26 @@ export function hfovForZoom(zoom: ViewZoom, handheld: boolean): number {
  */
 export function lensForZoom(zoom: ViewZoom): number {
   return zoom === "standard" ? RECTILINEAR : STEREOGRAPHIC;
+}
+
+/**
+ * **Provisional (仮).** How far behind the seated eye the chair's back stands.
+ * The chair is where the reader sits down at the PC, so it is placed from
+ * the seated view rather than by eye; a seated eye sits over the seat, a
+ * little in front of the back.
+ */
+export const CHAIR_BACK_BEHIND_EYE = 0.15;
+/** The top of the chair's back above the floor (see `RoomScene`'s chair). */
+export const CHAIR_BACK_HEIGHT = 0.98;
+
+/**
+ * Where the chair's back stands, as `z` in the desk's frame (+Z towards the
+ * room's centre): `CHAIR_BACK_BEHIND_EYE` behind the seated eye.
+ *
+ * Placed by hand before (0.6 m out from the desk's middle), it stood 13 cm
+ * *in front of* the seated eye — out of a desktop's frame, but filling the
+ * bottom half of a phone's (step 4).
+ */
+export function chairBackZ(): number {
+  return pieceCentreDistance(PIECES.desk) - (zoomView("desk").forward - CHAIR_BACK_BEHIND_EYE);
 }

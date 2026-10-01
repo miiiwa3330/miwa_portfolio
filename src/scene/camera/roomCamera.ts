@@ -64,6 +64,33 @@ export function placeCamera(pose: RoomPose): { position: [number, number, number
 }
 
 /**
+ * The camera's own axes in the world: to the right, up, and the way it looks.
+ * Up stays in the vertical plane through the view direction — the room never
+ * rolls — so `right` is always horizontal.
+ */
+export function cameraBasis(pose: RoomPose): { right: Direction; up: Direction; forward: Direction } {
+  const forward = viewDirection(pose.yaw / DEG, pose.pitch / DEG);
+  const [hx, hz] = horizontalAt(pose.yaw / DEG);
+  // forward × world up, which is horizontal: (-hz, 0, hx) for a level view.
+  const right: Direction = [-hz, 0, hx];
+  const up: Direction = [
+    right[1] * forward[2] - right[2] * forward[1],
+    right[2] * forward[0] - right[0] * forward[2],
+    right[0] * forward[1] - right[1] * forward[0],
+  ];
+  return { right, up, forward };
+}
+
+/** A world point in the camera's own space: +X right, +Y up, looking down -Z (three.js's convention). */
+export function toCameraSpace(pose: RoomPose, point: readonly [number, number, number]): Direction {
+  const { position } = placeCamera(pose);
+  const { right, up, forward } = cameraBasis(pose);
+  const d = [point[0] - position[0], point[1] - position[1], point[2] - position[2]];
+  const dot = (a: readonly number[]) => a[0] * d[0] + a[1] * d[1] + a[2] * d[2];
+  return [dot(right), dot(up), -dot(forward)];
+}
+
+/**
  * The vertical field of view, in degrees, that gives `hfov` across a frame of
  * this aspect ratio. three.js's `PerspectiveCamera.fov` is vertical; the room
  * is specified horizontally (the user picked 67° looking across the room, not

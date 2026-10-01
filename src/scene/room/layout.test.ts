@@ -32,6 +32,11 @@ import {
   yawDelta,
   yawOf,
   zoomView,
+  CHAIR_BACK_HEIGHT,
+  HANDHELD_STANDARD_HFOV as PHONE_HFOV,
+  MONITOR_SCREEN,
+  MONITOR_Y,
+  chairBackZ,
 } from "./layout";
 
 const DEG = Math.PI / 180;
@@ -191,6 +196,13 @@ describe("zoomView", () => {
     expect(SUBJECTS.desk.frameWidth).toBeLessThan(1);
   });
 
+  it("sits down in the same seat on any screen", () => {
+    // A seat is a place; a phone's narrower view must not sit the reader
+    // further back, behind the chair.
+    expect(zoomView("desk", PHONE_HFOV).forward).toBeCloseTo(zoomView("desk", STANDARD_HFOV).forward, 12);
+    expect(zoomView("desk", PHONE_HFOV).eyeHeight).toBe(SEATED_EYE_HEIGHT);
+  });
+
   it("keeps the camera inside the room", () => {
     for (const stop of STOP_KEYS) expect(zoomView(stop).forward).toBeLessThan(ROOM_RADIUS);
   });
@@ -246,5 +258,23 @@ describe("lensForZoom", () => {
   it("bends only the fisheye", () => {
     expect(lensForZoom("standard")).toBe(1);
     expect(lensForZoom("fisheye")).toBe(2);
+  });
+});
+
+describe("the chair", () => {
+  const deskDistance = pieceCentreDistance(PIECES.desk);
+  const backFromCentre = deskDistance - chairBackZ();
+
+  it("stands behind the seated eye, so sitting down does not put its back in front of the reader", () => {
+    expect(backFromCentre).toBeLessThan(zoomView("desk").forward);
+    expect(backFromCentre).toBeGreaterThan(zoomView("desk").forward - 0.3);
+  });
+
+  it("stays below the line of sight from the middle of the room to the bottom of the PC's screen", () => {
+    // Step 2's trap: a 1.19 m back blacked out the lower half of the screen at home.
+    const screenDistance = subjectDistance("desk");
+    const screenBottom = MONITOR_Y - MONITOR_SCREEN.height / 2;
+    const sightAtChair = EYE_HEIGHT + ((screenBottom - EYE_HEIGHT) * backFromCentre) / screenDistance;
+    expect(CHAIR_BACK_HEIGHT).toBeLessThan(sightAtChair);
   });
 });

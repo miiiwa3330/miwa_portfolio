@@ -16,12 +16,12 @@ import { describe, expect, it } from "vitest";
  *
  * So the copy is written in full-width forms (`２０２６`), and this is the
  * guard on that. It is deliberately a text scan rather than an import:
- * About.tsx is a React component, and the suite is a node environment with
+ * aboutCopy.tsx is JSX, and the suite is a node environment with
  * no DOM by design (see vitest.config.ts).
  */
 
 const SOURCE = readFileSync(
-  fileURLToPath(new URL("./About.tsx", import.meta.url)),
+  fileURLToPath(new URL("./aboutCopy.tsx", import.meta.url)),
   "utf8",
 );
 

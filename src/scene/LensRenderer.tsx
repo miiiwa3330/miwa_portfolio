@@ -5,7 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { LENS_FRAGMENT_SHADER, LENS_VERTEX_SHADER } from "./camera/fisheye";
 import { lensBends } from "./camera/roomCamera";
-import { lensNow } from "./camera/lensChannel";
+import { viewNow } from "./camera/viewChannel";
 import { useHandheld } from "@/state/useHandheld";
 
 /**
@@ -85,7 +85,7 @@ export default function LensRenderer() {
 
   useFrame((state) => {
     const { gl, scene, camera, size } = state;
-    const lens = lensNow();
+    const lens = viewNow().pose;
     if (!lensBends(lens.lens)) {
       gl.render(scene, camera);
       return;

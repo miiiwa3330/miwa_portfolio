@@ -24,6 +24,9 @@ import About from "./about/About";
 import type { ZoomStage } from "./ZoomControl";
 import { adjacentSection } from "@/scene/room/tour";
 import Sheet from "@/detail/Sheet";
+import { RoomHtmlLayer, RoomPanel } from "./room/RoomHtml";
+import DeskScreen from "./desk/DeskScreen";
+import { DESK_SCREEN } from "@/scene/room/screens";
 import { exitDirectionFor, type ExitDirection } from "@/detail/detailSheet";
 
 // Each transparent spacer bracketing the detail page is exactly one viewport
@@ -142,11 +145,9 @@ export default function Hub() {
   const zoomStage: ZoomStage = activeSection ? "zoom" : viewZoom;
   const handleZoomSelect = (stage: ZoomStage) => {
     if (stage === "zoom") {
-      // Stepping in to the desk is the PC's own zoom, which does not exist yet
-      // (step 4 of docs/room-migration.md). Until then the zoom stage only
-      // reaches the five areas.
-      const section = cardSection();
-      if (section) setActiveSection(section);
+      // Step in to whatever is in front — the desk included, which sits the
+      // reader down at the PC.
+      setActiveSection(activeSection ?? facingNow());
     } else {
       goToView(stage);
     }
@@ -276,10 +277,21 @@ export default function Hub() {
   // disagree about which one is meant to catch a gesture.
   const aboutShowing = !pageOpen && activeSection === "about";
 
+  // Whether the reader is sitting at the PC. The PC's screen is HTML behind
+  // the canvas (seen through a hole in it), so while seated the canvas lets
+  // every gesture through to it — the same switch the crawl uses. Turning the
+  // head is locked out at the desk anyway, as it is in every focused area.
+  const seated = !pageOpen && activeSection === "desk";
+
+  // The area the overlay talks about, if any. The desk is focused like an
+  // area but is not one: it has no sheet, no card and no nav entry.
+  const section = activeSection === "desk" ? null : activeSection;
+
   // Whether there is a card to show at all. Not while the detail sheet is up
-  // (the page says what the card would have), and not during About, which is
-  // frameless — it has no card and no leader line to anchor one to.
-  const cardShowing = !pageOpen && activeSection !== "about";
+  // (the page says what the card would have), not during About, which is
+  // frameless — it has no card and no leader line to anchor one to — and not
+  // at the desk, which has neither.
+  const cardShowing = !pageOpen && activeSection !== "about" && activeSection !== "desk";
 
   return (
     <main className="w-full h-screen overflow-hidden relative font-sans">
@@ -290,6 +302,16 @@ export default function Hub() {
           note on why there's no `<color attach="background">` there any
           more. */}
       <div className="fixed inset-0 w-full h-full z-0 bg-[#070a14]" />
+
+      {/* HTML placed in the room, behind the canvas: the PC's screen, seen
+          through the hole the canvas leaves for it (`ScreenHole`). Between
+          the background and the canvas, so the room in front of it — the
+          chair, the lamp — still covers it. */}
+      <RoomHtmlLayer className="z-[5]">
+        <RoomPanel panel={DESK_SCREEN} interactive={seated}>
+          <DeskScreen isJa={isJa} onLeave={() => closeToHome("down", false)} openTerminal={openTerminal} />
+        </RoomPanel>
+      </RoomHtmlLayer>
 
       {/* Self-intro crawl. **A stand-in until the hologram (step 5 of
           docs/room-migration.md):** it used to sit *underneath* the
@@ -334,11 +356,11 @@ export default function Hub() {
           other half of this — see its own prop comment for why turning off
           pointer-events on just this wrapper div is not enough by itself. */}
       <div
-        className={`fixed inset-0 w-full h-full z-10 touch-none ${aboutShowing ? "pointer-events-none" : ""}`}
+        className={`fixed inset-0 w-full h-full z-10 touch-none ${aboutShowing || seated ? "pointer-events-none" : ""}`}
       >
         <Scene
           obscured={sceneObscured}
-          interactive={!aboutShowing}
+          interactive={!aboutShowing && !seated}
           // Only a phone gets the tap: a desktop still has a pause button, and
           // handing the gesture over as well would mean a stray click on the
           // starfield froze the town with nothing to say why.
@@ -354,7 +376,7 @@ export default function Hub() {
       <div className="fixed inset-0 pointer-events-none z-40 safe-inset">
         <div className="w-full h-full flex flex-col justify-between p-7 sm:p-9">
           <HubHeader
-            activeSection={activeSection}
+            activeSection={section}
             isJa={isJa}
             toggleLanguage={toggleLanguage}
             paused={paused}
@@ -381,7 +403,7 @@ export default function Hub() {
           {cardShowing &&
             (handheld ? (
               <CardRail
-                focusedSection={activeSection}
+                focusedSection={section}
                 isJa={isJa}
                 anchorRef={anchorDotRef}
                 onOpen={openCard}
@@ -394,7 +416,7 @@ export default function Hub() {
             ) : (
               <div className="flex-1 flex items-center w-full">
                 <SectionCard
-                  focusedSection={activeSection}
+                  focusedSection={section}
                   isJa={isJa}
                   anchorRef={anchorDotRef}
                   // Both read the area in front when they fire rather than
@@ -423,7 +445,9 @@ export default function Hub() {
           rail — it landed on top of the rail, the links button and the
           copyright all at once (measured at 390x844). The rail carries its
           own copy, just above the card; see `CardRail`. */}
-      {!handheld && activeSection && activeSection !== "about" && !pageOpen && (
+      {/* The desk is the exception on a phone: it has no rail to carry the
+          button, so it sits at the bottom of the frame as on a desktop. */}
+      {(!handheld || activeSection === "desk") && activeSection && activeSection !== "about" && !pageOpen && (
         <HomeButton
           onClick={() => closeToHome("down", true)}
           className="fixed bottom-6 left-1/2 -translate-x-1/2"
@@ -436,7 +460,7 @@ export default function Hub() {
         {menuOpen && (
           <MobileMenu
             isJa={isJa}
-            current={navItemForSection(activeSection)}
+            current={navItemForSection(section)}
             onNavClick={handleNav}
             onClose={() => setMenuOpen(false)}
             openTerminal={openTerminal}
@@ -464,7 +488,7 @@ export default function Hub() {
       {/* --- PAGE CONTENT (detail reading) --- */}
       <Sheet
         pageOpen={pageOpen}
-        activeSection={activeSection}
+        activeSection={section}
         exitDirection={exitDirection}
         scrollerRef={scroller}
         onScroll={handleScroll}
