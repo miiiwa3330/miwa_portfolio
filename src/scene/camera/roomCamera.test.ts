@@ -30,6 +30,8 @@ const DEG = Math.PI / 180;
 const FLAT = { hfov: STANDARD_HFOV, lens: 1, share: 0, lift: 0 };
 
 const pose = (over: Partial<RoomPose> = {}): RoomPose => ({
+  x: 0,
+  z: 0,
   yaw: 0,
   pitch: 0,
   forward: 0,

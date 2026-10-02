@@ -1,4 +1,4 @@
-import { EYE_HEIGHT, STANDARD_HFOV } from "../room/layout";
+import { EYE_HEIGHT, FREE_HFOV } from "../room/layout";
 import type { RoomPose } from "./roomCamera";
 import { STANDING, type Gait } from "../room/gait";
 
@@ -17,7 +17,7 @@ import { STANDING, type Gait } from "../room/gait";
 export type ViewState = { pose: RoomPose; width: number; height: number };
 
 const current: ViewState = {
-  pose: { yaw: 0, pitch: 0, forward: 0, eyeHeight: EYE_HEIGHT, hfov: STANDARD_HFOV, lens: 1, share: 0, lift: 0 },
+  pose: { x: 0, z: 0, yaw: 0, pitch: 0, forward: 0, eyeHeight: EYE_HEIGHT, hfov: FREE_HFOV, lens: 1, share: 0, lift: 0 },
   width: 1,
   height: 1,
 };
@@ -30,6 +30,8 @@ export function viewNow(): Readonly<ViewState> {
 
 function samePose(a: RoomPose, b: RoomPose): boolean {
   return (
+    a.x === b.x &&
+    a.z === b.z &&
     a.yaw === b.yaw &&
     a.pitch === b.pitch &&
     a.forward === b.forward &&

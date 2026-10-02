@@ -1,4 +1,6 @@
 import {
+  CHAIR_SEAT,
+  CHAIR_SEAT_FORWARD,
   EYE_HEIGHT,
   SEATED_EYE_HEIGHT,
   SUBJECTS,
@@ -7,7 +9,7 @@ import {
   subjectYaw,
   zoomView,
 } from "./layout";
-import type { RoomPose } from "../camera/roomCamera";
+import { floorSpot, type RoomPose } from "../camera/roomCamera";
 
 /**
  * Sitting down at the PC: where the reader stands to sit, how far down they
@@ -70,9 +72,7 @@ const smoothstep = (from: number, to: number, x: number) => {
 
 /** The held eye's place over the floor, along the seat's line and to its right, in metres. */
 function onSeatLine(pose: RoomPose): { along: number; across: number } {
-  const [hx, hz] = horizontalAt(pose.yaw / DEG);
-  const x = hx * pose.forward;
-  const z = hz * pose.forward;
+  const [x, z] = floorSpot(pose);
   const [ux, uz] = horizontalAt(seatYaw());
   return { along: x * ux + z * uz, across: x * -uz + z * ux };
 }
@@ -113,7 +113,9 @@ export function chairPlacement(pose: RoomPose): { x: number; z: number; yaw: num
 
   const pulledOut = chairBackZ() + ROLL_IN;
   // Walking in: first back, alongside the reader, then across behind them.
-  const approach = smoothstep(standForward() - CHAIR_APPROACH, standForward(), along) * onLine(across);
+  // Only walking up to it facing the desk: walked past on the keys (`freeWalk`), it stays put.
+  const facing = smoothstep(0.7, 0.85, Math.cos(pose.yaw - seatYaw() * DEG));
+  const approach = smoothstep(standForward() - CHAIR_APPROACH, standForward(), along) * onLine(across) * facing;
   const back = smoothstep(0, 0.5, approach);
   const over = smoothstep(0.5, 1, approach);
   // Sitting down: forward, under them.
@@ -126,4 +128,8 @@ export function chairPlacement(pose: RoomPose): { x: number; z: number; yaw: num
 }
 
 /** The chair's seat over the floor, in its own frame: from the back's foot towards the desk (-Z). */
-export const CHAIR_SEAT_SPAN = { halfWidth: 0.25, from: 0.01, to: 0.49 } as const;
+export const CHAIR_SEAT_SPAN = {
+  halfWidth: CHAIR_SEAT.width / 2,
+  from: CHAIR_SEAT_FORWARD - CHAIR_SEAT.depth / 2,
+  to: CHAIR_SEAT_FORWARD + CHAIR_SEAT.depth / 2,
+} as const;

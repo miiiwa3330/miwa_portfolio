@@ -17,6 +17,7 @@ import {
   freeFraming,
   zoomFraming,
   lensBends,
+  floorSpot,
   placeCamera,
   poseFromView,
   projectionLiftPx,
@@ -29,11 +30,11 @@ import {
 import { publishBody, publishView, viewNow } from "./camera/viewChannel";
 import { planRoomMove } from "./camera/walkFlight";
 import { STANDING, advanceGait, stepBob } from "./room/gait";
+import { AT_CENTRE, NO_KEYS, stepFreeWalk, type FreeWalk, type WalkKeys } from "./camera/freeWalk";
 import { seatShare } from "./room/seat";
 import {
   EYE_HEIGHT,
   facingStop,
-  horizontalAt,
   viewDirection,
   yawOf,
   zoomView,
@@ -416,6 +417,66 @@ const TAP_MAX_MS = 350;
  * that is not there any more, and the only thing they share is the stream of
  * events.
  */
+/** The keys that walk: W/A/S/D by where they are on the keyboard, whatever the layout prints on them. */
+const WALK_CODES = new Set(["KeyW", "KeyA", "KeyS", "KeyD"]);
+
+/**
+ * W/A/S/D and Space, for walking about the room (`camera/freeWalk.ts`).
+ * Keys typed into a field are the field's, and a key with Ctrl, ⌘ or Alt is
+ * a shortcut, not a step. Space asks for one jump per press: held down, it
+ * does not jump again on landing. Letting go of the window (switching tabs)
+ * lets go of every key, so the reader does not walk off on their own.
+ */
+function useWalkKeys(): { read: () => WalkKeys } {
+  const held = useRef(new Set<string>());
+  const jump = useRef(false);
+  useEffect(() => {
+    const typing = (target: EventTarget | null) => {
+      const el = target as HTMLElement | null;
+      return !!el && (el.isContentEditable || !!el.closest?.("input, textarea, select"));
+    };
+    const pressable = (target: EventTarget | null) =>
+      !!(target as HTMLElement | null)?.closest?.("button, a[href], summary, [role='button'], [role='link']");
+    const down = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey || typing(e.target)) return;
+      if (WALK_CODES.has(e.code)) held.current.add(e.code);
+      // Space jumps — unless a button or a link has the focus, which Space
+      // presses for a keyboard reader. Jumping, it does not scroll the page.
+      if (e.code === "Space" && !pressable(e.target)) {
+        e.preventDefault();
+        if (!e.repeat) jump.current = true;
+      }
+    };
+    const up = (e: KeyboardEvent) => {
+      held.current.delete(e.code);
+    };
+    const release = () => {
+      held.current.clear();
+      jump.current = false;
+    };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", release);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", release);
+    };
+  }, []);
+  return {
+    read: () => {
+      const keys = held.current;
+      const asked = jump.current;
+      jump.current = false;
+      return {
+        forward: (keys.has("KeyW") ? 1 : 0) - (keys.has("KeyS") ? 1 : 0),
+        right: (keys.has("KeyD") ? 1 : 0) - (keys.has("KeyA") ? 1 : 0),
+        jump: asked,
+      };
+    },
+  };
+}
+
 function useTapGesture(enabled: boolean, flightRef: React.RefObject<unknown>, onTap: () => void) {
   const onTapRef = useRef(onTap);
   useEffect(() => {
@@ -589,6 +650,8 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
   const flightRef = useRef<RoomFlight | null>(null);
   /** What the camera is holding right now — every flight starts from here. */
   const poseRef = useRef<RoomPose>({
+    x: 0,
+    z: 0,
     yaw: home.yaw,
     pitch: home.pitch,
     forward: 0,
@@ -605,6 +668,10 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
 
   useViewInput(yawTargetRef, pitchTargetRef, tourURef, draggingRef, followTourRef, lockedRef, flightRef, setViewZoom);
 
+  /** Where the keys have walked the reader, and their jump: the free view's place on the floor. */
+  const walkRef = useRef<FreeWalk>(AT_CENTRE);
+  const walkKeys = useWalkKeys();
+
   // The tap that replaces the pause button. Off while the detail sheet covers
   // the canvas, during About, where a tap beside the text is not asking for
   // the room to freeze, and at the desk, where a tap is on the PC's screen.
@@ -615,6 +682,8 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
   );
 
   const freePose = (yaw: number, pitch: number): RoomPose => ({
+    x: walkRef.current.x,
+    z: walkRef.current.z,
     yaw,
     pitch,
     forward: 0,
@@ -645,13 +714,15 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
   const applyPose = (camera: THREE.PerspectiveCamera, size: { width: number; height: number }, held: RoomPose, delta: number) => {
     poseRef.current = held;
     const sat = seatShare(held);
-    const [hx, hz] = horizontalAt(held.yaw / DEG);
-    const gait = advanceGait(gaitRef.current, hx * held.forward, hz * held.forward, held.yaw, delta, sat);
+    const [sx, sz] = floorSpot(held);
+    const gait = advanceGait(gaitRef.current, sx, sz, held.yaw, delta, sat);
     gaitRef.current = gait;
     publishBody(gait, held);
-    const bob = reducedMotionRef.current ? 0 : stepBob(gait) * (1 - sat);
+    // In the air there is no step to dip into.
+    const jump = walkRef.current.height;
+    const bob = reducedMotionRef.current || jump > 0 ? 0 : stepBob(gait) * (1 - sat);
     const sway = swayRef.current;
-    const pose: RoomPose = { ...held, yaw: held.yaw + sway.yaw, pitch: held.pitch + sway.pitch, eyeHeight: held.eyeHeight + sway.height + bob };
+    const pose: RoomPose = { ...held, yaw: held.yaw + sway.yaw, pitch: held.pitch + sway.pitch, eyeHeight: held.eyeHeight + sway.height + bob + jump };
     const { position, target } = placeCamera(pose);
     camera.position.set(position[0], position[1], position[2]);
     camera.up.set(0, 1, 0);
@@ -720,6 +791,8 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     // 2. A deliberate reset (logo / HOME) with no section to leave: the start
     //    of the tour, the desk.
     if (wasReset && !cameFrom) {
+      // Home is the middle of the room, wherever the keys had walked to.
+      walkRef.current = AT_CENTRE;
       tourURef.current = 0;
       followTourRef.current = true;
       flyToFree(home.yaw, home.pitch);
@@ -779,6 +852,12 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     const gain = swayGainRef.current;
     swayRef.current = { yaw: sway.yaw * gain, pitch: sway.pitch * gain, height: sway.height * gain };
 
+    // Only the free view walks: anywhere else, the keys asked nothing and a jump in the air is over.
+    if (flightRef.current || activeSection) {
+      walkKeys.read();
+      if (walkRef.current.height > 0 || walkRef.current.vx || walkRef.current.vz) walkRef.current = { ...walkRef.current, vx: 0, vz: 0, height: 0, rise: 0 };
+    }
+
     // A flight owns the camera outright while it runs. Real delta, not the
     // room's clock: the pause button freezes the room, not the reader.
     const flight = flightRef.current;
@@ -821,6 +900,9 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     const fraction = dampFraction(delta);
     yawRef.current = current + (target - current) * fraction;
     pitchRef.current = pitchRef.current + (pitchTargetRef.current - pitchRef.current) * fraction;
+
+    // Walking on the keys: where the reader is looking, stopped by the walls and the furniture.
+    walkRef.current = stepFreeWalk(walkRef.current, lockedRef.current ? NO_KEYS : walkKeys.read(), yawRef.current, delta);
 
     applyPose(camera, size, freePose(yawRef.current, pitchRef.current), delta);
 

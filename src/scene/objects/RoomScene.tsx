@@ -15,6 +15,7 @@ import {
   SUBJECTS,
   WALL_HEIGHT,
   CHAIR_BACK_HEIGHT,
+  CHAIR_SEAT,
   CHAIR_SEAT_FORWARD,
   CHAIR_SEAT_TOP,
   KEYBOARD,
@@ -42,6 +43,7 @@ import { sceneClock } from "../sceneClock";
 import SectionMarkers from "./SectionMarkers";
 import Self from "./Self";
 import CurveMirror from "./CurveMirror";
+import HologramSelf from "./HologramSelf";
 import { SecurityCameraBody, SecurityFeed } from "./SecurityCamera";
 
 /**
@@ -257,11 +259,6 @@ function Desk() {
   const lamp = lights.desk;
   // Where the cone of light meets the bottom of the text.
   const beamTop = SUBJECTS.about.local[1] - HOLOGRAM_PANEL.height / 2;
-  const holo = useRef<THREE.Mesh>(null);
-  useFrame((state) => {
-    const t = sceneClock.time(state.clock.elapsedTime);
-    if (holo.current) holo.current.rotation.y = t * 0.6;
-  });
   return (
     <Piece name="desk">
       <Box size={[width, 0.05, depth]} at={[0, 0.75, 0]} color="#55504a" />
@@ -313,16 +310,13 @@ function Desk() {
       {/* The keyboard and the mouse, where a seated reader's hands rest (`Self`). */}
       <Box size={[KEYBOARD.width, 0.02, KEYBOARD.depth]} at={[KEYBOARD.x, KEYBOARD.y, KEYBOARD.z]} color="#1c1e22" />
       <Box size={[0.06, 0.03, 0.1]} at={[MOUSE.x, MOUSE.y, MOUSE.z]} color="#1c1e22" />
-      {/* The hologram's device. Idle, it turns a wireframe over itself;
-          focused, it projects the self-introduction instead — the text is
+      {/* The hologram's device. Idle, it projects the reader themselves, turning
+          (`HologramSelf`); focused, it projects the self-introduction instead — the text is
           HTML in front of the canvas (`HOLOGRAM_PANEL`), and a cone of light
           joins it to the device. */}
       <Box size={[0.28, 0.08, 0.2]} at={[holoX, 0.815, 0]} color="#2a2d33" />
       <Box size={[0.2, 0.01, 0.12]} at={[holoX, 0.86, 0]} color="#000000" glow="#2fe8ff" glowStrength={3} />
-      <mesh ref={holo} visible={!projecting} position={[holoX, SUBJECTS.about.local[1], SUBJECTS.about.local[2]]}>
-        <icosahedronGeometry args={[0.16, 1]} />
-        <meshBasicMaterial color="#7bf3ff" wireframe transparent opacity={0.85} toneMapped={false} />
-      </mesh>
+      <HologramSelf at={SUBJECTS.about.local} visible={!projecting} />
       <mesh position={[holoX, (0.865 + beamTop) / 2, SUBJECTS.about.local[2]]}>
         <cylinderGeometry args={[HOLOGRAM_PANEL.width / 2, 0.08, beamTop - 0.865, 32, 1, true]} />
         <meshBasicMaterial
@@ -364,12 +358,13 @@ function Chair() {
   });
   return (
     <group ref={chair}>
-      <Box size={[0.5, 0.06, 0.48]} at={[0, CHAIR_SEAT_TOP - 0.03, -CHAIR_SEAT_FORWARD]} color="#1c1e22" />
+      <Box size={[CHAIR_SEAT.width, 0.06, CHAIR_SEAT.depth]} at={[0, CHAIR_SEAT_TOP - 0.03, -CHAIR_SEAT_FORWARD]} color="#1c1e22" />
       <Box size={[0.48, 0.4, 0.04]} at={[0, CHAIR_BACK_HEIGHT - 0.2, 0]} color="#16181c" />
       <Box size={[0.04, 0.3, 0.04]} at={[0, CHAIR_SEAT_TOP - 0.03 + 0.15, 0]} color="#2a2d33" />
       {/* The gas lift and the five-legged base on its castors. */}
-      <mesh position={[0, 0.27, -CHAIR_SEAT_FORWARD]}>
-        <cylinderGeometry args={[0.025, 0.025, 0.4, 10]} />
+      {/* From the base's hub (7 cm up) to under the cushion. */}
+      <mesh position={[0, (0.07 + CHAIR_SEAT_TOP - 0.06) / 2, -CHAIR_SEAT_FORWARD]}>
+        <cylinderGeometry args={[0.025, 0.025, CHAIR_SEAT_TOP - 0.06 - 0.07, 10]} />
         <meshStandardMaterial color="#8a8e96" metalness={0.8} roughness={0.3} />
       </mesh>
       {[0, 1, 2, 3, 4].map((i) => {

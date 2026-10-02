@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { CHAIR_SEAT_TOP, HIP_HALF, SEATED_HIPS_Y, SHIN, THIGH, TORSO_DEPTH, bodyJoints, deskHands, seatedShare } from "./self";
+import { CHAIR_SEAT_TOP, SHOULDER_HALF, TORSO_HALF_WIDTH, HIP_HALF, SEATED_HIPS_Y, SHIN, THIGH, TORSO_DEPTH, bodyJoints, deskHands, seatedShare } from "./self";
 import { STANDING, advanceGait, footStep, type Gait } from "./gait";
-import { EYE_HEIGHT, HANDHELD_STANDARD_HFOV, STANDARD_HFOV, STOP_KEYS, standardView, zoomView } from "./layout";
+import { EYE_HEIGHT, FREE_HFOV, HANDHELD_STANDARD_HFOV, PIECES, STANDARD_HFOV, STOP_KEYS, pieceCentreDistance, standardView, zoomView } from "./layout";
+import { CHAIR_SEAT_SPAN, chairPlacement } from "./seat";
 import { placeCamera, poseFromView, projectToScreen, toCameraSpace } from "../camera/roomCamera";
 
-const desktop = { hfov: STANDARD_HFOV, lens: 1, share: 0.22, lift: 0 };
+// The free view: what the reader looks round the room through, the widest standard frame.
+const desktop = { hfov: FREE_HFOV, lens: 1, share: 0.22, lift: 0 };
 const phone = { hfov: HANDHELD_STANDARD_HFOV, lens: 1, share: 0, lift: 0.21 };
 
 describe("the reader's body", () => {
@@ -102,9 +104,16 @@ describe("sitting down at the PC", () => {
     expect(seatedShare(EYE_HEIGHT)).toBe(0);
   });
 
-  it("puts the hips on the chair's seat", () => {
-    expect(Math.abs(SEATED_HIPS_Y - CHAIR_SEAT_TOP)).toBeLessThan(0.04);
+  it("rests the hips on the cushion: the hip joints a pelvis' depth over it, and over it seen from above", () => {
     expect(seated.hips[1]).toBeCloseTo(SEATED_HIPS_Y, 9);
+    const over = seated.hips[1] - CHAIR_SEAT_TOP;
+    expect(over).toBeGreaterThan(0.05);
+    expect(over).toBeLessThan(0.11);
+    // In the desk's frame (+Z towards the centre; the desk stands at yaw 0).
+    const chair = chairPlacement(poseFromView(zoomView("desk"), { hfov: STANDARD_HFOV, lens: 1, share: 0, lift: 0 }));
+    const intoSeat = chair.z - (seated.hips[2] + pieceCentreDistance(PIECES.desk));
+    expect(intoSeat).toBeGreaterThan(CHAIR_SEAT_SPAN.from + 0.05);
+    expect(intoSeat).toBeLessThan(CHAIR_SEAT_SPAN.to - 0.05);
   });
 
   it("rests the hands on the keyboard and the mouse", () => {
@@ -115,6 +124,14 @@ describe("sitting down at the PC", () => {
 
   it("keeps both feet on the floor, in front of the knees' line", () => {
     for (const foot of seated.feet) expect(foot[1]).toBe(0);
+  });
+});
+
+describe("the arms", () => {
+  it("hang outside the loose T-shirt, not inside it", () => {
+    // The arm's middle at or past the shirt's side: 3 cm further in (the
+    // first try), the boxy shirt swallowed the arms whole.
+    expect(SHOULDER_HALF).toBeGreaterThanOrEqual(TORSO_HALF_WIDTH);
   });
 });
 

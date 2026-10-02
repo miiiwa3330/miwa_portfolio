@@ -1,6 +1,6 @@
 import { easeInOutCubic, wrapAngle } from "./cameraMotion";
-import { blendRoomPose, easedMove, type RoomMove, type RoomPose } from "./roomCamera";
-import { EYE_HEIGHT, horizontalAt } from "../room/layout";
+import { blendRoomPose, easedMove, floorSpot, type RoomMove, type RoomPose } from "./roomCamera";
+import { EYE_HEIGHT } from "../room/layout";
 import { ROLL_IN, seatShare, seatedShare, standForward } from "../room/seat";
 
 /**
@@ -22,8 +22,6 @@ import { ROLL_IN, seatShare, seatedShare, standForward } from "../room/seat";
  * that starts behind the detail page still has most of its way to go when
  * the page has slid off.
  */
-
-const DEG = Math.PI / 180;
 
 /** **Provisional (仮).** The walking pace, in m/s — brisk; a room 6.6 m across. */
 export const WALK_SPEED = 1.5;
@@ -57,29 +55,51 @@ export function walkedBy(distance: number, t: number): number {
   return 0.5 * pace * ease + pace * (t - ease);
 }
 
-/** The eye over the floor for a distance out along a yaw (radians). */
-function spot(forward: number, yaw: number): [number, number] {
-  const [x, z] = horizontalAt(yaw / DEG);
-  return [x * forward, z * forward];
+/** The eye over the floor for a place and a distance out from it along a yaw (radians). */
+function spot(x: number, z: number, forward: number, yaw: number): [number, number] {
+  return floorSpot({ x, z, forward, yaw });
 }
 
 /**
- * How far the eye travels over the floor going from (`a`, `yawA`) to (`b`,
- * `yawB`) with both blended evenly — the way a pose blends: the camera stands
- * on the ray it looks along, so the way out curves when it turns as it goes.
+ * The way the eye walks over the floor going from place `pa` and (`a`,
+ * `yawA`) to `pb` and (`b`, `yawB`) with all of them blended evenly — the
+ * way a pose blends: the camera steps out along the ray it looks along, so
+ * the way out curves when it turns as it goes.
  */
-function pathLength(a: number, yawA: number, b: number, yawB: number): number {
+function walkPath(
+  pa: [number, number],
+  a: number,
+  yawA: number,
+  pb: [number, number],
+  b: number,
+  yawB: number
+): { length: number; blendAt: (share: number) => number } {
   const turn = wrapAngle(yawB - yawA);
-  let length = 0;
-  let [px, pz] = spot(a, yawA);
-  for (let i = 1; i <= 16; i++) {
-    const t = i / 16;
-    const [x, z] = spot(a + (b - a) * t, yawA + turn * t);
-    length += Math.hypot(x - px, z - pz);
+  const steps = 32;
+  const along = [0];
+  let [px, pz] = spot(pa[0], pa[1], a, yawA);
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    const [x, z] = spot(pa[0] + (pb[0] - pa[0]) * t, pa[1] + (pb[1] - pa[1]) * t, a + (b - a) * t, yawA + turn * t);
+    along.push(along[i - 1] + Math.hypot(x - px, z - pz));
     px = x;
     pz = z;
   }
-  return length;
+  const length = along[steps];
+  return {
+    length,
+    // How far through the blend a share of the way is. The blend does not
+    // cover the floor evenly (a turn swings the step out along the view), so
+    // going by the blend alone walked 2% over the pace turning to the shelf.
+    blendAt(share) {
+      if (length <= 0) return share;
+      const target = share * length;
+      let i = 1;
+      while (i < steps && along[i] < target) i++;
+      const span = along[i] - along[i - 1];
+      return (i - 1 + (span > 0 ? (target - along[i - 1]) / span : 0)) / steps;
+    },
+  };
 }
 
 const ease = (from: number, to: number, t: number) => from + (to - from) * easeInOutCubic(Math.max(0, Math.min(1, t)));
@@ -103,7 +123,8 @@ export function planRoomMove(from: RoomPose, to: RoomPose, minDuration: number):
   const walkTo = toSat ? Math.min(to.forward, stand) : to.forward;
   const heightFrom = fromSat ? EYE_HEIGHT : from.eyeHeight;
   const heightTo = toSat ? EYE_HEIGHT : to.eyeHeight;
-  const distance = pathLength(walkFrom, from.yaw, walkTo, to.yaw);
+  const path = walkPath([from.x, from.z], walkFrom, from.yaw, [to.x, to.z], walkTo, to.yaw);
+  const distance = path.length;
 
   const legs = {
     rollOut: (rollOut / ROLL_IN) * ROLL_SECONDS,
@@ -134,6 +155,8 @@ export function planRoomMove(from: RoomPose, to: RoomPose, minDuration: number):
       let forward: number;
       let eyeHeight: number;
       let yaw: number;
+      // The place on the floor moves only while walking: before it, the reader is still where they were.
+      let place = t < t2 ? 0 : 1;
       if (t < t1) {
         forward = ease(from.forward, walkFrom, t / t1);
         eyeHeight = from.eyeHeight;
@@ -143,10 +166,11 @@ export function planRoomMove(from: RoomPose, to: RoomPose, minDuration: number):
         eyeHeight = ease(from.eyeHeight, heightFrom, (t - t1) / (t2 - t1));
         yaw = from.yaw;
       } else if (t < t3) {
-        const share = distance > 0 ? walkedBy(distance, (t - t2) / stretch) / distance : (t - t2) / (t3 - t2);
+        const share = path.blendAt(distance > 0 ? walkedBy(distance, (t - t2) / stretch) / distance : (t - t2) / (t3 - t2));
         forward = walkFrom + (walkTo - walkFrom) * share;
         eyeHeight = heightFrom + (heightTo - heightFrom) * share;
         yaw = from.yaw + (endYaw - from.yaw) * share;
+        place = share;
       } else if (t < t4) {
         forward = walkTo;
         eyeHeight = ease(heightTo, to.eyeHeight, (t - t3) / (t4 - t3));
@@ -156,7 +180,7 @@ export function planRoomMove(from: RoomPose, to: RoomPose, minDuration: number):
         eyeHeight = to.eyeHeight;
         yaw = endYaw;
       }
-      return { ...pose, forward, eyeHeight, yaw };
+      return { ...pose, x: from.x + (to.x - from.x) * place, z: from.z + (to.z - from.z) * place, forward, eyeHeight, yaw };
     },
   };
 }

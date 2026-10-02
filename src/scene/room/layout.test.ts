@@ -8,6 +8,7 @@ import {
   ROOM_RADIUS,
   SEATED_EYE_HEIGHT,
   STANDARD_HFOV,
+  FREE_HFOV,
   STOP_KEYS,
   STOP_ORDER,
   SUBJECTS,
@@ -41,7 +42,7 @@ import {
   floorGridLines,
   RIB_STEP,
   HAND_Y,
-  KEYBOARD,
+  DESK_HANDS,
 } from "./layout";
 
 const DEG = Math.PI / 180;
@@ -190,10 +191,12 @@ describe("zoomView", () => {
   });
 
   it("sits down at the PC, at a height that faces the screen rather than looking down on it", () => {
-    // Standing height looked down 29° and keystoned the screen's text.
+    // Standing height looked down 29° and keystoned the screen's text. Sat
+    // at 1.12 m it was 7°; at the figure's 1.20 m (2026-10-02) it is 12.7°,
+    // looking half-way down to the hands on the keyboard.
     const view = zoomView("desk", STANDARD_HFOV);
     expect(view.eyeHeight).toBe(SEATED_EYE_HEIGHT);
-    expect(Math.abs(view.pitch)).toBeLessThan(10);
+    expect(Math.abs(view.pitch)).toBeLessThan(15);
   });
 
   it("sees both the whole screen and the hands on the keyboard from the seat (16:9)", () => {
@@ -202,7 +205,8 @@ describe("zoomView", () => {
     const desk = pieceCentreDistance(PIECES.desk);
     const angle = (y: number, away: number) => Math.atan2(y - SEATED_EYE_HEIGHT, away) / DEG - view.pitch;
     const screenTop = angle(MONITOR_Y + MONITOR_SCREEN.height / 2, subjectDistance("desk") - view.forward);
-    const hands = angle(HAND_Y, desk - KEYBOARD.z - view.forward);
+    // The nearer hand, the one lowest in the frame.
+    const hands = angle(HAND_Y, desk - Math.max(DESK_HANDS[0][2], DESK_HANDS[1][2]) - view.forward);
     expect(screenTop).toBeLessThan(halfV - 1);
     expect(hands).toBeGreaterThan(-halfV + 1);
   });
@@ -242,7 +246,9 @@ describe("hfovForZoom", () => {
   const verticalOf = (hfov: number, aspect: number) => (2 * Math.atan(Math.tan((hfov * Math.PI) / 360) / aspect) * 180) / Math.PI;
 
   it("draws the desktop's stages at the user's 67° and 161°", () => {
-    expect(hfovForZoom("standard", false)).toBe(STANDARD_HFOV);
+    expect(hfovForZoom("standard", false)).toBe(FREE_HFOV);
+    // Looking round is wider than a zoom, which is drawn for reading.
+    expect(FREE_HFOV).toBeGreaterThan(STANDARD_HFOV);
     expect(hfovForZoom("fisheye", false)).toBe(FISHEYE_HFOV);
   });
 

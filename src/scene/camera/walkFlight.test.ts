@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { WALK_SPEED, planRoomMove, walkTime, walkedBy } from "./walkFlight";
-import { easedMove, poseFromView, type RoomPose } from "./roomCamera";
-import { EYE_HEIGHT, SEATED_EYE_HEIGHT, STANDARD_HFOV, horizontalAt, standardView, zoomView } from "../room/layout";
+import { easedMove, floorSpot, poseFromView, type RoomPose } from "./roomCamera";
+import { EYE_HEIGHT, SEATED_EYE_HEIGHT, STANDARD_HFOV, standardView, zoomView } from "../room/layout";
 import { seatShare, standForward } from "../room/seat";
 
-const DEG = Math.PI / 180;
 const framing = { hfov: STANDARD_HFOV, lens: 1, share: 0, lift: 0 };
 const centre = (yawDeg: number): RoomPose => poseFromView({ ...standardView("desk"), yaw: yawDeg }, framing);
 const desk = poseFromView(zoomView("desk"), framing);
@@ -18,10 +17,7 @@ function samples(from: RoomPose, to: RoomPose, minDuration = 1.1): RoomPose[] {
   return out;
 }
 
-const floor = (p: RoomPose) => {
-  const [x, z] = horizontalAt(p.yaw / DEG);
-  return [x * p.forward, z * p.forward];
-};
+const floor = (p: RoomPose) => floorSpot(p);
 
 describe("walkedBy", () => {
   it("starts and ends standing, and never goes faster than the pace", () => {
@@ -91,6 +87,43 @@ describe("getting up from the PC and walking back", () => {
     const end = way[way.length - 1];
     expect(end.forward).toBeCloseTo(0, 9);
     expect(end.eyeHeight).toBe(EYE_HEIGHT);
+  });
+});
+
+describe("turning as it walks", () => {
+  it("keeps to the pace when the view swings round on the way (from the PC's view to the shelf)", () => {
+    // The step goes out along the view, so turning while stepping out swings
+    // it sideways faster the further out it is.
+    for (const stop of ["products", "skills", "contact"] as const) {
+      const way = samples(centre(0), poseFromView(zoomView(stop), framing));
+      for (let i = 1; i < way.length; i++) {
+        const [ax, az] = floor(way[i - 1]);
+        const [bx, bz] = floor(way[i]);
+        expect(Math.hypot(bx - ax, bz - az) * 120).toBeLessThan(WALK_SPEED * 1.02);
+      }
+    }
+  });
+});
+
+describe("from where the keys walked to", () => {
+  // Walked 1.2 m off the centre, to the left of the desk's line.
+  const away: RoomPose = { ...centre(0), x: -1.2, z: -0.4 };
+  const way = samples(away, desk);
+
+  it("sets off from there, walks the whole way without a jump, and ends at the zoom", () => {
+    const [x0, z0] = floor(way[0]);
+    expect(x0).toBeCloseTo(-1.2, 9);
+    expect(z0).toBeCloseTo(-0.4, 9);
+    for (let i = 1; i < way.length; i++) {
+      // On its feet (rolling in on the chair is quicker, and not walking).
+      if (way[i].eyeHeight !== EYE_HEIGHT) continue;
+      const [ax, az] = floor(way[i - 1]);
+      const [bx, bz] = floor(way[i]);
+      expect(Math.hypot(bx - ax, bz - az)).toBeLessThan((WALK_SPEED * 1.02) / 120);
+    }
+    const end = way[way.length - 1];
+    expect(end.x).toBeCloseTo(0, 9);
+    expect(end.z).toBeCloseTo(0, 9);
   });
 });
 

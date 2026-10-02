@@ -22,7 +22,7 @@ type Vec3 = [number, number, number];
  */
 export const CURVE_MIRROR = {
   /** The middle of the glass, in the board's frame: this far right of the board's middle… */
-  x: PIECES.board.width / 2 + 0.15,
+  x: PIECES.board.width / 2 + 0.08,
   /** …and this far above the top of its frame. */
   above: 0.07,
   /**
@@ -30,7 +30,7 @@ export const CURVE_MIRROR = {
    * face the room, the mirror's top leans back towards the wall: at 30 cm
    * the top of its back went 6 cm into it.
    */
-  standOff: 0.45,
+  standOff: 0.48,
   /** The rim's radius. */
   radius: 0.48,
   /** The radius of the sphere the glass is cut from: about a 120° view, like a road mirror's. */

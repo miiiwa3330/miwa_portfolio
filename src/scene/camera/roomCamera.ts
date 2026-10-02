@@ -1,5 +1,5 @@
 import { HANDHELD_RAIL_TOP_PX, easeInOutCubic, orbitCardShare, sectionCardShare, wrapAngle } from "./cameraMotion";
-import { hfovForZoom, horizontalAt, lensForZoom, viewDirection, type RoomView, type ViewZoom } from "../room/layout";
+import { hfovForZoom, horizontalAt, lensForZoom, viewDirection, zoomHfov, type RoomView, type ViewZoom } from "../room/layout";
 import { RECTILINEAR, lensPixelsPerRadian, projectLens, unprojectLens } from "./fisheye";
 import type { Stop } from "@/types";
 import type { Direction } from "../direction";
@@ -23,6 +23,13 @@ const DEG = Math.PI / 180;
  * `room/layout.ts`), field of view in degrees, as three.js takes it.
  */
 export type RoomPose = {
+  /**
+   * Where the reader stands on the floor, in metres from the room's centre
+   * (world X and Z): where the keys walked them (`camera/freeWalk.ts`). The
+   * zooms and the PC are framed from the centre, so they are at 0, 0.
+   */
+  x: number;
+  z: number;
   yaw: number;
   pitch: number;
   /** How far the camera has stepped out from the centre, along `yaw`. */
@@ -43,7 +50,7 @@ export type Framing = Pick<RoomPose, "hfov" | "lens" | "share" | "lift">;
 
 /** A `RoomView` (degrees, from `room/layout.ts`) as a pose, drawn with `framing`. */
 export function poseFromView(view: RoomView, framing: Framing): RoomPose {
-  return { yaw: view.yaw * DEG, pitch: view.pitch * DEG, forward: view.forward, eyeHeight: view.eyeHeight, ...framing };
+  return { x: 0, z: 0, yaw: view.yaw * DEG, pitch: view.pitch * DEG, forward: view.forward, eyeHeight: view.eyeHeight, ...framing };
 }
 
 /**
@@ -76,11 +83,21 @@ export function headLean(pitch: number): number {
   return HEAD_LEAN * Math.max(0, Math.min(1, (-pitch - LEAN_FROM) / (LEAN_FULL - LEAN_FROM)));
 }
 
+/**
+ * Where the reader stands over the floor, [x, z]: their place plus the step
+ * out along the view (`forward`). Not the camera's own position, which also
+ * leans out when looking down (`headLean`) — the body stands here.
+ */
+export function floorSpot(pose: Pick<RoomPose, "x" | "z" | "yaw" | "forward">): [number, number] {
+  const [hx, hz] = horizontalAt(pose.yaw / DEG);
+  return [pose.x + hx * pose.forward, pose.z + hz * pose.forward];
+}
+
 /** Where the camera stands and the point it looks at — one metre straight ahead. */
 export function placeCamera(pose: RoomPose): { position: [number, number, number]; target: [number, number, number] } {
   const [hx, hz] = horizontalAt(pose.yaw / DEG);
   const out = pose.forward + headLean(pose.pitch);
-  const position: [number, number, number] = [hx * out, pose.eyeHeight, hz * out];
+  const position: [number, number, number] = [pose.x + hx * out, pose.eyeHeight, pose.z + hz * out];
   const [dx, dy, dz] = viewDirection(pose.yaw / DEG, pose.pitch / DEG);
   return { position, target: [position[0] + dx, position[1] + dy, position[2] + dz] };
 }
@@ -220,7 +237,7 @@ export function freeFraming(zoom: ViewZoom, handheld: boolean): Framing {
 export function zoomFraming(stop: Stop, handheld: boolean): Framing {
   const bare = stop === "desk" || stop === "about";
   return {
-    hfov: hfovForZoom("standard", handheld),
+    hfov: zoomHfov(handheld),
     lens: RECTILINEAR,
     share: bare ? 0 : sectionCardShare(handheld),
     lift: bare ? 0 : cardLift(handheld),
@@ -234,6 +251,8 @@ export function zoomFraming(stop: Stop, handheld: boolean): Framing {
 export function blendRoomPose(from: RoomPose, to: RoomPose, t: number): RoomPose {
   const mix = (a: number, b: number) => a + (b - a) * t;
   return {
+    x: mix(from.x, to.x),
+    z: mix(from.z, to.z),
     yaw: from.yaw + wrapAngle(to.yaw - from.yaw) * t,
     pitch: mix(from.pitch, to.pitch),
     forward: mix(from.forward, to.forward),

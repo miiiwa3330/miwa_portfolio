@@ -1,6 +1,7 @@
 import type { Stop } from "@/types";
 import type { Direction } from "../direction";
 import { RECTILINEAR, STEREOGRAPHIC } from "../camera/fisheye";
+import { FIGURE, HIP_OVER_SEAT, PELVIS_BACK, seatedHipsFromEye } from "./figure";
 
 /**
  * The room the camera stands in: one round room inside a rocket colony, seen
@@ -17,10 +18,33 @@ const DEG = Math.PI / 180;
 
 export type { Stop };
 
-/** Chosen by the user in `sandbox/room-lab.html` (2026-10-01). */
-export const ROOM_RADIUS = 3.3;
-export const EYE_HEIGHT = 1.55;
+/**
+ * Chosen by the user in `sandbox/room-lab.html` (2026-10-01) at 3.3 m, and
+ * brought in to 3.0 m by the user (2026-10-02): the floor between the
+ * furniture, about 5 m across, read as empty space.
+ */
+export const ROOM_RADIUS = 3.0;
+/**
+ * The room owner's eye (`room/figure.ts`, measured off the character sheet
+ * at 168 cm): 1.49 m. It was 1.55 m, picked in the prototype before there
+ * was a figure; the user chose to bring the camera down to the figure's eye
+ * rather than make the figure 175 cm or shrink its head (2026-10-02).
+ */
+export const EYE_HEIGHT = FIGURE.eye;
+/**
+ * The perspective a zoom is drawn through — stepped in to an area, sat at
+ * the PC, at the hologram — horizontal, in degrees. The user's 67° from the
+ * prototype; it frames the subjects and keeps the text placed in the room
+ * readable (`ZOOM_FILL`, the seat at the PC).
+ */
 export const STANDARD_HFOV = 67;
+/**
+ * The free view's standard stage, looking round the room: 90° across, a
+ * game's first person (the user, 2026-10-02). At 67° the room looked as if
+ * seen from two or three steps further in than the reader stands — at the
+ * desk's 2.8 m, 2 steps back is what 67° → 98° undoes.
+ */
+export const FREE_HFOV = 90;
 /** Stereographic fisheye, also chosen in the prototype. Horizontal, in degrees. */
 export const FISHEYE_HFOV = 161;
 
@@ -30,8 +54,14 @@ export const WALL_HEIGHT = 3.4;
  * Eye height when sitting at the desk. Standing height looked down at the
  * monitor by 29° in the prototype and keystoned the text on it; sitting
  * brings the screen square to the camera.
+ *
+ * **Provisional (仮)**: 1.20 m since the figure (2026-10-02; 1.12 m before).
+ * The figure sits tall for its legs, and holding 1.12 m meant hunching 34°
+ * over the desk; at 1.20 m it leans in 13° (`SEATED_LEAN`) on a 42 cm seat.
+ * The screen's top and the hands on the keyboard still both fit a 16:9
+ * frame (37° of the 41° it spans, tested).
  */
-export const SEATED_EYE_HEIGHT = 1.12;
+export const SEATED_EYE_HEIGHT = 1.2;
 /** How much of the screen's width a zoomed-in subject fills. */
 export const ZOOM_FILL = 0.7;
 /** The closest a zoom may bring the camera to a subject's face, in metres. */
@@ -58,17 +88,22 @@ export type PieceKey = "desk" | "shelf" | "bookcase" | "porthole" | "board" | "c
  * a few widths were re-fitted from the prototype's 4.5 m room to 3.3 m so that
  * no two footprints touch. Kept at the prototype's sizes, the desk and the
  * workbench overlapped by 1.6° and the door sat 2.4° from the workbench.
+ *
+ * Re-fitted again for 3.0 m (2026-10-02), the widths kept: the 3.3 m angles
+ * left the workbench 1.6° into the desk and the board 0.2° from the comms.
+ * The pieces take 307° of the round there; with the PC held at 0, the rest
+ * is shared out as an even gap of about 6.7° between each pair.
  */
 export const PIECES: Record<PieceKey, Piece> = {
   desk: { angle: 0, width: 2.2, depth: 0.8 },
-  shelf: { angle: 68, width: 1.6, depth: 0.45 },
-  bookcase: { angle: 112, width: 1.3, depth: 0.35 },
+  shelf: { angle: 54, width: 1.6, depth: 0.45 },
+  bookcase: { angle: 93, width: 1.3, depth: 0.35 },
   // The porthole is on the wall; this footprint is the hammock hung beneath it.
-  porthole: { angle: 165, width: 2.0, depth: 0.5 },
-  board: { angle: 218, width: 2.8, depth: 0.06 },
-  comms: { angle: 260, width: 1.1, depth: 0.6 },
-  door: { angle: 286, width: 1.0, depth: 0.1 },
-  workbench: { angle: 316, width: 1.3, depth: 0.7 },
+  porthole: { angle: 138, width: 2.0, depth: 0.5 },
+  board: { angle: 196, width: 2.8, depth: 0.06 },
+  comms: { angle: 245, width: 1.1, depth: 0.6 },
+  door: { angle: 275, width: 1.0, depth: 0.1 },
+  workbench: { angle: 308, width: 1.3, depth: 0.7 },
 };
 
 export const PIECE_KEYS = Object.keys(PIECES) as PieceKey[];
@@ -281,6 +316,17 @@ export function zoomView(stop: Stop, hfovDeg: number = STANDARD_HFOV): RoomView 
 export const KEYBOARD = { x: 0, z: 0.08, y: 0.785, width: 0.5, depth: 0.18 } as const;
 export const MOUSE = { x: 0.36, z: 0.1, y: 0.79 } as const;
 export const HAND_Y = 0.82;
+/**
+ * Where the seated hands rest, in the desk's frame: the left on the near
+ * half of the keyboard, the right on the back of the mouse. Nearer the
+ * reader than the keys' middle, because the figure's arms (`room/self.ts`)
+ * have a length now: the keyboard's middle is 66 cm in front of the seated
+ * eye, past the reach of a 168 cm figure.
+ */
+export const DESK_HANDS: readonly [readonly [number, number, number], readonly [number, number, number]] = [
+  [KEYBOARD.x - 0.1, HAND_Y, KEYBOARD.z + 0.06],
+  [MOUSE.x, HAND_Y, MOUSE.z + 0.05],
+];
 
 /**
  * Where a seated reader looks: half-way between the top of the screen and
@@ -292,7 +338,7 @@ export function seatedPitch(forward: number): number {
   const desk = pieceCentreDistance(PIECES.desk);
   const top = MONITOR_Y + MONITOR_SCREEN.height / 2;
   const screenAway = desk - monitorFace("gui").centre[2] - forward;
-  const handsAway = desk - KEYBOARD.z - forward;
+  const handsAway = desk - Math.max(DESK_HANDS[0][2], DESK_HANDS[1][2]) - forward;
   const up = Math.atan2(top - SEATED_EYE_HEIGHT, screenAway);
   const down = Math.atan2(HAND_Y - SEATED_EYE_HEIGHT, handsAway);
   return (up + down) / 2 / DEG;
@@ -374,7 +420,12 @@ export const HANDHELD_FISHEYE_HFOV = 90;
 /** The horizontal field of view a free-view stage is drawn at, on the frame `handheld` names. */
 export function hfovForZoom(zoom: ViewZoom, handheld: boolean): number {
   if (handheld) return zoom === "standard" ? HANDHELD_STANDARD_HFOV : HANDHELD_FISHEYE_HFOV;
-  return zoom === "standard" ? STANDARD_HFOV : FISHEYE_HFOV;
+  return zoom === "standard" ? FREE_HFOV : FISHEYE_HFOV;
+}
+
+/** The horizontal field of view a zoom is drawn at: the reading perspective, not the free view's wider one. */
+export function zoomHfov(handheld: boolean): number {
+  return handheld ? HANDHELD_STANDARD_HFOV : STANDARD_HFOV;
 }
 
 /**
@@ -388,17 +439,19 @@ export function lensForZoom(zoom: ViewZoom): number {
 }
 
 /**
- * **Provisional (仮).** How far behind the seated eye the chair's back stands.
- * The chair is where the reader sits down at the PC, so it is placed from
- * the seated view rather than by eye; a seated eye sits over the seat, a
- * little in front of the back.
+ * How far behind the seated eye the chair's back stands: behind the leaning
+ * body's back, which is behind its hips (`room/figure.ts`). The chair is
+ * where the reader sits down at the PC, so it is placed from the seated
+ * body rather than by eye.
  */
-export const CHAIR_BACK_BEHIND_EYE = 0.15;
+export const CHAIR_BACK_BEHIND_EYE = seatedHipsFromEye().back + PELVIS_BACK;
 /** The top of the chair's back above the floor (see `RoomScene`'s chair). */
 export const CHAIR_BACK_HEIGHT = 0.98;
-/** The chair's seat: the top of its cushion, and how far it sits in front of the back (towards the desk). */
-export const CHAIR_SEAT_TOP = 0.51;
+/** The chair's seat: the top of its cushion — under the seated hips — and how far it sits in front of the back (towards the desk). */
+export const CHAIR_SEAT_TOP = SEATED_EYE_HEIGHT - seatedHipsFromEye().down - HIP_OVER_SEAT;
 export const CHAIR_SEAT_FORWARD = 0.25;
+/** The cushion: its width, and its depth either side of `CHAIR_SEAT_FORWARD`. */
+export const CHAIR_SEAT = { width: 0.5, depth: 0.48 } as const;
 
 /**
  * Where the chair's back stands, as `z` in the desk's frame (+Z towards the

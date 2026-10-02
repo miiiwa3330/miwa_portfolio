@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CHAIR_SEAT_SPAN, chairPlacement, seatShare, standForward } from "./seat";
-import { CHAIR_BACK_BEHIND_EYE, PIECES, STANDARD_HFOV, STOP_KEYS, chairBackZ, horizontalAt, pieceCentreDistance, standardView, zoomView } from "./layout";
+import { CHAIR_BACK_BEHIND_EYE, CHAIR_SEAT_TOP, PIECES, STANDARD_HFOV, STOP_KEYS, chairBackZ, horizontalAt, pieceCentreDistance, standardView, zoomView } from "./layout";
 import { poseFromView, type RoomPose } from "../camera/roomCamera";
 import { planRoomMove } from "../camera/walkFlight";
 import { bodyJoints } from "./self";
@@ -81,7 +81,8 @@ describe("the chair", () => {
         for (const i of [0, 1]) {
           for (const k of [0, 0.5, 1]) {
             const p = j.feet[i].map((f, n) => f + (j.knees[i][n] - f) * k);
-            if (p[1] < 0.45) worst = Math.max(worst, insideSeat(chair, inDesk(p)));
+            // Below the cushion: the knees sat on its edge are on top of it, not in it.
+            if (p[1] < CHAIR_SEAT_TOP - 0.06) worst = Math.max(worst, insideSeat(chair, inDesk(p)));
           }
         }
       }
@@ -89,6 +90,15 @@ describe("the chair", () => {
       expect(worst).toBeLessThan(0.01);
     });
   }
+
+  it("stays put when walked past on the keys — only walking up to it facing the desk brings it round", () => {
+    const parked = chairPlacement(centre);
+    // Standing where the reader stands to sit, but looking along the desk, not at it.
+    for (const yaw of [90, -90, 180]) {
+      const sideways: RoomPose = { ...desk, yaw: (yaw * Math.PI) / 180, forward: 0, x: 0, z: -standForward(), eyeHeight: centre.eyeHeight };
+      expect(chairPlacement(sideways)).toEqual(parked);
+    }
+  });
 
   it("moves only while the reader is near: walking about the room elsewhere leaves it where it was", () => {
     const parked = chairPlacement(centre);

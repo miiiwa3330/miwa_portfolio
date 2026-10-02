@@ -17,9 +17,9 @@ import { horizontalAt } from "./layout";
 const DEG = Math.PI / 180;
 
 /** **Provisional (仮).** One stride (left and right step), in metres. */
-export const STRIDE = 1.1;
+export const STRIDE = 0.9;
 /** How high a swinging foot lifts at the top of its step. */
-export const FOOT_LIFT = 0.09;
+export const FOOT_LIFT = 0.07;
 /** How far the feet travel round, per radian turned on the spot. */
 export const TURN_RADIUS = 0.25;
 /** The speed, in m/s, at and above which the walk is a full one: the feet lift highest, the head dips deepest. */

@@ -1,68 +1,74 @@
-import {
-  CHAIR_SEAT_TOP,
-  HAND_Y,
-  KEYBOARD,
-  MOUSE,
-  PIECES,
-  SEATED_EYE_HEIGHT,
-  horizontalAt,
-  pieceToWorld,
-} from "./layout";
-import { placeCamera, type RoomPose } from "../camera/roomCamera";
+import { CHAIR_SEAT_TOP, DESK_HANDS, PIECES, SEATED_EYE_HEIGHT, horizontalAt, pieceToWorld } from "./layout";
+import { floorSpot, placeCamera, type RoomPose } from "../camera/roomCamera";
 import { STANDING, footStep, ARM_SWING, type Gait } from "./gait";
 import { seatShare, seatedShare } from "./seat";
+import { FIGURE, NECK_BACK, NECK_DROP, SEATED_LEAN, TORSO, seatedHipsFromEye } from "./figure";
 
-export { placeCamera, seatedShare };
+export { placeCamera, seatedShare, NECK_BACK, NECK_DROP, TORSO };
 
 /**
  * The reader's own body. The reader is the room's owner, looking out of
  * their own eyes (docs/room-migration.md, "自分自身"), so the body stands
  * wherever the camera is, turned the way it is turned: looking down shows
- * it, the security camera on the right-hand monitor films it, and sitting
+ * it, the security camera and the curve mirror show it whole, and sitting
  * down at the PC puts its hands on the keyboard and the mouse.
  *
  * It walks wherever the camera travels (`room/gait.ts` works the steps out
  * from the eye's movement) and sits down on the chair at the PC
- * (`room/seat.ts`). The legs are two bones each, bent at the knee to reach
- * wherever the foot has to be.
+ * (`room/seat.ts`), leaning in over the desk. The legs and the arms are two
+ * bones each, bent at the knee and the elbow to reach wherever the foot and
+ * the hand have to be.
  *
- * **Provisional (仮) proportions**, a simple figure for now; what it looks
- * like is undecided. What is not provisional is where it is: the head is
- * round the eye, the body hangs below and a little behind it, and nothing of
- * it may come into the reader's own view looking ahead (tested).
+ * Its proportions are the character sheet's (`room/figure.ts`, 168 cm).
+ * What is not negotiable is where it is: the head is round the eye, the
+ * body hangs below and a little behind it, and nothing of it may come into
+ * the reader's own view looking ahead (tested).
  */
 
 type Vec3 = [number, number, number];
 
-/** From the eye down to the base of the neck, and back from the eye to it. */
-export const NECK_DROP = 0.17;
-export const NECK_BACK = 0.05;
 /** How far in front of the hips the feet stand — a little, as someone standing at ease does, so they show looking down. */
 export const FEET_FORWARD = 0.15;
-/** Walking, the feet pass under the hips instead: a stride's reach either side of a point this far ahead. */
-const FEET_FORWARD_WALKING = 0.05;
-/** From the base of the neck to the hips. Chosen so the seated eye height puts the hips on the chair's seat. */
-export const TORSO = 0.46;
-export const SHOULDER_HALF = 0.19;
-/** How far the chest stands in front of the torso's axis (its half-depth), and how wide it is either side. */
-export const TORSO_DEPTH = 0.09;
-export const TORSO_HALF_WIDTH = 0.15;
-export const HIP_HALF = 0.1;
-/** How far the hanging hands reach below the shoulders. */
-const ARM = 0.62;
+/** Walking, the feet pass straight under the hips: a stride's reach either side. */
+const FEET_FORWARD_WALKING = 0;
 /**
- * The leg's two bones. Together a little longer than the standing hips are
- * high (0.92 m), so a standing knee is soft rather than locked, and a foot at
- * the end of a step still reaches the floor.
+ * The shoulder joints, at the T-shirt's shoulders, and how far under the
+ * base of the neck. The shirt is boxy and loose: any further in and the
+ * arms hung inside it (2026-10-02).
  */
-export const THIGH = 0.47;
-export const SHIN = 0.48;
-/** Sat, the feet rest this far out in front of the hips, under the desk. */
-const SEATED_FEET_FORWARD = 0.5;
+export const SHOULDER_HALF = FIGURE.shoulderHalf + 0.005;
+const SHOULDER_DROP = FIGURE.neckBase - FIGURE.shoulder;
+/** Half the T-shirt's depth front to back (it is loose), and half its width. */
+export const TORSO_DEPTH = 0.1;
+export const TORSO_HALF_WIDTH = FIGURE.shoulderHalf;
+export const HIP_HALF = FIGURE.hipHalf;
+/**
+ * The arm's two bones, shoulder to elbow and elbow to the middle of the
+ * hand. The sheet only shows the hands in the pockets; this is long enough
+ * for a seated reader to reach the keyboard (`DESK_HANDS`) leaning in.
+ */
+export const UPPER_ARM = 0.32;
+export const FOREARM = 0.34;
+/** Sat typing, the shoulders come forward this far. */
+const SHOULDERS_FORWARD_SEATED = 0.06;
+/**
+ * The leg's two bones. Together a hair longer than the standing hips are
+ * high (0.77 m), so a standing knee is soft rather than locked; the ends of
+ * a step reach the floor because the walk dips the body (`stepBob`).
+ */
+export const THIGH = 0.37;
+export const SHIN = 0.42;
+/** Sat, the feet rest a little in front of the knees: the shins nearly upright, the knees past the cushion's edge. */
+const SEATED_FEET_FORWARD = THIGH + 0.04;
+/** The head's middle: behind the eye and a little above it (the sheet's skull runs from the chin, 10 cm under the eye, to about 15 cm over it). */
+export const HEAD_BEHIND_EYE = 0.085;
+export const HEAD_OVER_EYE = 0.025;
 
 export type BodyJoints = {
   /** The way the body faces: the camera's yaw, never its pitch — the body does not tilt to look up or down. */
   yaw: number;
+  /** How far the body leans forward at the hips, in radians (sitting at the PC). */
+  lean: number;
   head: Vec3;
   neck: Vec3;
   hips: Vec3;
@@ -81,30 +87,33 @@ const mix = (a: Vec3, b: Vec3, t: number): Vec3 => [a[0] + (b[0] - a[0]) * t, a[
 
 /** Where the hands rest at the desk: the left on the keyboard, the right on the mouse. */
 export function deskHands(): [Vec3, Vec3] {
-  return [
-    pieceToWorld(PIECES.desk, [KEYBOARD.x - 0.1, HAND_Y, KEYBOARD.z]),
-    pieceToWorld(PIECES.desk, [MOUSE.x, HAND_Y, MOUSE.z]),
-  ];
+  return [pieceToWorld(PIECES.desk, DESK_HANDS[0]), pieceToWorld(PIECES.desk, DESK_HANDS[1])];
 }
 
 /**
- * A leg reaching from the hip for `target`, the knee bending towards `pole`.
- * Out of reach, the foot stops short along the same line — it lifts off the
- * floor rather than the leg stretching.
+ * A limb of two bones reaching from `root` for `target`, the middle joint
+ * bending towards `pole`. Out of reach, the end stops short along the same
+ * line — a foot lifts off the floor rather than the leg stretching.
  */
-export function bendLeg(hip: Vec3, target: Vec3, pole: Vec3): { knee: Vec3; foot: Vec3 } {
-  const d = sub(target, hip);
+export function bendLimb(root: Vec3, target: Vec3, pole: Vec3, first: number, second: number): { joint: Vec3; end: Vec3 } {
+  const d = sub(target, root);
   const distance = Math.hypot(d[0], d[1], d[2]);
-  const reach = THIGH + SHIN - 1e-6;
-  const length = Math.max(Math.abs(THIGH - SHIN) + 1e-6, Math.min(reach, distance));
+  const reach = first + second - 1e-6;
+  const length = Math.max(Math.abs(first - second) + 1e-6, Math.min(reach, distance));
   const dir = scale(d, 1 / distance);
-  const foot = distance <= reach ? target : add(hip, scale(dir, length));
-  // The knee: along the leg by `a`, then out to the side the knee bends by `h`.
-  const a = (THIGH * THIGH - SHIN * SHIN + length * length) / (2 * length);
-  const h = Math.sqrt(Math.max(0, THIGH * THIGH - a * a));
+  const end = distance <= reach ? target : add(root, scale(dir, length));
+  // The joint: along the limb by `a`, then out to the side it bends by `h`.
+  const a = (first * first - second * second + length * length) / (2 * length);
+  const h = Math.sqrt(Math.max(0, first * first - a * a));
   const across = sub(pole, scale(dir, dot(pole, dir)));
   const acrossLength = Math.hypot(across[0], across[1], across[2]) || 1;
-  return { knee: add(add(hip, scale(dir, a)), scale(across, h / acrossLength)), foot };
+  return { joint: add(add(root, scale(dir, a)), scale(across, h / acrossLength)), end };
+}
+
+/** A leg: `bendLimb` with the leg's bones, as knee and foot. */
+export function bendLeg(hip: Vec3, target: Vec3, pole: Vec3): { knee: Vec3; foot: Vec3 } {
+  const { joint, end } = bendLimb(hip, target, pole, THIGH, SHIN);
+  return { knee: joint, foot: end };
 }
 
 /**
@@ -117,27 +126,43 @@ export function bodyJoints(pose: RoomPose, gait: Gait = STANDING, sat: number = 
   // The eye with the head held level: the body hangs from there, and the
   // head leaning forward to look down (`headLean`) does not take it along.
   const [fx, fz] = horizontalAt(pose.yaw / (Math.PI / 180));
-  const eye: Vec3 = [fx * pose.forward, pose.eyeHeight, fz * pose.forward];
+  const [sx, sz] = floorSpot(pose);
+  const eye: Vec3 = [sx, pose.eyeHeight, sz];
   const forward: Vec3 = [fx, 0, fz];
   const right: Vec3 = [-fz, 0, fx];
+  const up: Vec3 = [0, 1, 0];
   const inBody = (offset: [number, number]): Vec3 => add(scale(right, offset[0]), scale(forward, offset[1]));
 
   // The head goes where the eye goes, leaning included.
-  const head = add(placeCamera(pose).position, add(scale(forward, -0.06), [0, 0.02, 0]));
+  const head = add(placeCamera(pose).position, add(scale(forward, -HEAD_BEHIND_EYE), [0, HEAD_OVER_EYE, 0]));
   const neck = add(eye, add(scale(forward, -NECK_BACK), [0, -NECK_DROP, 0]));
-  const hips = add(neck, [0, -TORSO, 0]);
-  const shoulders: [Vec3, Vec3] = [-1, 1].map((side) => add(neck, add(scale(right, side * SHOULDER_HALF), [0, -0.04, 0]))) as [Vec3, Vec3];
+  // Sitting, the body leans in over the desk from the hips: the hips go back.
+  const lean = SEATED_LEAN * sat;
+  const hips = sub(neck, add(scale(up, TORSO * Math.cos(lean)), scale(forward, TORSO * Math.sin(lean))));
+  const shoulders = [-1, 1].map((side) =>
+    add(neck, add(add(scale(right, side * SHOULDER_HALF), [0, -SHOULDER_DROP, 0]), scale(forward, SHOULDERS_FORWARD_SEATED * sat)))
+  ) as [Vec3, Vec3];
 
   const steps = [footStep(gait, 0), footStep(gait, 1)];
   const walking = Math.min(1, gait.amount * 1.5);
 
-  // The arms swing against the legs: the left hand back as the left foot goes forward.
+  // The arms hang, and swing against the legs: the left hand back as the
+  // left foot goes forward. Sat, the hands go to the keyboard and the mouse.
   const hanging = shoulders.map((s, i) =>
-    add(add(s, add(scale(forward, 0.04), [0, -ARM, 0])), inBody([-steps[i].offset[0] * ARM_SWING * 0.3, -steps[i].offset[1] * ARM_SWING]))
+    add(
+      add(s, add(scale(forward, 0.04), [0, -(UPPER_ARM + FOREARM) * 0.97, 0])),
+      inBody([-steps[i].offset[0] * ARM_SWING * 0.3, -steps[i].offset[1] * ARM_SWING])
+    )
   ) as [Vec3, Vec3];
   const resting = deskHands();
-  const hands = hanging.map((h, i) => mix(h, resting[i], sat)) as [Vec3, Vec3];
-  const elbows = shoulders.map((s, i) => add(mix(s, hands[i], 0.5), [0, -0.06, 0])) as [Vec3, Vec3];
+  const arms = shoulders.map((s, i) => {
+    const side = i === 0 ? -1 : 1;
+    // Elbows bend back and out, and down at the desk.
+    const pole = add(add(scale(forward, -1), scale(right, side * 0.6)), [0, -0.5 - sat, 0]);
+    return bendLimb(s, mix(hanging[i], resting[i], sat), pole, UPPER_ARM, FOREARM);
+  });
+  const elbows = arms.map((a) => a.joint) as [Vec3, Vec3];
+  const hands = arms.map((a) => a.end) as [Vec3, Vec3];
 
   const ahead = FEET_FORWARD + (FEET_FORWARD_WALKING - FEET_FORWARD) * walking;
   const legs = [-1, 1].map((side, i) => {
@@ -149,9 +174,9 @@ export function bodyJoints(pose: RoomPose, gait: Gait = STANDING, sat: number = 
   const knees = legs.map((l) => l.knee) as [Vec3, Vec3];
   const feet = legs.map((l) => l.foot) as [Vec3, Vec3];
 
-  return { yaw: pose.yaw, head, neck, hips, shoulders, elbows, hands, knees, feet };
+  return { yaw: pose.yaw, lean, head, neck, hips, shoulders, elbows, hands, knees, feet };
 }
 
-/** Where a seated body's hips come to rest: on the chair's seat. */
-export const SEATED_HIPS_Y = SEATED_EYE_HEIGHT - NECK_DROP - TORSO;
+/** Where a seated body's hip joints come to rest: over the chair's cushion. */
+export const SEATED_HIPS_Y = SEATED_EYE_HEIGHT - seatedHipsFromEye().down;
 export { CHAIR_SEAT_TOP };
