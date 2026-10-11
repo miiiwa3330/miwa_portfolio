@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Canvas, events, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import RoomScene from "./objects/RoomScene";
 import LensRenderer from "./LensRenderer";
 import { SCREEN_HOLE_LAYER } from "./layers";
 import {
+  MAX_PITCH,
   dampFraction,
   idleSway,
+  mouseLook,
   wrapAngle,
 } from "./camera/cameraMotion";
 import {
@@ -18,6 +20,7 @@ import {
   zoomFraming,
   lensBends,
   floorSpot,
+  frameCentreDirection,
   placeCamera,
   poseFromView,
   projectionLiftPx,
@@ -45,6 +48,7 @@ import { sceneClock } from "./sceneClock";
 import { pointerClaim } from "./pointerClaim";
 import { useAppState } from "@/state/AppStateContext";
 import { useHandheld } from "@/state/useHandheld";
+import { useLanguage } from "@/state/LanguageContext";
 import { publishFacing } from "@/state/facingChannel";
 import type { Focus } from "@/types";
 import { twoFingerGesture } from "./viewGesture";
@@ -56,7 +60,7 @@ import { twoFingerGesture } from "./viewGesture";
  * `room/layout.ts` for the arithmetic, which is tested there.
  *
  * What carried over from the planet unchanged, because it was never about the
- * planet: the input handling (drag, wheel, two fingers, pinch, tap), the
+ * planet: the touch input (drag, two fingers, pinch, tap) and the wheel, the
  * free view's damped chase with its capped return after a drag, the tour as a
  * closed path through the stops, and the one effect that decides every
  * destination. What did not: `camera-controls` (a tool for orbiting a target),
@@ -65,20 +69,9 @@ import { twoFingerGesture } from "./viewGesture";
  * instead — see `projectionShiftPx`).
  */
 
-// Rotation sensitivity (kept gentle).
-const DRAG_SENSITIVITY = 0.002; // radians per px of pointer drag, both axes
+// Rotation sensitivity (kept gentle). The mouse's own is `MOUSE_LOOK_SENSITIVITY`.
+const DRAG_SENSITIVITY = 0.002; // radians per px of a finger's drag, both axes
 const WHEEL_SENSITIVITY = 0.0004; // radians of turn per unit of wheel deltaY
-
-/**
- * How far the free view may look up or down, in radians. The planet clamped
- * its polar angle away from the poles; a room clamps the head instead.
- *
- * 70°, so that looking down reaches the reader's own feet (step 7): the body
- * stands under the eye, and at 55° the bottom of a 16:9 frame stopped at 75°
- * below level — the chest at the very edge, the legs never. 70° plus half
- * the frame's height comes to straight down.
- */
-const MAX_PITCH = 70 * (Math.PI / 180);
 
 const DEG = Math.PI / 180;
 
@@ -155,13 +148,24 @@ function directionFor(yaw: number, pitch: number) {
 }
 
 /**
- * Only in the free view does dragging or the wheel move the camera. Whenever
- * a section is focused — zoomed in, or with its page open — input is locked
- * out; a stray gesture is ignored rather than silently queued up for later.
- * Listeners live on `window` so a gesture anywhere over the canvas works, even
- * though the canvas sits behind the (mostly pointer-events-none) UI overlay.
+ * Only in the free view does the mouse, a drag or the wheel move the camera.
+ * Whenever a section is focused — zoomed in, or with its page open — input is
+ * locked out; a stray gesture is ignored rather than silently queued up for
+ * later. Listeners live on `window` so a gesture anywhere over the canvas
+ * works, even though the canvas sits behind the (mostly pointer-events-none)
+ * UI overlay.
  *
- * **A drag grabs the room** (the user's choice, 2026-10-01): dragging right
+ * **The mouse aims, the way a first-person game's does** (the user's choice,
+ * 2026-10-02, in place of dragging): a click on the room captures the mouse
+ * (the Pointer Lock API, on the canvas), the cursor goes, and every move turns
+ * the head (`mouseLook`) — at once, not through the damped chase the wheel
+ * glides by, since an aim that trails the hand is what a game feels wrong
+ * for. Esc gives the cursor back (the browser's own key for it), and so does
+ * stepping into an area. A click on a marker or a light switch is that
+ * object's, never a capture. While captured, a click is aimed at the
+ * crosshair (`roomEvents`). The mouse no longer drags at all.
+ *
+ * **A finger's drag grabs the room** (the user's choice, 2026-10-01): dragging right
  * pulls the room right, so the view turns left — the way a map or a street
  * view moves under a finger. A first-person game does the opposite. `tourURef`
  * shadows the nearest point on the tour throughout the drag, so a scroll that
@@ -185,6 +189,9 @@ function directionFor(yaw: number, pitch: number) {
  * 2026-10-01), so there is no tour to drift back to.
  */
 function useViewInput(
+  canvas: HTMLCanvasElement,
+  yawRef: React.RefObject<number>,
+  pitchRef: React.RefObject<number>,
   yawTargetRef: React.RefObject<number>,
   pitchTargetRef: React.RefObject<number>,
   tourURef: React.RefObject<number>,
@@ -232,8 +239,18 @@ function useViewInput(
       tourURef.current = wrap01(tourURef.current + arc / ROOM_TOUR.length);
     };
 
+    const captured = () => document.pointerLockElement === canvas;
+
     const onPointerDown = (e: PointerEvent) => {
       if (locked() || isInteractive(e.target)) return;
+      if (e.pointerType === "mouse") {
+        // A marker or a switch answered this click on the way down.
+        if (e.button !== 0 || captured() || pointerClaim.isClaimed(e.pointerId)) return;
+        // Refused for a moment after Esc, and on a page without the API —
+        // either way the reader just clicks again, so nothing to report.
+        Promise.resolve(canvas.requestPointerLock?.()).catch(() => {});
+        return;
+      }
       activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
       if (activePointers.size === 2) {
@@ -255,6 +272,19 @@ function useViewInput(
 
     const onPointerMove = (e: PointerEvent) => {
       if (locked()) return;
+      if (captured()) {
+        // The same turn on the held angles and their targets: the aim moves
+        // with the hand, and a wheel's glide still under way carries on.
+        const now = mouseLook(yawRef.current, pitchRef.current, e.movementX, e.movementY);
+        const aim = mouseLook(yawTargetRef.current, pitchTargetRef.current, e.movementX, e.movementY);
+        yawRef.current = now.yaw;
+        pitchRef.current = now.pitch;
+        yawTargetRef.current = aim.yaw;
+        pitchTargetRef.current = aim.pitch;
+        followTourRef.current = false;
+        resync();
+        return;
+      }
       if (activePointers.has(e.pointerId)) {
         activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       }
@@ -375,7 +405,7 @@ function useViewInput(
       window.removeEventListener("pointercancel", endDrag);
       window.removeEventListener("wheel", onWheel);
     };
-  }, [yawTargetRef, pitchTargetRef, tourURef, draggingRef, followTourRef, lockedRef, flightRef, onPinchZoom]);
+  }, [canvas, yawRef, pitchRef, yawTargetRef, pitchTargetRef, tourURef, draggingRef, followTourRef, lockedRef, flightRef, onPinchZoom]);
 }
 
 /** Stands in for an absent `onEmptyTap`; the hook is disabled in that case anyway. */
@@ -664,9 +694,13 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
   const lockedRef = useRef(pageOpen || !!activeSection);
   useEffect(() => {
     lockedRef.current = pageOpen || !!activeSection;
+    // Stepping into an area hands the cursor back: what is there — the card,
+    // the PC's screen, the page — is read and clicked with it.
+    if (lockedRef.current && document.pointerLockElement) document.exitPointerLock();
   }, [pageOpen, activeSection]);
 
-  useViewInput(yawTargetRef, pitchTargetRef, tourURef, draggingRef, followTourRef, lockedRef, flightRef, setViewZoom);
+  const canvas = useThree((state) => state.gl.domElement);
+  useViewInput(canvas, yawRef, pitchRef, yawTargetRef, pitchTargetRef, tourURef, draggingRef, followTourRef, lockedRef, flightRef, setViewZoom);
 
   /** Where the keys have walked the reader, and their jump: the free view's place on the floor. */
   const walkRef = useRef<FreeWalk>(AT_CENTRE);
@@ -904,12 +938,16 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     // Walking on the keys: where the reader is looking, stopped by the walls and the furniture.
     walkRef.current = stepFreeWalk(walkRef.current, lockedRef.current ? NO_KEYS : walkKeys.read(), yawRef.current, delta);
 
-    applyPose(camera, size, freePose(yawRef.current, pitchRef.current), delta);
+    const held = freePose(yawRef.current, pitchRef.current);
+    applyPose(camera, size, held, delta);
 
     // Publish which stop is in front. A subscription rather than a setState,
     // because this runs every frame and everything above the canvas is a
-    // consumer — see `facingChannel`.
-    publishFacing(facingStop(directionFor(yawRef.current, pitchRef.current)));
+    // consumer — see `facingChannel`. While the mouse is captured, "in front"
+    // is where the crosshair is: the frame's centre, which the card's shift
+    // has put about 12° left of the view's axis.
+    const captured = document.pointerLockElement === state.gl.domElement;
+    publishFacing(facingStop(captured ? frameCentreDirection(held, size.width, size.height) : directionFor(yawRef.current, pitchRef.current)));
   }, -1);
 
   return null;
@@ -934,16 +972,71 @@ function roomEvents(store: Parameters<typeof events>[0]) {
     ...manager,
     compute(event: { offsetX: number; offsetY: number }, state: ReturnType<typeof store.getState>) {
       const { width, height } = state.size;
-      state.pointer.set((event.offsetX / width) * 2 - 1, -(event.offsetY / height) * 2 + 1);
+      const pose = viewNow().pose;
+      // A captured mouse has no position (the browser holds the event's
+      // coordinates where the capture began): it is aimed at the crosshair,
+      // the frame's centre.
+      const captured = !!document.pointerLockElement;
+      const px = captured ? width / 2 : event.offsetX;
+      const py = captured ? height / 2 : event.offsetY;
+      state.pointer.set((px / width) * 2 - 1, -(py / height) * 2 + 1);
       const camera = state.camera;
       camera.updateMatrixWorld();
-      const [x, y, z] = screenRay(event.offsetX, event.offsetY, viewNow().pose, width, height);
+      const [x, y, z] = screenRay(px, py, pose, width, height);
       rayDirection.set(x, y, z).transformDirection(camera.matrixWorld);
       state.raycaster.set(camera.getWorldPosition(rayOrigin), rayDirection);
       // Sprites read the camera off the raycaster to face it.
       state.raycaster.camera = camera;
     },
   };
+}
+
+/** How long the "Esc for the cursor" note stays under the crosshair once the mouse is captured, in ms. */
+const CAPTURE_HINT_MS = 2500;
+
+/**
+ * The crosshair, while the room has the mouse: a ring at the frame's centre
+ * (the user's choice, 2026-10-02), where a captured click is aimed
+ * (`roomEvents`). A DOM element over the canvas rather than something in the
+ * scene: it is part of the frame, not the room, and never sways.
+ *
+ * **Not on the view's axis.** The free view on a desktop shifts its
+ * projection to clear the card (`ORBIT_CARD_SHARE`), which puts the axis at
+ * 61% of the width; the crosshair aims about 12° left of it, and while it
+ * is up the card's "in front" (`facingStop`) goes by the crosshair too.
+ */
+function Crosshair() {
+  const { language } = useLanguage();
+  const [captured, setCaptured] = useState(false);
+  const [hint, setHint] = useState(false);
+
+  useEffect(() => {
+    const read = () => {
+      const now = document.pointerLockElement instanceof HTMLCanvasElement;
+      setCaptured(now);
+      setHint(now);
+    };
+    document.addEventListener("pointerlockchange", read);
+    return () => document.removeEventListener("pointerlockchange", read);
+  }, []);
+
+  useEffect(() => {
+    if (!hint) return;
+    const id = setTimeout(() => setHint(false), CAPTURE_HINT_MS);
+    return () => clearTimeout(id);
+  }, [hint]);
+
+  if (!captured) return null;
+  return (
+    <div className="pointer-events-none absolute left-1/2 top-1/2" aria-hidden>
+      <div className="absolute -left-[9px] -top-[9px] h-[18px] w-[18px] rounded-full border-2 border-white/90 ring-1 ring-black/40" />
+      <div
+        className={`absolute left-0 top-5 -translate-x-1/2 whitespace-nowrap rounded bg-black/50 px-2 py-0.5 text-xs text-white transition-opacity duration-500 ${hint ? "opacity-100" : "opacity-0"}`}
+      >
+        {language === "ja" ? "Esc でカーソルを戻す" : "Esc to get the cursor back"}
+      </div>
+    </div>
+  );
 }
 
 export default function Scene({
@@ -969,25 +1062,28 @@ export default function Scene({
   interactive?: boolean;
 }) {
   return (
-    <Canvas
-      camera={{ position: [0, EYE_HEIGHT, 0], fov: 45, near: 0.05, far: 60 }}
-      dpr={[1, 2]}
-      frameloop={obscured ? "demand" : "always"}
-      events={roomEvents}
-      style={interactive ? undefined : { pointerEvents: "none" }}
-      // The prototype's exposure, for its placeholder lights. Not a design
-      // value — it means nothing once the lighting is rebuilt (step 6).
-      onCreated={({ gl, camera }) => {
-        gl.toneMappingExposure = 1.75;
-        // The reader's eye is the one camera that draws the screen cut-outs.
-        camera.layers.enable(SCREEN_HOLE_LAYER);
-      }}
-    >
-      <RoomScene />
-      <CameraController onEmptyTap={onEmptyTap} />
-      <LensRenderer />
-      <ScenePause />
-      <IdleHeartbeat obscured={obscured} />
-    </Canvas>
+    <>
+      <Canvas
+        camera={{ position: [0, EYE_HEIGHT, 0], fov: 45, near: 0.05, far: 60 }}
+        dpr={[1, 2]}
+        frameloop={obscured ? "demand" : "always"}
+        events={roomEvents}
+        style={interactive ? undefined : { pointerEvents: "none" }}
+        // The prototype's exposure, for its placeholder lights. Not a design
+        // value — it means nothing once the lighting is rebuilt (step 6).
+        onCreated={({ gl, camera }) => {
+          gl.toneMappingExposure = 1.75;
+          // The reader's eye is the one camera that draws the screen cut-outs.
+          camera.layers.enable(SCREEN_HOLE_LAYER);
+        }}
+      >
+        <RoomScene />
+        <CameraController onEmptyTap={onEmptyTap} />
+        <LensRenderer />
+        <ScenePause />
+        <IdleHeartbeat obscured={obscured} />
+      </Canvas>
+      <Crosshair />
+    </>
   );
 }

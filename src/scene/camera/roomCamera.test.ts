@@ -15,6 +15,8 @@ import {
   lensBends,
   pixelsPerUnitAt,
   poseFromView,
+  cameraBasis,
+  frameCentreDirection,
   projectToScreen,
   screenRay,
   projectionLiftPx,
@@ -205,6 +207,38 @@ describe("projectToScreen", () => {
         expect(p.y).toBeCloseTo(y, 6);
       }
     }
+  });
+});
+
+describe("frameCentreDirection", () => {
+  const W = 1600;
+  const H = 900;
+
+  it("is what lands at the frame's centre, through every lens and shift", () => {
+    for (const lens of [1, 2]) {
+      for (const [share, lift] of [[0, 0], [0.22, 0], [0, 0.21], [0.3, 0.1]]) {
+        const p = pose({ yaw: 0.7, pitch: -0.3, x: 0.4, z: -0.2, hfov: 90, lens, share, lift });
+        const [dx, dy, dz] = frameCentreDirection(p, W, H);
+        const { position } = placeCamera(p);
+        const at = projectToScreen(toCameraSpace(p, [position[0] + dx, position[1] + dy, position[2] + dz]), p, W, H)!;
+        expect(at.x).toBeCloseTo(W / 2, 6);
+        expect(at.y).toBeCloseTo(H / 2, 6);
+      }
+    }
+  });
+
+  it("is the view's axis when nothing shifts the projection", () => {
+    const p = pose({ yaw: 1.2, pitch: 0.4, share: 0, lift: 0 });
+    const d = frameCentreDirection(p, W, H);
+    const axis = cameraBasis(p).forward;
+    for (let i = 0; i < 3; i++) expect(d[i]).toBeCloseTo(axis[i], 9);
+  });
+
+  it("looks left of the axis while the card shifts the view right (the desktop's free view)", () => {
+    const p = pose({ yaw: 0, pitch: 0, hfov: 90, share: 0.22, lift: 0 });
+    const [x, , z] = frameCentreDirection(p, W, H);
+    // The axis is -Z; left of it, from the centre of the room, is -X.
+    expect(x / -z).toBeCloseTo(-0.22 * Math.tan(45 * DEG), 9);
   });
 });
 

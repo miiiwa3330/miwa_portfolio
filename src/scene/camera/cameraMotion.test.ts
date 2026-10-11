@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_PITCH,
+  MOUSE_LOOK_SENSITIVITY,
   ORBIT_DAMP_LAMBDA,
   SWAY_BREATH_M,
   SWAY_PITCH_DEG,
@@ -7,8 +9,10 @@ import {
   dampFraction,
   easeInOutCubic,
   idleSway,
+  mouseLook,
   wrapAngle,
 } from "./cameraMotion";
+import { viewDirection } from "../room/layout";
 
 describe("wrapAngle", () => {
   it("leaves angles already inside (-π, π] alone", () => {
@@ -119,5 +123,42 @@ describe("easeInOutCubic", () => {
     for (const t of [0.1, 0.23, 0.4]) {
       expect(easeInOutCubic(t) + easeInOutCubic(1 - t)).toBeCloseTo(1, 12);
     }
+  });
+});
+
+describe("mouseLook", () => {
+  const DEG = Math.PI / 180;
+  /** Which way a turn went, seen from above: negative is clockwise, i.e. to the right (looking down -Z, right is +X). */
+  const turnedRight = (before: { yaw: number; pitch: number }, after: { yaw: number; pitch: number }) => {
+    const a = viewDirection(before.yaw / DEG, 0);
+    const b = viewDirection(after.yaw / DEG, 0);
+    return a[2] * b[0] - a[0] * b[2] < 0;
+  };
+
+  it("turns the reader right when the mouse moves right, the way a first-person game aims", () => {
+    for (const yaw of [0, 1, -2.5]) {
+      const before = { yaw, pitch: 0 };
+      expect(turnedRight(before, mouseLook(yaw, 0, 40, 0))).toBe(true);
+      expect(turnedRight(before, mouseLook(yaw, 0, -40, 0))).toBe(false);
+    }
+  });
+
+  it("looks up when the mouse moves up (a negative movementY)", () => {
+    const up = mouseLook(0, 0, 0, -50);
+    expect(viewDirection(0, up.pitch / DEG)[1]).toBeGreaterThan(0);
+    expect(mouseLook(0, 0, 0, 50).pitch).toBeLessThan(0);
+  });
+
+  it("turns by the sensitivity per px, on both axes", () => {
+    const next = mouseLook(0.3, 0.1, 25, -10);
+    expect(next.yaw).toBeCloseTo(0.3 + 25 * MOUSE_LOOK_SENSITIVITY, 12);
+    expect(next.pitch).toBeCloseTo(0.1 + 10 * MOUSE_LOOK_SENSITIVITY, 12);
+  });
+
+  it("stops the head at the pitch limit, and lets it come straight back", () => {
+    expect(mouseLook(0, 0, 0, -1e5).pitch).toBe(MAX_PITCH);
+    expect(mouseLook(0, 0, 0, 1e5).pitch).toBe(-MAX_PITCH);
+    // No pitch stored beyond the limit to unwind first.
+    expect(mouseLook(0, MAX_PITCH, 0, 10).pitch).toBeLessThan(MAX_PITCH);
   });
 });

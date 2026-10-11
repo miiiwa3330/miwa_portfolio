@@ -145,3 +145,38 @@ export function wrapAngle(angle: number): number {
   const turn = Math.PI * 2;
   return ((((angle + Math.PI) % turn) + turn) % turn) - Math.PI;
 }
+
+/**
+ * How far the free view may look up or down, in radians. The planet clamped
+ * its polar angle away from the poles; a room clamps the head instead.
+ *
+ * 70°, so that looking down reaches the reader's own feet (step 7): the body
+ * stands under the eye, and at 55° the bottom of a 16:9 frame stopped at 75°
+ * below level — the chest at the very edge, the legs never. 70° plus half
+ * the frame's height comes to straight down.
+ */
+export const MAX_PITCH = 70 * DEG;
+
+/**
+ * **Provisional (仮).** Radians of turn per px the mouse moves while the room
+ * has captured it (the Pointer Lock API) — 0.002, the drag's old rate: one
+ * sweep across a 1440px screen turns the reader about 165°. Read in CSS px
+ * with the OS's own pointer speed applied, not raw counts, so the reader's
+ * own setting for their mouse or trackpad still holds.
+ */
+export const MOUSE_LOOK_SENSITIVITY = 0.002;
+
+/**
+ * Where the head points after the captured mouse moves by `movementX`/
+ * `movementY` px: **the way a first-person game aims** (2026-10-02, the user
+ * asked for it in place of dragging) — the mouse moving right turns the
+ * reader right, moving up looks up. The opposite of the drag on a phone,
+ * which grabs the room. Yaw grows to the right (`room/layout.ts`), pitch
+ * upward; the pitch stops at `MAX_PITCH` either way.
+ */
+export function mouseLook(yaw: number, pitch: number, movementX: number, movementY: number): { yaw: number; pitch: number } {
+  return {
+    yaw: yaw + movementX * MOUSE_LOOK_SENSITIVITY,
+    pitch: Math.min(MAX_PITCH, Math.max(-MAX_PITCH, pitch - movementY * MOUSE_LOOK_SENSITIVITY)),
+  };
+}

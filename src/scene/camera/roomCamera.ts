@@ -193,6 +193,18 @@ export function screenRay(x: number, y: number, framing: Framing, width: number,
 }
 
 /**
+ * The world direction seen at the frame's centre — where the crosshair aims
+ * while the mouse is captured. Not the view's axis whenever the projection is
+ * shifted: in the free view on a desktop the card's shift puts the axis right
+ * of centre, so the centre looks left of it.
+ */
+export function frameCentreDirection(pose: RoomPose, width: number, height: number): Direction {
+  const [x, y, z] = screenRay(width / 2, height / 2, pose, width, height);
+  const { right, up, forward } = cameraBasis(pose);
+  return [0, 1, 2].map((i) => right[i] * x + up[i] * y - forward[i] * z) as unknown as Direction;
+}
+
+/**
  * How many CSS px one world unit spans, for something `distance` away in
  * camera-space direction `dir` — what a marker is sized with (`lensPixelsPerRadian`).
  */
