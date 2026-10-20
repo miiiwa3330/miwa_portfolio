@@ -13,10 +13,13 @@ import {
   SiMysql, SiSqlite, SiFlutter, SiSupabase,
   SiCloudflare, SiVercel, SiGooglecloud,
   SiCypress, SiPostgresql, SiSwift, SiAnthropic,
-  SiGooglegemini
+  SiGooglegemini, SiAstro, SiVite, SiHono, SiThreedotjs,
+  SiUnity, SiExpo, SiCloudflareworkers, SiVitest, SiMediapipe
 } from "react-icons/si";
 import { FaJava, FaAws } from "react-icons/fa6";
-import { TbBrandCSharp, TbBrandOpenai } from "react-icons/tb";
+import {
+  TbBrandCSharp, TbBrandOpenai, TbBrandReactNative, TbAugmentedReality, TbBox
+} from "react-icons/tb";
 import type { IconType } from "react-icons";
 
 type SkillItem = {
@@ -46,9 +49,24 @@ const CATEGORIES: SkillCategory[] = [
       { name: "JavaScript", icon: SiJavascript, color: "#F7DF1E" },
       { name: "React", icon: SiReact, color: "#61DAFB" },
       { name: "Next.js", icon: SiNextdotjs, color: "#000000" },
+      { name: "Astro", icon: SiAstro, color: "#BC52EE" },
+      { name: "Vite", icon: SiVite, color: "#646CFF" },
       { name: "Tailwind CSS", icon: SiTailwindcss, color: "#06B6D4" },
       { name: "HTML5", icon: SiHtml5, color: "#E34F26" },
       { name: "CSS3", icon: SiCss, color: "#1572B6" },
+    ],
+  },
+  {
+    id: "graphics",
+    titleJa: "3D & グラフィックス",
+    titleEn: "3D & Graphics",
+    descriptionJa: "WebGLの3Dシーン、ゲームエンジン、AR",
+    descriptionEn: "WebGL 3D scenes, game engines & AR",
+    skills: [
+      { name: "Three.js", icon: SiThreedotjs, color: "#000000" },
+      { name: "React Three Fiber", icon: TbBox, color: "#000000" },
+      { name: "Unity", icon: SiUnity, color: "#000000" },
+      { name: "ARKit", icon: TbAugmentedReality, color: "#0A84FF" },
     ],
   },
   {
@@ -59,6 +77,7 @@ const CATEGORIES: SkillCategory[] = [
     descriptionEn: "Web backends, algorithms, from low-level systems to scripting",
     skills: [
       { name: "Node.js", icon: SiNodedotjs, color: "#339933" },
+      { name: "Hono", icon: SiHono, color: "#E36002" },
       { name: "Python", icon: SiPython, color: "#3776AB" },
       { name: "PHP", icon: SiPhp, color: "#777BB4" },
       { name: "Laravel", icon: SiLaravel, color: "#FF2D20" },
@@ -74,9 +93,11 @@ const CATEGORIES: SkillCategory[] = [
     descriptionJa: "クロスプラットフォーム開発およびネイティブ開発",
     descriptionEn: "Cross-platform mobile apps & native development",
     skills: [
+      { name: "Swift / SwiftUI", icon: SiSwift, color: "#F05138" },
+      { name: "React Native", icon: TbBrandReactNative, color: "#61DAFB" },
+      { name: "Expo", icon: SiExpo, color: "#000020" },
       { name: "Flutter", icon: SiFlutter, color: "#02569B" },
       { name: "Dart", icon: SiDart, color: "#0175C2" },
-      { name: "Swift", icon: SiSwift, color: "#F05138" },
     ],
   },
   {
@@ -90,6 +111,7 @@ const CATEGORIES: SkillCategory[] = [
       { name: "MySQL", icon: SiMysql, color: "#4479A1" },
       { name: "SQLite", icon: SiSqlite, color: "#003B57" },
       { name: "Supabase", icon: SiSupabase, color: "#3ECF8E" },
+      { name: "Cloudflare D1", icon: SiCloudflare, color: "#F38020" },
     ],
   },
   {
@@ -102,6 +124,7 @@ const CATEGORIES: SkillCategory[] = [
       { name: "AWS", icon: FaAws, color: "#FF9900" },
       { name: "GCP", icon: SiGooglecloud, color: "#4285F4" },
       { name: "Cloudflare", icon: SiCloudflare, color: "#F38020" },
+      { name: "Cloudflare Workers", icon: SiCloudflareworkers, color: "#F38020" },
       { name: "Vercel", icon: SiVercel, color: "#000000" },
     ],
   },
@@ -114,6 +137,7 @@ const CATEGORIES: SkillCategory[] = [
     skills: [
       { name: "Git", icon: SiGit, color: "#F05032" },
       { name: "GitHub", icon: SiGithub, color: "#000000" },
+      { name: "Vitest", icon: SiVitest, color: "#6E9F18" },
       { name: "Cypress", icon: SiCypress, color: "#04C38E" },
       { name: "Figma", icon: SiFigma, color: "#F24E1E" },
     ],
@@ -122,12 +146,13 @@ const CATEGORIES: SkillCategory[] = [
     id: "ai",
     titleJa: "AI",
     titleEn: "AI",
-    descriptionJa: "LLM API、プロンプトエンジニアリング、AI搭載アプリ開発",
-    descriptionEn: "LLM integration, prompt engineering & AI-assisted development",
+    descriptionJa: "LLM API、プロンプトエンジニアリング、ブラウザ内の視線・顔の推定",
+    descriptionEn: "LLM integration, prompt engineering & in-browser face/gaze estimation",
     skills: [
       { name: "Claude", icon: SiAnthropic, color: "#D97757" },
       { name: "Gemini", icon: SiGooglegemini, color: "#8E75FF" },
       { name: "ChatGPT", icon: TbBrandOpenai, color: "#10A37F" },
+      { name: "MediaPipe", icon: SiMediapipe, color: "#0097A7" },
     ],
   },
 ];

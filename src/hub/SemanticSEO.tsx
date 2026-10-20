@@ -66,13 +66,14 @@ export default function SemanticSEO() {
       <section aria-labelledby="seo-skills-heading">
         <h2 id="seo-skills-heading">保有スキル・技術スタック (Technical Skills)</h2>
         <ul>
-          <li>フロントエンド: HTML, CSS, JavaScript, TypeScript, React, Next.js, Tailwind CSS, Three.js</li>
-          <li>バックエンド: Python, C, C#, Java, PHP, Laravel, Node.js</li>
-          <li>モバイル: Swift, Flutter, Dart</li>
-          <li>データベース: PostgreSQL, MySQL, SQLite, Supabase</li>
-          <li>クラウド・インフラ: AWS, GCP, Cloudflare, Vercel</li>
-          <li>ツール: Git, GitHub, Cypress, Figma</li>
-          <li>AI: Claude, Gemini, ChatGPT</li>
+          <li>フロントエンド: HTML, CSS, JavaScript, TypeScript, React, Next.js, Astro, Vite, Tailwind CSS</li>
+          <li>3D・グラフィックス: Three.js, React Three Fiber, Unity, ARKit</li>
+          <li>バックエンド: Node.js, Hono, Python, C, C#, Java, PHP, Laravel</li>
+          <li>モバイル: Swift / SwiftUI, React Native, Expo, Flutter, Dart</li>
+          <li>データベース: PostgreSQL, MySQL, SQLite, Supabase, Cloudflare D1</li>
+          <li>クラウド・インフラ: AWS, GCP, Cloudflare, Cloudflare Workers, Vercel</li>
+          <li>ツール: Git, GitHub, Vitest, Cypress, Figma</li>
+          <li>AI: Claude, Gemini, ChatGPT, MediaPipe</li>
         </ul>
       </section>
 
@@ -96,6 +97,8 @@ export default function SemanticSEO() {
           <li>2026年7月: オンラインGD評価プラットフォーム「Umoja」開発中</li>
           <li>2026年8月: 「mesen」を視線計測エンタメアプリ「Michaw（見ちゃう）」へリニューアル</li>
           <li>2026年9月: ポートフォリオサイトを3Dのボクセル惑星へ刷新（v1）</li>
+          <li>2026年10月: 物価感覚を診断するWebサービス「bukka_now」公開</li>
+          <li>2026年10月: 情報漏洩事件で学ぶセキュリティ学習サイト「漏洩百貨店（loo100）」公開</li>
         </ul>
       </section>
 

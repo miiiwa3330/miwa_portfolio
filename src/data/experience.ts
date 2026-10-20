@@ -154,4 +154,22 @@ export const EXPERIENCE: ExperienceSource[] = [
     },
     project: "portfolio-v1",
   },
+  {
+    period: "2026.10",
+    title: { ja: "「bukka_now」の公開", en: "Released \"bukka_now\"" },
+    description: {
+      ja: "値段をテンキーで答えて、自分の物価感覚が「上位何%」かを診断するWebサービス「bukka_now」を公開。正解は総務省「小売物価統計調査」の公表値で、Cloudflare Workers と D1 の上で採点と集計を行う。",
+      en: "Released \"bukka_now\", a web quiz that rates your sense of prices as a percentile from the prices you type in. The answers are official Retail Price Survey figures, scored and aggregated on Cloudflare Workers and D1.",
+    },
+    project: "bukka-now",
+  },
+  {
+    period: "2026.10",
+    title: { ja: "「漏洩百貨店」の公開", en: "Released \"loo100\"" },
+    description: {
+      ja: "日本企業の情報漏洩事件を、時系列・原因・対策の3つの視点で解説するセキュリティ学習サイト「漏洩百貨店（loo100）」を公開。Astro で記事を静的に書き出し、匿名コメントの API を Hono で組む。",
+      en: "Released \"loo100\", a site for learning security from data breaches at Japanese companies through their timeline, cause and countermeasures. Articles are rendered statically with Astro, and the anonymous comment API is built with Hono.",
+    },
+    project: "loo100",
+  },
 ];
