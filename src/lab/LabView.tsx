@@ -47,7 +47,8 @@ function Subject({ part }: { part: LabPart }) {
   const neon = neonTheme(lights);
   switch (part.piece) {
     case "desk":
-      return <Desk />;
+      // Typing on: the reader's own keys press the HHKB's here too.
+      return <Desk typing />;
     case "shelf":
       return <Shelf neon={neon} />;
     case "bookcase":

@@ -46,7 +46,7 @@ import {
 import { ROOM_EXPOSURE } from "./room/lighting";
 import { ROOM_TOUR, stopU } from "./room/tour";
 import { sceneClock } from "./sceneClock";
-import { pointerClaim } from "./pointerClaim";
+import { isInteractive, pointerClaim } from "./pointerClaim";
 import { useAppState } from "@/state/AppStateContext";
 import { useHandheld } from "@/state/useHandheld";
 import { useLanguage } from "@/state/LanguageContext";
@@ -125,13 +125,6 @@ const WHEEL_REARM_MS = 220;
  */
 const FLIGHT_SECONDS = 1.1;
 const RETURN_SECONDS = 1.6;
-
-/** Elements whose gestures should NOT rotate the camera (real UI controls). */
-function isInteractive(target: EventTarget | null): boolean {
-  return !!(target as HTMLElement | null)?.closest?.(
-    "button, a, input, textarea, select, [data-ui]"
-  );
-}
 
 /** Straight-line distance between two tracked pointers, in screen px. */
 function pointerDistance(a: { x: number; y: number }, b: { x: number; y: number }): number {

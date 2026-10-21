@@ -1,16 +1,14 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import * as THREE from "three";
 import { RoundedBox } from "@react-three/drei";
-import { KEYBOARD, MONITOR_BEZEL, MONITOR_Y, MOUSE, PIECES } from "../room/layout";
-import { keyboardKeys } from "../room/keyboard";
+import { MONITOR_BEZEL, MONITOR_Y, MOUSE, PIECES } from "../room/layout";
 
 /**
  * The PC's desk and everything on it, built from rounded forms rather than
  * bare boxes: a steel-edged top on a drawer unit either side, three monitors
- * on stands, a full keyboard (one `InstancedMesh` of keycaps), a mouse on a
- * desk mat, an arm lamp, a mug and a pen pot. **Step 1 of the PC's build-up
+ * on stands, a mouse on a desk mat (the keyboard is `HhkbKeyboard`), an arm lamp, a mug and a pen pot. **Step 1 of the PC's build-up
  * (form): materials are plain colours — the wear and printed labels come in
  * the next step.**
  *
@@ -35,7 +33,6 @@ function makeMaterials() {
     painted: new THREE.MeshStandardMaterial({ color: "#3d4148", roughness: 0.6, metalness: 0.5 }),
     dark: new THREE.MeshStandardMaterial({ color: "#14161a", roughness: 0.85, metalness: 0.3 }),
     plastic: new THREE.MeshStandardMaterial({ color: "#16181c", roughness: 0.42, metalness: 0.1 }),
-    keycap: new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.5, metalness: 0 }),
     mat: new THREE.MeshStandardMaterial({ color: "#101216", roughness: 0.95, metalness: 0 }),
     paper: new THREE.MeshStandardMaterial({ color: "#b9b09a", roughness: 0.9, metalness: 0 }),
     ceramic: new THREE.MeshStandardMaterial({ color: "#d9d4c7", roughness: 0.35, metalness: 0, side: THREE.DoubleSide }),
@@ -201,35 +198,6 @@ export function DeskMonitor({ m, children }: { m: DeskMaterials; children?: Reac
       </mesh>
       {children}
     </>
-  );
-}
-
-/** The keyboard: a rounded board, and every keycap as one instance of one mesh. */
-export function DeskKeyboard({ m }: { m: DeskMaterials }) {
-  const keys = useMemo(() => keyboardKeys(), []);
-  const mesh = useRef<THREE.InstancedMesh>(null);
-  useLayoutEffect(() => {
-    const instances = mesh.current;
-    if (!instances) return;
-    const placed = new THREE.Object3D();
-    const color = new THREE.Color();
-    keys.forEach((key, i) => {
-      placed.position.set(key.x, 0.0045, key.z);
-      placed.scale.set(key.w, 0.009, key.d);
-      placed.updateMatrix();
-      instances.setMatrixAt(i, placed.matrix);
-      instances.setColorAt(i, color.set(key.accent ? "#a8521f" : "#22252b"));
-    });
-    instances.instanceMatrix.needsUpdate = true;
-    if (instances.instanceColor) instances.instanceColor.needsUpdate = true;
-  }, [keys]);
-  return (
-    <group position={[KEYBOARD.x, KEYBOARD.y, KEYBOARD.z]}>
-      <Slab size={[KEYBOARD.width, 0.02, KEYBOARD.depth]} at={[0, 0, 0]} material={m.plastic} radius={0.004} />
-      <instancedMesh ref={mesh} args={[undefined, undefined, keys.length]} position={[0, 0.01, 0]} material={m.keycap}>
-        <boxGeometry args={[1, 1, 1]} />
-      </instancedMesh>
-    </group>
   );
 }
 

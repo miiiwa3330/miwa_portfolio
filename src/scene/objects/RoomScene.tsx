@@ -42,7 +42,8 @@ import Self from "./Self";
 import CurveMirror from "./CurveMirror";
 import HologramSelf from "./HologramSelf";
 import { SecurityCameraBody, SecurityFeed } from "./SecurityCamera";
-import { DeskBody, DeskKeyboard, DeskLamp, DeskMonitor, DeskMouse, DeskSmalls, useDeskMaterials } from "./DeskSet";
+import { DeskBody, DeskLamp, DeskMonitor, DeskMouse, DeskSmalls, useDeskMaterials } from "./DeskSet";
+import HhkbKeyboard from "./HhkbKeyboard";
 
 /**
  * The room the camera stands in — **placeholder shapes** (step 2 of
@@ -245,7 +246,11 @@ function VideoFeed() {
 /** The lit colour each monitor shows where no HTML is drawn on it: the fisheye's view, and the two side screens. */
 const MONITOR_GLOW: Record<MonitorKey, string> = { video: "#c45ad0", gui: "#1f5f9e", camera: "#3a3d3a" };
 
-export function Desk() {
+/**
+ * The desk and the PC. `typing` makes the keyboard follow the reader's own
+ * keys and clicks; by default, while the reader sits at the PC.
+ */
+export function Desk({ typing }: { typing?: boolean }) {
   const pcX = SUBJECTS.desk.local[0];
   const holoX = SUBJECTS.about.local[0];
   // The hologram is projecting the self-introduction while About is focused.
@@ -253,6 +258,7 @@ export function Desk() {
   // left — cheap enough to re-render the desk on.
   const { activeSection, lights } = useAppState();
   const projecting = activeSection === "about";
+  const seated = activeSection === "desk";
   const lamp = lights.desk;
   const m = useDeskMaterials();
   // Where the cone of light meets the bottom of the text.
@@ -281,7 +287,7 @@ export function Desk() {
         );
       })}
       {/* The keyboard and the mouse, where a seated reader's hands rest (`Self`). */}
-      <DeskKeyboard m={m} />
+      <HhkbKeyboard typing={typing ?? seated} />
       <DeskMouse m={m} />
       {/* The hologram's device. Idle, it projects the reader themselves, turning
           (`HologramSelf`); focused, it projects the self-introduction instead — the text is

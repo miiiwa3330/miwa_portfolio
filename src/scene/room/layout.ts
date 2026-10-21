@@ -312,8 +312,10 @@ export function zoomView(stop: Stop, hfovDeg: number = STANDARD_HFOV): RoomView 
  * hands rest over them. **Provisional (仮)** placement: the keyboard stands
  * 8 cm out from the desk's middle, close enough under the screen that a
  * seated reader sees both their hands and the whole screen at once.
+ * `KEYBOARD` is where it stands: the middle of its case, on the desk's top
+ * (`y`). Its size is the HHKB's (`room/keyboard.ts`).
  */
-export const KEYBOARD = { x: 0, z: 0.08, y: 0.785, width: 0.5, depth: 0.18 } as const;
+export const KEYBOARD = { x: 0, z: 0.08, y: 0.775 } as const;
 export const MOUSE = { x: 0.36, z: 0.1, y: 0.79 } as const;
 export const HAND_Y = 0.82;
 /**

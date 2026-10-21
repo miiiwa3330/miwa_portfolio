@@ -1,4 +1,6 @@
 import {
+  KEYBOARD,
+  MOUSE,
   MONITORS,
   MONITOR_Y,
   PIECES,
@@ -57,7 +59,8 @@ const HOLO_X = SUBJECTS.about.local[0];
 export const PARTS: readonly LabPart[] = [
   onPiece("desk", "机の全体", DESK, "desk", [0, 0.95, 0], [0, 1.25, 2.6]),
   onPiece("desk-monitor", "モニター（中央）", DESK, "desk", [GUI.x, MONITOR_Y, GUI.z], [GUI.x + 0.15, MONITOR_Y + 0.1, 1.1]),
-  onPiece("desk-keyboard", "キーボードとマウス", DESK, "desk", [0.15, 0.79, 0.1], [0.15, 1.2, 0.75]),
+  onPiece("desk-keyboard", "キーボード（HHKB）", DESK, "desk", [KEYBOARD.x, KEYBOARD.y + 0.02, KEYBOARD.z], [KEYBOARD.x, KEYBOARD.y + 0.3, KEYBOARD.z + 0.32]),
+  onPiece("desk-mouse", "マウス", DESK, "desk", [MOUSE.x, MOUSE.y, MOUSE.z], [MOUSE.x + 0.1, MOUSE.y + 0.2, MOUSE.z + 0.3]),
   onPiece("desk-lamp", "アームランプ", DESK, "desk", [PC_X - 0.42, 1.05, 0.1], [PC_X + 0.35, 1.25, 1.0]),
   onPiece("desk-mug", "マグ", DESK, "desk", [0.55, 0.83, 0.2], [0.55, 1.0, 0.7]),
   onPiece("desk-pens", "ペン立て", DESK, "desk", [-0.68, 0.83, 0.28], [-0.68, 1.0, 0.75]),

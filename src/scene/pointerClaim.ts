@@ -43,3 +43,13 @@ export const pointerClaim = {
     if (claimed === pointerId) claimed = null;
   },
 };
+
+/**
+ * Elements whose gestures belong to the page, not the room: real UI controls
+ * (and anything marked `data-ui`, such as the PC's screen). A gesture that
+ * starts on one must not turn the camera, nor press a key of the keyboard
+ * on the desk behind it.
+ */
+export function isInteractive(target: EventTarget | null): boolean {
+  return !!(target as HTMLElement | null)?.closest?.("button, a, input, textarea, select, [data-ui]");
+}
