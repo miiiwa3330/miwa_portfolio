@@ -1,12 +1,13 @@
 "use client";
 
-import { Suspense, useCallback, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useAppState } from "@/state/AppStateContext";
+import { pointerClaim } from "@/scene/pointerClaim";
 import { neonTheme, ROOM_EXPOSURE } from "@/scene/room/lighting";
 import { Board, Bookcase, Comms, Desk, Door, Lights, PortholeAndHammock, Shell, Shelf, Workbench } from "@/scene/objects/RoomScene";
 import { eyeFrom, numberParam, viewFrom, viewParams, type OrbitView } from "./orbit";
@@ -110,6 +111,27 @@ function Stage({
   nonce: number;
   onOrbit: (view: OrbitView) => void;
 }) {
+  // A press on something in the scene that answers it (a key, a switch)
+  // claims the pointer before the window hears it; the orbit has already
+  // started by then, so hold it still until the button is let go.
+  const controls = useRef<OrbitControlsImpl>(null);
+  useEffect(() => {
+    const down = (e: PointerEvent) => {
+      if (pointerClaim.isClaimed(e.pointerId) && controls.current) controls.current.enabled = false;
+    };
+    const up = (e: PointerEvent) => {
+      pointerClaim.release(e.pointerId);
+      if (controls.current) controls.current.enabled = true;
+    };
+    window.addEventListener("pointerdown", down);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    return () => {
+      window.removeEventListener("pointerdown", down);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+    };
+  }, []);
   return (
     <>
       <color attach="background" args={[state.light === "room" ? "#05060a" : "#22252b"]} />
@@ -117,6 +139,7 @@ function Stage({
       <Subject part={part} />
       {state.grid && <gridHelper args={[6, 12, "#4a4f58", "#2c3037"]} position={[part.target[0], 0.001, part.target[2]]} />}
       <OrbitControls
+        ref={controls}
         makeDefault
         enableDamping={false}
         minDistance={0.08}

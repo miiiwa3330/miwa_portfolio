@@ -7,6 +7,10 @@ import {
   PRESS_DIRECTION,
   capTop,
   capTopHeight,
+  growOutline,
+  keyVoice,
+  keyWear,
+  trayOutline,
   keyIndex,
   keyboardKeys,
   keysForCode,
@@ -187,3 +191,98 @@ describe("the HHKB's shape", () => {
     }
   });
 });
+
+describe("wear", () => {
+  it("is the English letter frequency for letters, with e the most worn and z the least", () => {
+    expect(keyWear(byId("e"))).toBe(1);
+    const order = "etaoinshrdlcumwfgypbvkjxqz".split("").map((c) => keyWear(byId(c)));
+    for (let i = 1; i < order.length; i++) expect(order[i]).toBeLessThanOrEqual(order[i - 1]);
+    expect(keyWear(byId("z"))).toBeCloseTo(0.07 / 12.7, 9);
+  });
+
+  it("gives every key some wear between 0 and 1, the space bar the most", () => {
+    for (const key of keys) {
+      expect(keyWear(key), key.id).toBeGreaterThan(0);
+      expect(keyWear(key), key.id).toBeLessThanOrEqual(1);
+    }
+    expect(keyWear(byId("space"))).toBe(1);
+  });
+});
+
+describe("the keys' voices", () => {
+  it("are lower for heavier caps, the space bar lowest and longest", () => {
+    const space = keyVoice(byId("space"));
+    for (const key of keys) {
+      if (key.id === "space") continue;
+      expect(keyVoice(key).thump, key.id).toBeGreaterThan(space.thump);
+      expect(keyVoice(key).decay, key.id).toBeLessThan(space.decay);
+    }
+    // A 2.25u Shift thumps lower than any 1u key, spread included: at most 150/1.1 × 1.04 ≈ 141.9 Hz against at least 150 × 0.96 = 144 Hz.
+    for (const key of keys.filter((k) => k.units === 1)) expect(keyVoice(byId("shiftleft")).thump, key.id).toBeLessThan(keyVoice(key).thump);
+  });
+
+  it("differ a little from key to key, within 4%", () => {
+    const thumps = keys.filter((k) => k.units === 1).map((k) => keyVoice(k).thump);
+    expect(new Set(thumps.map((t) => t.toFixed(3))).size).toBeGreaterThan(10);
+    for (const t of thumps) expect(Math.abs(t / 150 - 1)).toBeLessThanOrEqual(0.04 + 1e-9);
+  });
+});
+
+describe("the tray's outline", () => {
+  const tray = trayOutline();
+  const inside = (poly: readonly [number, number][], x: number, z: number) => {
+    let hit = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const [xi, zi] = poly[i];
+      const [xj, zj] = poly[j];
+      if (zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) hit = !hit;
+    }
+    return hit;
+  };
+  const board = (x: number, z: number) => {
+    const p = plateToBoard([x, 0, z]);
+    return [p[0], p[2]] as const;
+  };
+
+  it("holds every key's foot", () => {
+    for (const key of keys) {
+      const half = (key.units * HHKB.pitch - CAP.footGap) / 2;
+      const depth = (HHKB.pitch - CAP.footGap) / 2;
+      for (const [dx, dz] of [[-half, -depth], [half, -depth], [half, depth], [-half, depth]]) {
+        expect(inside(tray, ...board(key.x + dx, key.z + dz)), key.id).toBe(true);
+      }
+    }
+  });
+
+  it("leaves out the bottom row's two blanks, which the case fills", () => {
+    const bottom = byId("space").z;
+    expect(inside(tray, ...board(-KEY_BLOCK.width / 2 + 0.75 * HHKB.pitch, bottom))).toBe(false);
+    expect(inside(tray, ...board(KEY_BLOCK.width / 2 - 1.25 * HHKB.pitch, bottom))).toBe(false);
+  });
+});
+
+describe("growing an outline", () => {
+  it("moves every side of a square out by the amount, whichever way it winds", () => {
+    const square: [number, number][] = [[0, 0], [0, 1], [1, 1], [1, 0]];
+    for (const poly of [square, [...square].reverse()]) {
+      const grown = growOutline(poly, 0.1);
+      const xs = grown.map((p) => p[0]);
+      const zs = grown.map((p) => p[1]);
+      expect(Math.min(...xs)).toBeCloseTo(-0.1, 12);
+      expect(Math.max(...xs)).toBeCloseTo(1.1, 12);
+      expect(Math.min(...zs)).toBeCloseTo(-0.1, 12);
+      expect(Math.max(...zs)).toBeCloseTo(1.1, 12);
+    }
+  });
+
+  it("grows the tray's outline by its perimeter times the amount, notches included", () => {
+    const tray = trayOutline();
+    const area = (p: readonly [number, number][]) =>
+      Math.abs(p.reduce((a, [x0, z0], i) => a + x0 * p[(i + 1) % p.length][1] - p[(i + 1) % p.length][0] * z0, 0)) / 2;
+    const perimeter = tray.reduce((a, [x0, z0], i) => a + Math.hypot(tray[(i + 1) % tray.length][0] - x0, tray[(i + 1) % tray.length][1] - z0), 0);
+    const by = 0.002;
+    // Six corners turn outwards and two inwards: the corners add (6 − 2)·by² on top of the sides.
+    expect(area(growOutline(tray, by)) - area(tray)).toBeCloseTo(perimeter * by + 4 * by * by, 7);
+  });
+});
+

@@ -327,3 +327,112 @@ export const PRESS_DIRECTION: readonly [number, number, number] = [0, -Math.cos(
 export function planeHeightAt(z: number, offset: number): number {
   return plateBase + offset / Math.cos(TILT) - z * Math.tan(TILT);
 }
+
+/**
+ * How much a key is used, 0–1, for how worn it looks: shine and grime where
+ * the finger lands, the print a little faded, the cap a little yellowed.
+ * The letters are the relative frequencies of English letters (Lewand,
+ * "Cryptological Mathematics", 2000: e 12.7%, t 9.1%, … z 0.07%), scaled so
+ * "e" is 1. **Everything else is provisional (仮)**, set for someone who
+ * writes code on a Mac: the space bar and Delete wear like "e", Control
+ * (where HHKB puts it) and ◇ (Command) like the common letters, Fn like a
+ * middling letter since the arrows live behind it.
+ */
+const LETTER_FREQUENCY: Record<string, number> = {
+  e: 12.7, t: 9.06, a: 8.17, o: 7.51, i: 6.97, n: 6.75, s: 6.33, h: 6.09, r: 5.99, d: 4.25, l: 4.03, c: 2.78, u: 2.76,
+  m: 2.41, w: 2.36, f: 2.23, g: 2.02, y: 1.97, p: 1.93, b: 1.29, v: 0.98, k: 0.77, j: 0.15, x: 0.15, q: 0.1, z: 0.07,
+};
+const OTHER_USE: Record<string, number> = {
+  space: 1, delete: 0.8, control: 0.7, metaleft: 0.6, shiftleft: 0.6, return: 0.6, esc: 0.4, fn: 0.35, tab: 0.3,
+  period: 0.3, comma: 0.3, semicolon: 0.25, quote: 0.2, slash: 0.2, shiftright: 0.2, altleft: 0.2, minus: 0.15,
+  bracketleft: 0.15, bracketright: 0.15, equal: 0.1, metaright: 0.1, backquote: 0.05, backslash: 0.05, altright: 0.05,
+};
+const DIGIT_USE = 0.15;
+
+export function keyWear(key: Key): number {
+  if (key.id in LETTER_FREQUENCY) return LETTER_FREQUENCY[key.id] / LETTER_FREQUENCY.e;
+  if (key.id in OTHER_USE) return OTHER_USE[key.id];
+  if (/^[0-9]$/.test(key.id)) return DIGIT_USE;
+  return 0;
+}
+
+/**
+ * How a key sounds, for the synthesised click (`objects/keySound.ts`):
+ * Topre keys "thock" — a low thump as the cap bottoms out, over a short
+ * click. Wider caps are heavier and lower; the space bar lowest, with a
+ * longer tail. Each key is a few percent off the next (from `hash01`-like
+ * spread on its index), so a run of presses does not sound like a loop.
+ * **Provisional (仮)** values, by ear.
+ */
+export type KeyVoice = { thump: number; click: number; decay: number; gain: number };
+
+export function keyVoice(key: Key): KeyVoice {
+  const spread = 1 + (((key.index * 7919) % 97) / 97 - 0.5) * 0.08;
+  const heavy = key.id === "space";
+  return {
+    thump: (heavy ? 95 : 150 / (1 + 0.08 * (key.units - 1))) * spread,
+    click: (key.mod ? 1900 : 2200) * spread,
+    decay: heavy ? 0.11 : 0.06,
+    gain: heavy ? 0.9 : 0.7,
+  };
+}
+
+/**
+ * The tray the keys sit in, seen from above in the keyboard's frame: the key
+ * block (with a little clearance), less the bottom row's two blanks, which
+ * the case fills.
+ */
+export function trayOutline(clearance = 0.0008): [number, number][] {
+  const p = HHKB.pitch;
+  const at = (x: number, z: number): [number, number] => {
+    const b = plateToBoard([x, 0, z]);
+    return [b[0], b[2]];
+  };
+  const left = -KEY_BLOCK.width / 2 - clearance;
+  const right = KEY_BLOCK.width / 2 + clearance;
+  const back = -HHKB.depth / 2 + KEY_BLOCK.back - clearance;
+  const bottomRow = back + 4 * p + clearance;
+  const front = back + 5 * p + 2 * clearance;
+  return [
+    at(left, back),
+    at(right, back),
+    at(right, bottomRow),
+    at(right - 2.5 * p, bottomRow),
+    at(right - 2.5 * p, front),
+    at(left + 1.5 * p, front),
+    at(left + 1.5 * p, bottomRow),
+    at(left, bottomRow),
+  ];
+}
+
+/**
+ * An outline of right-angled corners grown outwards by `by` on every side
+ * (each corner moves along both of its edges' outward normals). Used to cut
+ * the rim's hole wider by the rounding of its edge, which would otherwise
+ * close the hole in over the caps.
+ */
+export function growOutline(points: readonly [number, number][], by: number): [number, number][] {
+  const n = points.length;
+  let area = 0;
+  for (let i = 0; i < n; i++) {
+    const [x0, z0] = points[i];
+    const [x1, z1] = points[(i + 1) % n];
+    area += x0 * z1 - x1 * z0;
+  }
+  // The outward normal of an edge (dx, dz) is (dz, −dx) or (−dz, dx), by winding.
+  const side = area > 0 ? 1 : -1;
+  const normal = (a: readonly [number, number], b: readonly [number, number]): [number, number] => {
+    const dx = b[0] - a[0];
+    const dz = b[1] - a[1];
+    const l = Math.hypot(dx, dz);
+    return [(side * dz) / l, (-side * dx) / l];
+  };
+  return points.map((p, i) => {
+    const prev = points[(i + n - 1) % n];
+    const next = points[(i + 1) % n];
+    const a = normal(prev, p);
+    const b = normal(p, next);
+    return [p[0] + by * (a[0] + b[0]), p[1] + by * (a[1] + b[1])];
+  });
+}
+

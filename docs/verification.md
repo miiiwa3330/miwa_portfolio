@@ -111,3 +111,5 @@
 - **`/#desk` で開いて座った構図を撮るときは45秒待つ。** 歩いて座る動きは2.7秒だが、毎秒3フレーム・1フレーム0.1秒の上限で、18秒では椅子に向かって歩いている途中だった（全画面が差になる）。2枚撮って差が0になったことで落ち着いたと判断する
 - **`page.keyboard.down("KeyA")` で読み手のキーボードを再現できる**（`code` の名前がそのまま使える）。押したままにして撮り、撮ったあとで `up` する
 
+**音が鳴ったかは、`AudioContext` の呼び出しを数えて確かめる**（2026-10-22、打鍵音で）。ヘッドレスでは音そのものは聞けない。`page.evaluateOnNewDocument` で `window.AudioContext` を包んだクラスに差し替え、`BaseAudioContext.prototype.createOscillator`・`createBufferSource` を数える関数で包む。キーを1回押して離すと、文脈1つ・発振器1つ（押す音）・バッファの再生2つ（押すときと離すときのクリック）だった。起動引数に `--autoplay-policy=no-user-gesture-required` を足すと、自動化の操作でも文脈が止まらない
+

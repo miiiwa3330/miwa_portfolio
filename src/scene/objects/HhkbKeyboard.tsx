@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { useCursor } from "@react-three/drei";
 import * as THREE from "three";
+import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { KEYBOARD } from "../room/layout";
 import {
   HHKB,
@@ -11,19 +12,27 @@ import {
   KEY_COUNT,
   PLATE_TILT_DEG,
   PRESS_DIRECTION,
+  growOutline,
+  keyVoice,
+  keyWear,
   keyboardKeys,
   keysForCode,
   planeHeightAt,
   plateToBoard,
+  trayOutline,
 } from "../room/keyboard";
 import { keycapMesh, legendAtlas } from "../room/keycaps";
 import { isInteractive, pointerClaim } from "../pointerClaim";
-import { makeLegendTexture, makeLogoTexture } from "./keyboardLegends";
+import { makeLegendTexture, makeLogoTexture, makeRoughnessTexture } from "./keyboardLegends";
+import { playKey, wakeKeySound } from "./keySound";
 
 /**
- * The PC's keyboard, a HHKB Professional2 (`room/keyboard.ts`): a white case
- * with a recessed tray, 60 sculpted caps printed with their legends, and the
- * logo on the right blank. **The keys go down.**
+ * The PC's keyboard, a HHKB Professional2 (`room/keyboard.ts`) with the
+ * owner's name on it ("Miiiwa Professional3", `makeLogoTexture`): a white
+ * case with a recessed tray and rounded edges, 60 sculpted caps printed with
+ * their legends and worn by use (`keyWear`: yellowed, polished, a little
+ * grime, the print faded), and the logo on the right blank. **The keys go
+ * down, and click** (`keySound`).
  *
  * - **With the mouse**: press a key and it stays down until the button is let
  *   go. In the free view the canvas hears the click (the key claims the
@@ -43,9 +52,19 @@ import { makeLegendTexture, makeLogoTexture } from "./keyboardLegends";
 
 /** Colours read off `reference/4/キーボード１.png` (sRGB): lit key tops, the gray keys, the case, the tray between the keys. */
 const COLOURS = { alpha: "#dedee3", mod: "#c5ccd9", case: "#e3e3e5", tray: "#9a9da5" } as const;
+/**
+ * Age (**仮**): what the white plastic drifts towards over the years, how far
+ * the case and the least-used cap have gone, and how much further the
+ * most-used cap goes (`keyWear`) — skin oil yellows a cap faster than light.
+ * The gray caps show it half as much.
+ */
+const AGED = "#e6dcc4";
+const AGE = { case: 0.12, cap: 0.08, worn: 0.22, grayShare: 0.5 } as const;
 /** The case's rim stands this far over the plate; the tray's floor lies this far under it (**仮**). */
 const RIM = 0.003;
 const FLOOR = -0.0025;
+/** How round the rim's edges are (**仮**). */
+const EDGE = 0.0015;
 /** How quickly a cap follows the finger: the fraction of the way it goes in a second's 1/40. */
 const PRESS_RATE = 40;
 
@@ -86,42 +105,55 @@ function slab(shape: THREE.Shape, bottom: (z: number) => number, top: (z: number
   return geometry;
 }
 
-/** The tray the keys sit in, in the keyboard's frame: the key block, less the bottom row's two blanks. */
-function trayOutline(): [number, number][] {
-  const clear = 0.0008;
-  const p = HHKB.pitch;
-  const at = (x: number, z: number): [number, number] => {
-    const b = plateToBoard([x, 0, z]);
-    return [b[0], b[2]];
-  };
-  const left = -KEY_BLOCK.width / 2 - clear;
-  const right = KEY_BLOCK.width / 2 + clear;
-  const back = -HHKB.depth / 2 + KEY_BLOCK.back - clear;
-  const bottomRow = back + 4 * p + clear;
-  const front = back + 5 * p + 2 * clear;
-  return [
-    at(left, back),
-    at(right, back),
-    at(right, bottomRow),
-    at(right - 2.5 * p, bottomRow),
-    at(right - 2.5 * p, front),
-    at(left + 1.5 * p, front),
-    at(left + 1.5 * p, bottomRow),
-    at(left, bottomRow),
-  ];
+/**
+ * Like `slab`, with the top edges rounded by `edge`: three.js bevels both
+ * ends of an extrusion and grows the outline by the bevel, so the shape is
+ * given `edge` smaller all round and comes out at its full size. The bottom
+ * bevel is flattened onto the bottom, where nothing sees it. Vertices are
+ * merged so the rounding shades smooth; the walls get a ring of vertices
+ * just under the rounding, so the smoothing stays in that thin band instead
+ * of tinting the whole wall (it did: the front of the case shaded as two
+ * bands).
+ */
+function roundedSlab(shape: THREE.Shape, bottom: (z: number) => number, top: (z: number) => number, edge: number): THREE.BufferGeometry {
+  const extruded = new THREE.ExtrudeGeometry(shape, {
+    depth: 1,
+    bevelEnabled: true,
+    bevelThickness: edge,
+    bevelSize: edge,
+    bevelSegments: 3,
+    curveSegments: 6,
+    steps: 2,
+  });
+  extruded.rotateX(-Math.PI / 2);
+  const position = extruded.attributes.position;
+  for (let i = 0; i < position.count; i++) {
+    const y = position.getY(i);
+    const z = position.getZ(i);
+    // Along the extrusion: 1 + edge is the top, (1, 1 + edge) the rounding, 1 and ½ the wall's top two rings, 0 the bottom.
+    position.setY(i, y > 1 ? top(z) - (1 + edge - y) : y > 0.75 ? top(z) - edge : y > 0.25 ? top(z) - edge - 0.0004 : bottom(z));
+  }
+  extruded.deleteAttribute("normal");
+  extruded.deleteAttribute("uv");
+  const merged = mergeVertices(extruded, 1e-7);
+  extruded.dispose();
+  merged.computeVertexNormals();
+  return merged;
 }
 
 function useCase() {
   const parts = useMemo(() => {
     const floor = (z: number) => planeHeightAt(z, FLOOR);
     const tray = trayOutline();
-    const body = roundedRect(HHKB.width, HHKB.depth, 0.006);
-    const rim = roundedRect(HHKB.width, HHKB.depth, 0.006);
-    rim.holes.push(new THREE.Path(tray.map(([x, z]) => new THREE.Vector2(x, -z))));
+    // The case's walls are the rim's, from the desk up: one wall, not two
+    // meeting at the floor (they overlapped there by a millimetre and fought
+    // over the same pixels). The rim is smaller by the rounding, which grows
+    // it back; its hole larger by the same, which the rounding closes back.
+    const rim = roundedRect(HHKB.width - 2 * EDGE, HHKB.depth - 2 * EDGE, 0.006 - EDGE);
+    rim.holes.push(new THREE.Path(growOutline(tray, EDGE).map(([x, z]) => new THREE.Vector2(x, -z))));
     return {
-      body: slab(body, () => 0, floor),
-      tray: slab(outline(tray), (z) => floor(z) - 0.001, (z) => floor(z) + 0.0002),
-      rim: slab(rim, (z) => floor(z) - 0.001, (z) => planeHeightAt(z, RIM)),
+      tray: slab(outline(tray), () => 0, (z) => floor(z)),
+      rim: roundedSlab(rim, () => 0, (z) => planeHeightAt(z, RIM), EDGE),
     };
   }, []);
   useEffect(() => () => Object.values(parts).forEach((g) => g.dispose()), [parts]);
@@ -153,19 +185,24 @@ export default function HhkbKeyboard({ typing }: { typing: boolean }) {
     g.setAttribute("position", new THREE.BufferAttribute(mesh.positions, 3));
     g.setAttribute("uv", new THREE.BufferAttribute(mesh.uvs, 2));
     g.setAttribute("aKey", new THREE.BufferAttribute(mesh.keys, 1));
-    const alpha = new THREE.Color(COLOURS.alpha);
-    const mod = new THREE.Color(COLOURS.mod);
-    const colours = new Float32Array(mesh.mods.length * 3);
-    mesh.mods.forEach((m, i) => (m ? mod : alpha).toArray(colours, i * 3));
+    // Each cap's colour, aged by how much it is used.
+    const aged = new THREE.Color(AGED);
+    const capColour = KEYS.map((key) => {
+      const share = key.mod ? AGE.grayShare : 1;
+      return new THREE.Color(key.mod ? COLOURS.mod : COLOURS.alpha).lerp(aged, share * (AGE.cap + AGE.worn * keyWear(key)));
+    });
+    const colours = new Float32Array(mesh.keys.length * 3);
+    mesh.keys.forEach((k, i) => capColour[k].toArray(colours, i * 3));
     g.setAttribute("color", new THREE.BufferAttribute(colours, 3));
     g.setIndex(new THREE.BufferAttribute(mesh.indices, 1));
     g.computeVertexNormals();
     return g;
   }, [atlas]);
   const legends = useMemo(() => makeLegendTexture(KEYS, atlas), [atlas]);
+  const polish = useMemo(() => makeRoughnessTexture(KEYS, atlas), [atlas]);
   const logo = useMemo(() => makeLogoTexture(), []);
   const material = useMemo(() => {
-    const m = new THREE.MeshStandardMaterial({ vertexColors: true, map: legends, roughness: 0.6, metalness: 0 });
+    const m = new THREE.MeshStandardMaterial({ vertexColors: true, map: legends, roughnessMap: polish, roughness: 1, metalness: 0 });
     const values = press.current;
     m.onBeforeCompile = (shader) => {
       shader.uniforms.uPress = { value: values };
@@ -176,15 +213,18 @@ export default function HhkbKeyboard({ typing }: { typing: boolean }) {
     };
     m.customProgramCacheKey = () => "hhkb-keys";
     return m;
-  }, [legends]);
+  }, [legends, polish]);
   const shell = useCase();
-  const caseMaterial = useMemo(() => new THREE.MeshStandardMaterial({ color: COLOURS.case, roughness: 0.55, metalness: 0 }), []);
+  const caseMaterial = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: new THREE.Color(COLOURS.case).lerp(new THREE.Color(AGED), AGE.case), roughness: 0.55, metalness: 0 }),
+    []
+  );
   const trayMaterial = useMemo(() => new THREE.MeshStandardMaterial({ color: COLOURS.tray, roughness: 0.75, metalness: 0 }), []);
   useEffect(
     () => () => {
-      [geometry, legends, logo, material, caseMaterial, trayMaterial].forEach((x) => x.dispose());
+      [geometry, legends, polish, logo, material, caseMaterial, trayMaterial].forEach((x) => x.dispose());
     },
-    [geometry, legends, logo, material, caseMaterial, trayMaterial]
+    [geometry, legends, polish, logo, material, caseMaterial, trayMaterial]
   );
 
   // The logo, on the right blank of the bottom row, lying on the rim.
@@ -223,7 +263,9 @@ export default function HhkbKeyboard({ typing }: { typing: boolean }) {
       const ndc = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
       raycaster.setFromCamera(ndc, camera);
       const hit = raycaster.intersectObject(caps.current, false)[0];
-      if (hit) mouseKey.current = keyOf(hit.face);
+      if (!hit) return;
+      wakeKeySound();
+      mouseKey.current = keyOf(hit.face);
     };
     window.addEventListener("pointerdown", down);
     return () => window.removeEventListener("pointerdown", down);
@@ -237,7 +279,9 @@ export default function HhkbKeyboard({ typing }: { typing: boolean }) {
     const codes = held.current;
     const down = (e: KeyboardEvent) => {
       const keys = keysForCode(e.code);
-      if (keys.length) codes.set(e.code, keys);
+      if (!keys.length) return;
+      wakeKeySound();
+      codes.set(e.code, keys);
     };
     const up = (e: KeyboardEvent) => codes.delete(e.code);
     const clear = () => codes.clear();
@@ -252,16 +296,20 @@ export default function HhkbKeyboard({ typing }: { typing: boolean }) {
     };
   }, [typing]);
 
+  // What was held last frame, to hear a key go down or come up.
+  const wasDown = useRef(new Set<number>());
   useFrame((_, delta) => {
     const down = new Set<number>();
     if (mouseKey.current >= 0) down.add(mouseKey.current);
     for (const keys of held.current.values()) for (const k of keys) down.add(k);
+    for (const k of down) if (!wasDown.current.has(k)) playKey(keyVoice(KEYS[k]), true);
+    for (const k of wasDown.current) if (!down.has(k)) playKey(keyVoice(KEYS[k]), false);
+    wasDown.current = down;
     stepPress(press.current, down, delta);
   });
 
   return (
     <group position={[KEYBOARD.x, KEYBOARD.y, KEYBOARD.z]}>
-      <mesh geometry={shell.body} material={caseMaterial} />
       <mesh geometry={shell.rim} material={caseMaterial} />
       <mesh geometry={shell.tray} material={trayMaterial} />
       <mesh position={logoPlace.position} rotation={[TILT - Math.PI / 2, 0, 0]}>
@@ -277,6 +325,7 @@ export default function HhkbKeyboard({ typing }: { typing: boolean }) {
           if (key < 0) return;
           e.stopPropagation();
           pointerClaim.claim(e.pointerId);
+          wakeKeySound();
           mouseKey.current = key;
         }}
         onPointerOver={(e) => {
