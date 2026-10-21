@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { keyboardKeys, plateToBoard, ROW_PROFILE, HHKB } from "./keyboard";
-import { ATLAS_WIDTH, keycapMesh, legendAtlas } from "./keycaps";
+import { CAP, keyboardKeys, plateToBoard, ROW_PROFILE, HHKB } from "./keyboard";
+import { ATLAS_WIDTH, capRing, keycapMesh, legendAtlas } from "./keycaps";
 
 const keys = keyboardKeys();
 const atlas = legendAtlas(keys);
@@ -27,13 +27,6 @@ describe("the legend atlas", () => {
         expect(apart, `${keys[a].id} / ${keys[b].id}`).toBe(true);
       }
     }
-  });
-
-  it("keeps its blank corner out of every cell", () => {
-    const [u, v] = atlas.blank;
-    const x = u * atlas.width;
-    const y = (1 - v) * atlas.height;
-    for (const c of atlas.cells) expect(x >= c.left && x <= c.left + c.width && y >= c.top && y <= c.top + c.height).toBe(false);
   });
 
   it("is a power of two tall, and no bigger than it needs", () => {
@@ -92,7 +85,55 @@ describe("the key caps' mesh", () => {
     }
   });
 
-  it("stays a small mesh: a few thousand vertices for the whole board", () => {
-    expect(mesh.positions.length / 3).toBeLessThan(6000);
+  it("stays a small mesh: under 9,000 vertices for the whole board", () => {
+    expect(mesh.positions.length / 3).toBeLessThan(9000);
+  });
+
+  it("rounds every cap's corners: no vertex at the corner of its foot or of its top", () => {
+    for (const key of keys) {
+      const foot = { w: key.units * HHKB.pitch - CAP.footGap, d: HHKB.pitch - CAP.footGap };
+      const corner = plateToBoard([key.x + foot.w / 2, 0, key.z + foot.d / 2]);
+      let nearest = Infinity;
+      for (let i = 0; i < mesh.keys.length; i++) {
+        if (mesh.keys[i] !== key.index) continue;
+        nearest = Math.min(nearest, Math.hypot(point(i)[0] - corner[0], point(i)[1] - corner[1], point(i)[2] - corner[2]));
+      }
+      // A rounded corner of radius r leaves its square corner r(√2 − 1) away: about 0.41 mm for the 1 mm
+      // the photos show. A fixed floor, not one worked out from CAP.footRadius — that would shrink with it.
+      expect(nearest, key.id).toBeGreaterThan(0.0003);
+    }
   });
 });
+
+describe("a cap's ring", () => {
+  const ring = capRing(0.01, -0.02, 0.018, 0.017, 0.001, 3, 2);
+
+  it("has the corners' points and the straight edges' splits, in the same count for any size", () => {
+    // Four corners of 3 segments (4 points each), front and back split in 3, the sides in 2.
+    expect(ring.length).toBe(4 * 4 + 2 * 2 + 2 * 1);
+    expect(capRing(0, 0, 0.1, 0.05, 0.004, 3, 2).length).toBe(ring.length);
+  });
+
+  it("stays on its rectangle, centred where it is asked", () => {
+    const xs = ring.map((p) => p.x);
+    const zs = ring.map((p) => p.z);
+    expect(Math.min(...xs)).toBeCloseTo(0.01 - 0.009, 12);
+    expect(Math.max(...xs)).toBeCloseTo(0.01 + 0.009, 12);
+    expect(Math.min(...zs)).toBeCloseTo(-0.02 - 0.0085, 12);
+    expect(Math.max(...zs)).toBeCloseTo(-0.02 + 0.0085, 12);
+  });
+
+  it("goes round without doubling back: every step turns the same way", () => {
+    let turns = 0;
+    for (let i = 0; i < ring.length; i++) {
+      const a = ring[i];
+      const b = ring[(i + 1) % ring.length];
+      const c = ring[(i + 2) % ring.length];
+      const cross = (b.x - a.x) * (c.z - b.z) - (b.z - a.z) * (c.x - b.x);
+      expect(cross).toBeGreaterThanOrEqual(-1e-12);
+      turns += cross > 1e-12 ? 1 : 0;
+    }
+    expect(turns).toBeGreaterThan(0);
+  });
+});
+

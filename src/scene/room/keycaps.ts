@@ -1,4 +1,4 @@
-import { capFoot, capTop, capTopHeight, plateToBoard, type Key } from "./keyboard";
+import { CAP, capFoot, capTop, capTopHeight, plateToBoard, roundedRectOutline, type Key } from "./keyboard";
 
 /**
  * Every key cap of the keyboard as one mesh, so the whole board is one draw
@@ -7,21 +7,22 @@ import { capFoot, capTop, capTopHeight, plateToBoard, type Key } from "./keyboar
  * to (the shader pushes a pressed key's vertices down, and a click finds the
  * key from the face it hit) and whether the key is a gray one.
  *
- * A cap is a tapered box: a foot on the plate, a smaller top that leans with
- * its row and is dished across (`capTopHeight`), and four sloping sides. The
- * top is split into strips across so the dish curves; the sides get their
- * own vertices, so they shade flat while the top shades smooth.
+ * A cap is lofted through rings of rounded rectangles (`capRing`): the foot
+ * on the plate, the top's edge, then over a small round onto the top, which
+ * leans with its row and is dished across (`capTopHeight`); two smaller rings
+ * and the middle shape the dish. Every corner is rounded (`CAP.footRadius`,
+ * `topRadius`, `topRound`) — the user's close-ups show no sharp edge on a
+ * cap. Vertices are shared all round, so the cap shades smooth; the sides
+ * take the texture's colour at the top's edge, which is unprinted.
  */
 
 /** The legend atlas: pixels for the depth of a key top, and the canvas's width. */
 export const LEGEND_CELL = 128;
 export const ATLAS_WIDTH = 2048;
 const ATLAS_PAD = 4;
-/** The atlas's top left corner is left blank: the caps' sides look it up, so they take the cap's colour unprinted. */
-const BLANK_CORNER = 8;
 
 export type AtlasCell = { left: number; top: number; width: number; height: number };
-export type LegendAtlas = { width: number; height: number; cells: AtlasCell[]; blank: [number, number] };
+export type LegendAtlas = { width: number; height: number; cells: AtlasCell[] };
 
 /**
  * Where each key's legend is drawn in the atlas. A cell has the proportions
@@ -30,7 +31,7 @@ export type LegendAtlas = { width: number; height: number; cells: AtlasCell[]; b
  */
 export function legendAtlas(keys: readonly Key[]): LegendAtlas {
   const cells: AtlasCell[] = [];
-  let x = BLANK_CORNER + ATLAS_PAD;
+  let x = ATLAS_PAD;
   let y = 0;
   for (const key of keys) {
     const top = capTop(key);
@@ -45,7 +46,7 @@ export function legendAtlas(keys: readonly Key[]): LegendAtlas {
   const used = y + LEGEND_CELL;
   let height = 1;
   while (height < used) height *= 2;
-  return { width: ATLAS_WIDTH, height, cells, blank: [2.5 / ATLAS_WIDTH, 1 - 2.5 / height] };
+  return { width: ATLAS_WIDTH, height, cells };
 }
 
 export type KeycapMesh = {
@@ -58,11 +59,32 @@ export type KeycapMesh = {
   indices: Uint32Array;
 };
 
-type V3 = [number, number, number];
+/** How many segments to each rounded corner of a cap. */
+const ARC_STEPS = 3;
 
-/** How many strips a key top is split into across: enough for its dish to read as a curve. */
-function strips(key: Key): number {
-  return Math.max(4, Math.round(key.units * 6));
+/**
+ * A rounded rectangle as a ring of points for lofting, centred on (x, z):
+ * the corners from `roundedRectOutline`, and the straight edges split —
+ * front and back into `along` segments (so the dish curves along them),
+ * the sides into `across`. Rings made with the same counts line up point for
+ * point, so two of them can be joined with quads.
+ */
+export function capRing(x: number, z: number, width: number, depth: number, radius: number, along: number, across: number): { x: number; z: number }[] {
+  const corners = roundedRectOutline(width, depth, radius, ARC_STEPS);
+  const perCorner = ARC_STEPS + 1;
+  const ring: { x: number; z: number }[] = [];
+  for (let c = 0; c < 4; c++) {
+    for (let i = 0; i < perCorner; i++) ring.push(corners[c * perCorner + i]);
+    // The edge from this corner's last point to the next corner's first: right side, front, left side, back.
+    const from = corners[c * perCorner + perCorner - 1];
+    const to = corners[((c + 1) % 4) * perCorner];
+    const segments = c % 2 === 0 ? across : along;
+    for (let s = 1; s < segments; s++) {
+      const t = s / segments;
+      ring.push({ x: from.x + (to.x - from.x) * t, z: from.z + (to.z - from.z) * t });
+    }
+  }
+  return ring.map((p) => ({ x: x + p.x, z: z + p.z }));
 }
 
 export function keycapMesh(keys: readonly Key[], atlas: LegendAtlas): KeycapMesh {
@@ -76,49 +98,54 @@ export function keycapMesh(keys: readonly Key[], atlas: LegendAtlas): KeycapMesh
     const cell = atlas.cells[key.index];
     const foot = capFoot(key);
     const top = capTop(key);
-    const n = strips(key);
-    const vertex = (plate: V3, uv: [number, number]): number => {
-      const p = plateToBoard(plate);
-      positions.push(p[0], p[1], p[2]);
-      uvs.push(uv[0], uv[1]);
-      owner.push(key.index);
-      mods.push(key.mod ? 1 : 0);
-      return positions.length / 3 - 1;
-    };
-    // a → b → c → d, counter-clockwise seen from outside.
-    const quad = (a: number, b: number, c: number, d: number) => indices.push(a, b, c, a, c, d);
-
-    const topPoint = (u: number, v: number): V3 => [key.x + u * top.width, capTopHeight(key, u, v), key.z + top.dz + v * top.depth];
-    const footPoint = (u: number, v: number): V3 => [key.x + u * foot.width, 0, key.z + v * foot.depth];
-    const atlasUv = (u: number, v: number): [number, number] => [
-      (cell.left + (u + 0.5) * cell.width) / atlas.width,
-      1 - (cell.top + (v + 0.5) * cell.height) / atlas.height,
+    const topZ = key.z + top.dz;
+    const along = Math.max(2, Math.round(key.units * 3));
+    const across = 2;
+    // Where a point lies on the top, from −½ to ½ each way; outside the top (the foot) it is clamped to the edge.
+    const uv = (x: number, z: number): [number, number] => [
+      Math.max(-0.5, Math.min(0.5, (x - key.x) / top.width)),
+      Math.max(-0.5, Math.min(0.5, (z - topZ) / top.depth)),
     ];
-
-    // The top: back and front edges, n strips across, shared vertices so the dish shades smooth.
-    const back: number[] = [];
-    const front: number[] = [];
-    for (let i = 0; i <= n; i++) {
-      const u = i / n - 0.5;
-      back.push(vertex(topPoint(u, -0.5), atlasUv(u, -0.5)));
-      front.push(vertex(topPoint(u, 0.5), atlasUv(u, 0.5)));
+    const ringAt = (points: { x: number; z: number }[], height: (u: number, v: number) => number): number[] =>
+      points.map(({ x, z }) => {
+        const [u, v] = uv(x, z);
+        const p = plateToBoard([x, height(u, v), z]);
+        positions.push(p[0], p[1], p[2]);
+        // The texture follows the top; the sides take the colour at the top's edge, which is unprinted.
+        uvs.push((cell.left + (u + 0.5) * cell.width) / atlas.width, 1 - (cell.top + (v + 0.5) * cell.height) / atlas.height);
+        owner.push(key.index);
+        mods.push(key.mod ? 1 : 0);
+        return positions.length / 3 - 1;
+      });
+    const surface = (u: number, v: number) => capTopHeight(key, u, v);
+    const r = CAP.topRadius;
+    const f = CAP.topRound;
+    const rings = [
+      // The foot, on the plate.
+      ringAt(capRing(key.x, key.z, foot.width, foot.depth, CAP.footRadius, along, across), () => 0),
+      // The top's edge, just under the round onto the top.
+      ringAt(capRing(key.x, topZ, top.width, top.depth, r, along, across), (u, v) => surface(u, v) - f),
+      // The top itself, the round's width in, and two rings further in for the dish.
+      ...[1, 0.66, 0.33].map((scale) =>
+        ringAt(
+          capRing(key.x, topZ, (top.width - 2 * f) * scale, (top.depth - 2 * f) * scale, Math.max(1e-4, (r - f) * scale), along, across),
+          surface
+        )
+      ),
+    ];
+    const [cu, cv] = uv(key.x, topZ);
+    const middle = ringAt([{ x: key.x, z: topZ }], () => surface(cu, cv))[0];
+    // Join each ring to the next, outward faces counter-clockwise; close the top with a fan.
+    for (let k = 0; k + 1 < rings.length; k++) {
+      const a = rings[k];
+      const b = rings[k + 1];
+      for (let i = 0; i < a.length; i++) {
+        const j = (i + 1) % a.length;
+        indices.push(a[i], b[i], b[j], a[i], b[j], a[j]);
+      }
     }
-    for (let i = 0; i < n; i++) quad(back[i], front[i], front[i + 1], back[i + 1]);
-
-    // The front and back sides follow the top's edge, strip by strip.
-    for (let i = 0; i < n; i++) {
-      const u0 = i / n - 0.5;
-      const u1 = (i + 1) / n - 0.5;
-      const f = [footPoint(u0, 0.5), footPoint(u1, 0.5), topPoint(u1, 0.5), topPoint(u0, 0.5)].map((p) => vertex(p, atlas.blank));
-      quad(f[0], f[1], f[2], f[3]);
-      const b = [footPoint(u1, -0.5), footPoint(u0, -0.5), topPoint(u0, -0.5), topPoint(u1, -0.5)].map((p) => vertex(p, atlas.blank));
-      quad(b[0], b[1], b[2], b[3]);
-    }
-    // The left and right sides.
-    const left = [footPoint(-0.5, -0.5), footPoint(-0.5, 0.5), topPoint(-0.5, 0.5), topPoint(-0.5, -0.5)].map((p) => vertex(p, atlas.blank));
-    quad(left[0], left[1], left[2], left[3]);
-    const right = [footPoint(0.5, 0.5), footPoint(0.5, -0.5), topPoint(0.5, -0.5), topPoint(0.5, 0.5)].map((p) => vertex(p, atlas.blank));
-    quad(right[0], right[1], right[2], right[3]);
+    const last = rings[rings.length - 1];
+    for (let i = 0; i < last.length; i++) indices.push(last[i], middle, last[(i + 1) % last.length]);
   }
 
   return {
@@ -129,4 +156,3 @@ export function keycapMesh(keys: readonly Key[], atlas: LegendAtlas): KeycapMesh
     indices: new Uint32Array(indices),
   };
 }
-

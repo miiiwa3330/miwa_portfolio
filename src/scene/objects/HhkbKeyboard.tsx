@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { useCursor } from "@react-three/drei";
 import * as THREE from "three";
-import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { KEYBOARD } from "../room/layout";
 import {
   HHKB,
@@ -12,7 +11,8 @@ import {
   KEY_COUNT,
   PLATE_TILT_DEG,
   PRESS_DIRECTION,
-  growOutline,
+  roundedRectOutline,
+  type OutlinePoint,
   keySample,
   keyWear,
   keyboardKeys,
@@ -50,49 +50,48 @@ import { playKey, prefetchKeySound, wakeKeySound } from "./keySound";
  * a uniform update, not a mesh rebuild.
  */
 
-/** Colours read off `reference/4/キーボード１.png` (sRGB): lit key tops, the gray keys, the case, the tray between the keys. */
-const COLOURS = { alpha: "#dedee3", mod: "#c5ccd9", case: "#e3e3e5", tray: "#9a9da5" } as const;
+/**
+ * Colours read off `reference/4/キーボード１.png` (sRGB): lit key tops, the
+ * gray keys, the case, the tray between the keys. The gray keys are the
+ * photo's hue (about 220°) made deeper and more saturated (`#c5ccd9` →
+ * `#acbad2`): in the room they washed out to white (2026-10-22, the user:
+ * "make the blue-gray keys stand out").
+ */
+const COLOURS = { alpha: "#dedee3", mod: "#acbad2", case: "#e3e3e5", tray: "#9a9da5" } as const;
 /**
  * Age (**仮**): what the white plastic drifts towards over the years, how far
  * the case and the least-used cap have gone, and how much further the
  * most-used cap goes (`keyWear`) — skin oil yellows a cap faster than light.
- * The gray caps show it half as much.
+ * Raised once (2026-10-22, the user: "more yellowing overall"). The gray caps
+ * barely show it, so they keep their blue.
  */
-const AGED = "#e6dcc4";
-const AGE = { case: 0.12, cap: 0.08, worn: 0.22, grayShare: 0.5 } as const;
+const AGED = "#e4d4ad";
+const AGE = { case: 0.3, cap: 0.18, worn: 0.22, grayShare: 0.1 } as const;
 /** The case's rim stands this far over the plate; the tray's floor lies this far under it (**仮**). */
 const RIM = 0.003;
 const FLOOR = -0.0025;
-/** How round the rim's edges are (**仮**). */
+/** How round the rim's outer top edge is, and the case's corners seen from above (**仮**). */
 const EDGE = 0.0015;
+const CORNER = 0.006;
 /** How quickly a cap follows the finger: the fraction of the way it goes in a second's 1/40. */
 const PRESS_RATE = 40;
 
 const KEYS = keyboardKeys();
 const TILT = (PLATE_TILT_DEG * Math.PI) / 180;
 
-/** A top-view outline as a three.js shape (shape y is −z, so the slab can be stood up by `slab`). */
-function outline(points: [number, number][]): THREE.Shape {
-  return new THREE.Shape(points.map(([x, z]) => new THREE.Vector2(x, -z)));
+/**
+ * A top-view outline as a three.js shape (shape y is −z, so `slab` can stand
+ * it up), wound counter-clockwise. That winding matters: three.js puts a
+ * shape's holes the right way round only when it has to reverse the shape
+ * itself, so a clockwise shape kept its holes as given — and the rim's hole
+ * walls faced into the rim, showing black edges round the tray.
+ */
+function shapeOf(points: readonly { x: number; z: number }[]): THREE.Shape {
+  const vectors = points.map((p) => new THREE.Vector2(p.x, -p.z));
+  return new THREE.Shape(THREE.ShapeUtils.isClockWise(vectors) ? vectors.reverse() : vectors);
 }
 
-function roundedRect(width: number, depth: number, radius: number): THREE.Shape {
-  const s = new THREE.Shape();
-  const x = width / 2;
-  const y = depth / 2;
-  s.moveTo(-x + radius, -y);
-  s.lineTo(x - radius, -y);
-  s.absarc(x - radius, -y + radius, radius, -Math.PI / 2, 0, false);
-  s.lineTo(x, y - radius);
-  s.absarc(x - radius, y - radius, radius, 0, Math.PI / 2, false);
-  s.lineTo(-x + radius, y);
-  s.absarc(-x + radius, y - radius, radius, Math.PI / 2, Math.PI, false);
-  s.lineTo(-x, -y + radius);
-  s.absarc(-x + radius, -y + radius, radius, Math.PI, Math.PI * 1.5, false);
-  return s;
-}
-
-/** A shape stood up between two heights that may slope with depth (`bottom(z)`, `top(z)`). */
+/** A shape stood up between two heights that may slope with depth (`bottom(z)`, `top(z)`). No bevel: see `useCase`. */
 function slab(shape: THREE.Shape, bottom: (z: number) => number, top: (z: number) => number): THREE.BufferGeometry {
   const geometry = new THREE.ExtrudeGeometry(shape, { depth: 1, bevelEnabled: false, curveSegments: 6 });
   geometry.rotateX(-Math.PI / 2);
@@ -106,54 +105,67 @@ function slab(shape: THREE.Shape, bottom: (z: number) => number, top: (z: number
 }
 
 /**
- * Like `slab`, with the top edges rounded by `edge`: three.js bevels both
- * ends of an extrusion and grows the outline by the bevel, so the shape is
- * given `edge` smaller all round and comes out at its full size. The bottom
- * bevel is flattened onto the bottom, where nothing sees it. Vertices are
- * merged so the rounding shades smooth; the walls get a ring of vertices
- * just under the rounding, so the smoothing stays in that thin band instead
- * of tinting the whole wall (it did: the front of the case shaded as two
- * bands).
+ * A quarter-round swept round `outline`: from its wall, `edge` under `top`,
+ * up and in to the top, `edge` inside the outline. Smooth-shaded; at its
+ * bottom the normal is the wall's, at its top the top's, so it joins both
+ * without a crease.
  */
-function roundedSlab(shape: THREE.Shape, bottom: (z: number) => number, top: (z: number) => number, edge: number): THREE.BufferGeometry {
-  const extruded = new THREE.ExtrudeGeometry(shape, {
-    depth: 1,
-    bevelEnabled: true,
-    bevelThickness: edge,
-    bevelSize: edge,
-    bevelSegments: 3,
-    curveSegments: 6,
-    steps: 2,
-  });
-  extruded.rotateX(-Math.PI / 2);
-  const position = extruded.attributes.position;
-  for (let i = 0; i < position.count; i++) {
-    const y = position.getY(i);
-    const z = position.getZ(i);
-    // Along the extrusion: 1 + edge is the top, (1, 1 + edge) the rounding, 1 and ½ the wall's top two rings, 0 the bottom.
-    position.setY(i, y > 1 ? top(z) - (1 + edge - y) : y > 0.75 ? top(z) - edge : y > 0.25 ? top(z) - edge - 0.0004 : bottom(z));
+function fillet(outline: readonly OutlinePoint[], edge: number, top: (z: number) => number, steps = 4): THREE.BufferGeometry {
+  const positions: number[] = [];
+  for (let j = 0; j <= steps; j++) {
+    const a = (j / steps) * (Math.PI / 2);
+    const inward = edge * (1 - Math.cos(a));
+    for (const p of outline) {
+      const x = p.x - p.nx * inward;
+      const z = p.z - p.nz * inward;
+      positions.push(x, top(z) - edge + edge * Math.sin(a), z);
+    }
   }
-  extruded.deleteAttribute("normal");
-  extruded.deleteAttribute("uv");
-  const merged = mergeVertices(extruded, 1e-7);
-  extruded.dispose();
-  merged.computeVertexNormals();
-  return merged;
+  const n = outline.length;
+  const indices: number[] = [];
+  for (let j = 0; j < steps; j++) {
+    for (let i = 0; i < n; i++) {
+      const a = j * n + i;
+      const b = (j + 1) * n + i;
+      const c = (j + 1) * n + ((i + 1) % n);
+      const d = j * n + ((i + 1) % n);
+      indices.push(a, b, c, a, c, d);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
 }
 
+/**
+ * The case: the tray's floor, and the rim round it with its outer top edge
+ * rounded. **Not with three.js's extrusion bevel**: bevelled with the tray's
+ * hole in it, the top was triangulated wrong — two triangles laid across half
+ * the tray (150 cm² of its 270), and the gaps between the keys showed the
+ * rim's white instead of the floor, split by a diagonal line (2026-10-22,
+ * the user). The rim is three plain pieces instead: the rim proper (its
+ * outline `EDGE` in from the case's, from the desk to the top), a skirt for
+ * the case's outer wall (to `EDGE` under the top), and the rounding swept
+ * between them (`fillet`).
+ */
 function useCase() {
   const parts = useMemo(() => {
     const floor = (z: number) => planeHeightAt(z, FLOOR);
-    const tray = trayOutline();
-    // The case's walls are the rim's, from the desk up: one wall, not two
-    // meeting at the floor (they overlapped there by a millimetre and fought
-    // over the same pixels). The rim is smaller by the rounding, which grows
-    // it back; its hole larger by the same, which the rounding closes back.
-    const rim = roundedRect(HHKB.width - 2 * EDGE, HHKB.depth - 2 * EDGE, 0.006 - EDGE);
-    rim.holes.push(new THREE.Path(growOutline(tray, EDGE).map(([x, z]) => new THREE.Vector2(x, -z))));
+    const top = (z: number) => planeHeightAt(z, RIM);
+    const tray = trayOutline().map(([x, z]) => ({ x, z }));
+    const outer = roundedRectOutline(HHKB.width, HHKB.depth, CORNER, 6);
+    const inner = roundedRectOutline(HHKB.width - 2 * EDGE, HHKB.depth - 2 * EDGE, CORNER - EDGE, 6);
+    const rim = shapeOf(inner);
+    rim.holes.push(new THREE.Path(tray.map((p) => new THREE.Vector2(p.x, -p.z))));
+    const skirt = shapeOf(outer);
+    skirt.holes.push(new THREE.Path(inner.map((p) => new THREE.Vector2(p.x, -p.z))));
     return {
-      tray: slab(outline(tray), () => 0, (z) => floor(z)),
-      rim: roundedSlab(rim, () => 0, (z) => planeHeightAt(z, RIM), EDGE),
+      tray: slab(shapeOf(tray), () => 0, floor),
+      rim: slab(rim, () => 0, top),
+      skirt: slab(skirt, () => 0, (z) => top(z) - EDGE),
+      round: fillet(outer, EDGE, top),
     };
   }, []);
   useEffect(() => () => Object.values(parts).forEach((g) => g.dispose()), [parts]);
@@ -315,6 +327,8 @@ export default function HhkbKeyboard({ typing }: { typing: boolean }) {
   return (
     <group position={[KEYBOARD.x, KEYBOARD.y, KEYBOARD.z]}>
       <mesh geometry={shell.rim} material={caseMaterial} />
+      <mesh geometry={shell.skirt} material={caseMaterial} />
+      <mesh geometry={shell.round} material={caseMaterial} />
       <mesh geometry={shell.tray} material={trayMaterial} />
       <mesh position={logoPlace.position} rotation={[TILT - Math.PI / 2, 0, 0]}>
         <planeGeometry args={logoPlace.size} />

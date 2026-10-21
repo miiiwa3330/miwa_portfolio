@@ -9,7 +9,7 @@ import {
   PRESS_DIRECTION,
   capTop,
   capTopHeight,
-  growOutline,
+  roundedRectOutline,
   KEY_SAMPLES,
   keySample,
   keySampleGroup,
@@ -287,28 +287,36 @@ describe("the tray's outline", () => {
   });
 });
 
-describe("growing an outline", () => {
-  it("moves every side of a square out by the amount, whichever way it winds", () => {
-    const square: [number, number][] = [[0, 0], [0, 1], [1, 1], [1, 0]];
-    for (const poly of [square, [...square].reverse()]) {
-      const grown = growOutline(poly, 0.1);
-      const xs = grown.map((p) => p[0]);
-      const zs = grown.map((p) => p[1]);
-      expect(Math.min(...xs)).toBeCloseTo(-0.1, 12);
-      expect(Math.max(...xs)).toBeCloseTo(1.1, 12);
-      expect(Math.min(...zs)).toBeCloseTo(-0.1, 12);
-      expect(Math.max(...zs)).toBeCloseTo(1.1, 12);
+describe("a rounded outline", () => {
+  const outline = roundedRectOutline(0.294, 0.11, 0.006, 4);
+
+  it("goes round all four corners, each in arcSteps segments", () => {
+    expect(outline.length).toBe(4 * 5);
+  });
+
+  it("stays on the rectangle's bounds, touching each side", () => {
+    const xs = outline.map((p) => p.x);
+    const zs = outline.map((p) => p.z);
+    expect(Math.min(...xs)).toBeCloseTo(-0.147, 12);
+    expect(Math.max(...xs)).toBeCloseTo(0.147, 12);
+    expect(Math.min(...zs)).toBeCloseTo(-0.055, 12);
+    expect(Math.max(...zs)).toBeCloseTo(0.055, 12);
+  });
+
+  it("points every normal outwards, at unit length", () => {
+    for (const p of outline) {
+      expect(Math.hypot(p.nx, p.nz)).toBeCloseTo(1, 12);
+      expect(p.x * p.nx + p.z * p.nz).toBeGreaterThan(0);
     }
   });
 
-  it("grows the tray's outline by its perimeter times the amount, notches included", () => {
-    const tray = trayOutline();
-    const area = (p: readonly [number, number][]) =>
-      Math.abs(p.reduce((a, [x0, z0], i) => a + x0 * p[(i + 1) % p.length][1] - p[(i + 1) % p.length][0] * z0, 0)) / 2;
-    const perimeter = tray.reduce((a, [x0, z0], i) => a + Math.hypot(tray[(i + 1) % tray.length][0] - x0, tray[(i + 1) % tray.length][1] - z0), 0);
-    const by = 0.002;
-    // Six corners turn outwards and two inwards: the corners add (6 − 2)·by² on top of the sides.
-    expect(area(growOutline(tray, by)) - area(tray)).toBeCloseTo(perimeter * by + 4 * by * by, 7);
+  it("lines up with the outline one radius-step smaller: point for point, along the normal", () => {
+    const by = 0.0015;
+    const inner = roundedRectOutline(0.294 - 2 * by, 0.11 - 2 * by, 0.006 - by, 4);
+    outline.forEach((p, i) => {
+      expect(inner[i].x).toBeCloseTo(p.x - by * p.nx, 12);
+      expect(inner[i].z).toBeCloseTo(p.z - by * p.nz, 12);
+    });
   });
 });
 

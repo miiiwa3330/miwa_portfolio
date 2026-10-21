@@ -37,6 +37,14 @@ export const CAP = {
   /** How deep the cylindrical dish of a top is (the space bar's is shallower). */
   dish: 0.0006,
   dishWide: 0.0002,
+  /**
+   * The caps' soft corners (2026-10-22, the user's close-up photos of HHKB
+   * caps): the radius of the foot's corners and of the top's seen from
+   * above, and the small round from the sides over onto the top.
+   */
+  footRadius: 0.001,
+  topRadius: 0.0016,
+  topRound: 0.0006,
 } as const;
 
 /**
@@ -420,34 +428,34 @@ export function trayOutline(clearance = 0.0008): [number, number][] {
   ];
 }
 
+/** A point on an outline seen from above, in the keyboard's frame, with the outline's outward normal there. */
+export type OutlinePoint = { x: number; z: number; nx: number; nz: number };
+
 /**
- * An outline of right-angled corners grown outwards by `by` on every side
- * (each corner moves along both of its edges' outward normals). Used to cut
- * the rim's hole wider by the rounding of its edge, which would otherwise
- * close the hole in over the caps.
+ * A rounded rectangle centred on the origin, as points going round it (back
+ * edge first, left to right), `arcSteps` segments to each corner, with the
+ * outward normal at each. Two of these with the same `arcSteps`, one `by`
+ * smaller all round and with its radius `by` smaller, have the same corner
+ * centres: point i of the smaller is point i of the larger moved `by` along
+ * its normal — which is what lets the case's rounded edge be swept between
+ * them.
  */
-export function growOutline(points: readonly [number, number][], by: number): [number, number][] {
-  const n = points.length;
-  let area = 0;
-  for (let i = 0; i < n; i++) {
-    const [x0, z0] = points[i];
-    const [x1, z1] = points[(i + 1) % n];
-    area += x0 * z1 - x1 * z0;
+export function roundedRectOutline(width: number, depth: number, radius: number, arcSteps: number): OutlinePoint[] {
+  const x = width / 2 - radius;
+  const z = depth / 2 - radius;
+  const corners: [number, number, number][] = [
+    [x, -z, -Math.PI / 2],
+    [x, z, 0],
+    [-x, z, Math.PI / 2],
+    [-x, -z, Math.PI],
+  ];
+  const points: OutlinePoint[] = [];
+  for (const [cx, cz, from] of corners) {
+    for (let i = 0; i <= arcSteps; i++) {
+      const a = from + (i / arcSteps) * (Math.PI / 2);
+      points.push({ x: cx + radius * Math.cos(a), z: cz + radius * Math.sin(a), nx: Math.cos(a), nz: Math.sin(a) });
+    }
   }
-  // The outward normal of an edge (dx, dz) is (dz, −dx) or (−dz, dx), by winding.
-  const side = area > 0 ? 1 : -1;
-  const normal = (a: readonly [number, number], b: readonly [number, number]): [number, number] => {
-    const dx = b[0] - a[0];
-    const dz = b[1] - a[1];
-    const l = Math.hypot(dx, dz);
-    return [(side * dz) / l, (-side * dx) / l];
-  };
-  return points.map((p, i) => {
-    const prev = points[(i + n - 1) % n];
-    const next = points[(i + 1) % n];
-    const a = normal(prev, p);
-    const b = normal(p, next);
-    return [p[0] + by * (a[0] + b[0]), p[1] + by * (a[1] + b[1])];
-  });
+  return points;
 }
 
