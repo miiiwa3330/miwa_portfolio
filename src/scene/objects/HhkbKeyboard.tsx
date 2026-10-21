@@ -32,7 +32,7 @@ import { playKey, wakeKeySound } from "./keySound";
  * case with a recessed tray and rounded edges, 60 sculpted caps printed with
  * their legends and worn by use (`keyWear`: yellowed, polished, a little
  * grime, the print faded), and the logo on the right blank. **The keys go
- * down, and click** (`keySound`).
+ * down, and sound** (`keySound`, measured off a recording).
  *
  * - **With the mouse**: press a key and it stays down until the button is let
  *   go. In the free view the canvas hears the click (the key claims the
@@ -296,14 +296,13 @@ export default function HhkbKeyboard({ typing }: { typing: boolean }) {
     };
   }, [typing]);
 
-  // What was held last frame, to hear a key go down or come up.
+  // What was held last frame, to hear a key go down.
   const wasDown = useRef(new Set<number>());
   useFrame((_, delta) => {
     const down = new Set<number>();
     if (mouseKey.current >= 0) down.add(mouseKey.current);
     for (const keys of held.current.values()) for (const k of keys) down.add(k);
-    for (const k of down) if (!wasDown.current.has(k)) playKey(keyVoice(KEYS[k]), true);
-    for (const k of wasDown.current) if (!down.has(k)) playKey(keyVoice(KEYS[k]), false);
+    for (const k of down) if (!wasDown.current.has(k)) playKey(keyVoice(KEYS[k]));
     wasDown.current = down;
     stepPress(press.current, down, delta);
   });

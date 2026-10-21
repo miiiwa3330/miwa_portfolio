@@ -210,21 +210,46 @@ describe("wear", () => {
 });
 
 describe("the keys' voices", () => {
-  it("are lower for heavier caps, the space bar lowest and longest", () => {
-    const space = keyVoice(byId("space"));
-    for (const key of keys) {
-      if (key.id === "space") continue;
-      expect(keyVoice(key).thump, key.id).toBeGreaterThan(space.thump);
-      expect(keyVoice(key).decay, key.id).toBeLessThan(space.decay);
+  const main = (id: string) => keyVoice(byId(id)).modes[0].hz;
+
+  it("ring between 0.5 and 3.5 kHz, with no low thump: the recording holds almost nothing under 300 Hz", () => {
+    for (const key of keys) for (const m of keyVoice(key).modes) {
+      expect(m.hz, key.id).toBeGreaterThan(500);
+      expect(m.hz, key.id).toBeLessThan(3500);
     }
-    // A 2.25u Shift thumps lower than any 1u key, spread included: at most 150/1.1 × 1.04 ≈ 141.9 Hz against at least 150 × 0.96 = 144 Hz.
-    for (const key of keys.filter((k) => k.units === 1)) expect(keyVoice(byId("shiftleft")).thump, key.id).toBeLessThan(keyVoice(key).thump);
+  });
+
+  it("die away within a quarter of a second, and rise in a few milliseconds", () => {
+    for (const key of keys) {
+      const v = keyVoice(key);
+      expect(v.rise).toBeGreaterThanOrEqual(1);
+      expect(v.rise).toBeLessThanOrEqual(7);
+      for (const m of v.modes) expect(m.t60, key.id).toBeLessThanOrEqual(250);
+    }
+  });
+
+  it("ring the space bar and Shift lower than a letter, as recorded", () => {
+    // Shift's strongest resonance (1034 Hz) is a little under the space bar's (1120 Hz).
+    for (const id of ["space", "shiftleft", "shiftright"]) expect(main(id) * 1.05, id).toBeLessThan(main("g") * 0.95);
+  });
+
+  it("tick loudest on a letter and Return, faintly on the space bar and Shift (5% against 1% above 5 kHz, as recorded)", () => {
+    const tick = (id: string) => keyVoice(byId(id)).tick;
+    for (const id of ["space", "shiftleft"]) expect(tick(id) * 2, id).toBeLessThan(tick("g"));
+    expect(tick("return")).toBeGreaterThan(tick("space") * 2);
+  });
+
+  it("strike their strongest resonance at 0 dB, the others under it", () => {
+    for (const key of keys) {
+      const dbs = keyVoice(key).modes.map((m) => m.db);
+      expect(Math.max(...dbs), key.id).toBe(0);
+    }
   });
 
   it("differ a little from key to key, within 4%", () => {
-    const thumps = keys.filter((k) => k.units === 1).map((k) => keyVoice(k).thump);
-    expect(new Set(thumps.map((t) => t.toFixed(3))).size).toBeGreaterThan(10);
-    for (const t of thumps) expect(Math.abs(t / 150 - 1)).toBeLessThanOrEqual(0.04 + 1e-9);
+    const letters = keys.filter((k) => /^[a-z]$/.test(k.id)).map((k) => main(k.id));
+    expect(new Set(letters.map((t) => t.toFixed(2))).size).toBeGreaterThan(10);
+    for (const f of letters) expect(Math.abs(f / 1770 - 1)).toBeLessThanOrEqual(0.04 + 1e-9);
   });
 });
 
