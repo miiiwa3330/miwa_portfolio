@@ -102,8 +102,11 @@ export default function CardLeaderLine({ anchorRef, hidden }: Props) {
   // anchor. See `ANCHOR_SETTLE_MS`.
   const facing = useFacing();
 
+  // The desk has no card, so there is nothing for a trail to leave from.
+  const off = hidden || facing === "desk";
+
   useEffect(() => {
-    if (hidden) return;
+    if (off) return;
 
     let cachedRect: DOMRect | null = null;
     let settledAt = performance.now() + ANCHOR_SETTLE_MS;
@@ -218,9 +221,9 @@ export default function CardLeaderLine({ anchorRef, hidden }: Props) {
     };
     // `facing` is a dependency for its side effect alone: a new card means a
     // new anchor position, and re-running this restarts the measuring window.
-  }, [anchorRef, hidden, facing]);
+  }, [anchorRef, off, facing]);
 
-  if (hidden) return null;
+  if (off) return null;
 
   return (
     <svg className="fixed inset-0 w-full h-full pointer-events-none z-30" aria-hidden="true">

@@ -1,21 +1,22 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { SectionType } from "@/types";
+import type { Stop } from "@/scene/room/layout";
 
 /**
- * Which area the camera is currently turned towards.
+ * Which stop the camera is currently turned towards — one of the five areas,
+ * or the desk, which is on the tour but has no card.
  *
- * Published by the scene as it orbits, and read by the card — so the card can
+ * Published by the scene as it turns, and read by the card — so the card can
  * never disagree with what is actually on screen. Card and camera never write
- * to each other; this only ever flows one way (see `facingSectionOnPlanet`).
+ * to each other; this only ever flows one way (see `facingStop`).
  *
  * **A subscription rather than a piece of `AppStateContext`, because of what
  * it costs to sit above the `<Canvas>`.** This changes several times a lap of
  * the idle drift, and every context change re-renders `Hub`, and therefore
  * `<Canvas>` — whose setup effect in R3F 9 has *no dependency array*, so each
  * one re-runs `configure()` and re-renders the entire three.js tree (the
- * planet, the five landmarks, `FillerCity`'s 290 buildings, every decoration).
+ * room, its furniture, the body, every light).
  * `React.memo` cannot help: `its-fine`'s context bridge, which is how R3F gets
  * context values across the reconciler boundary, reads every context above the
  * canvas during the canvas's own render, so the canvas subscribes to them
@@ -31,17 +32,17 @@ import type { SectionType } from "@/types";
  * its frame loop, and `Hub`'s handlers read it when they fire.
  */
 
-/** "products" is where the tour starts, so it is what the first paint shows. */
-let current: NonNullable<SectionType> = "products";
+/** The desk is where the tour starts, so it is what the first paint shows. */
+let current: Stop = "desk";
 const listeners = new Set<() => void>();
 
 /** The area in front right now. Safe to call during render, an effect, or a frame. */
-export function facingNow(): NonNullable<SectionType> {
+export function facingNow(): Stop {
   return current;
 }
 
 /** Say which area is in front. A no-op when it hasn't changed. */
-export function publishFacing(section: NonNullable<SectionType>): void {
+export function publishFacing(section: Stop): void {
   if (section === current) return;
   current = section;
   for (const listener of listeners) listener();
@@ -63,6 +64,6 @@ export function subscribeFacing(listener: () => void): () => void {
  * render agrees with it — nothing has published by then, since only the frame
  * loop does and it has not run.
  */
-export function useFacing(): NonNullable<SectionType> {
+export function useFacing(): Stop {
   return useSyncExternalStore(subscribeFacing, facingNow, facingNow);
 }

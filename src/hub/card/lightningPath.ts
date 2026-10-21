@@ -1,4 +1,4 @@
-import { hash01 } from "@/scene/voxel/rng";
+import { hash01 } from "@/scene/hash";
 
 /**
  * The shape of the lightning that runs from the card out to its area's marker.

@@ -9,6 +9,65 @@ import type { ProjectSource } from "./projectModel";
  */
 export const PROJECTS: ProjectSource[] = [
   {
+    slug: "loo100",
+    title: { ja: "漏洩百貨店（loo100）", en: "loo100 — Data Breach Archive" },
+    description: {
+      ja: "最近ニュースになった日本企業の情報漏洩事件を、時系列・原因・対策の3つの視点で解説し、セキュリティを学べるサイト。トップは事件の発生日と被害規模を並べた歴史のグラフ。",
+      en: "A site for learning security from recent data breaches at Japanese companies, each explained through its timeline, cause and countermeasures. The front page is a history chart of incidents by date and scale.",
+    },
+    image: "/images/loo100.png",
+    tags: ["Astro", "Hono", "Cloudflare Workers", "D1", "Turnstile"],
+    category: "WEB",
+    status: "Public",
+    // The repository is private: a link to it is GitHub's 404 for everyone
+    // but the owner. "#" makes the hub answer with its "secret" toast and
+    // the product page leave View Code out (devlog 2026-09-20).
+    githubUrl: "#",
+    demoUrl: "https://loo100.miiiwa.com",
+  },
+  {
+    slug: "bukka-now",
+    title: { ja: "bukka_now", en: "bukka_now" },
+    description: {
+      ja: "日用品・食料品・サービスの値段をテンキーで答えて、自分の物価感覚が「上位何%」かを診断するWebサービス。正解は総務省「小売物価統計調査」の公表値で、全員の回答分布と並べて見られます。",
+      en: "A web quiz where you type in the prices of groceries, daily goods and services, and find out which percentile your sense of prices puts you in. Answers come from Japan's official Retail Price Survey, shown against everyone else's guesses.",
+    },
+    image: "/images/bukka_now.png",
+    tags: ["React", "Vite", "Hono", "Cloudflare Workers", "D1"],
+    category: "WEB",
+    status: "Public",
+    githubUrl: "https://github.com/miiiwa3330/bukka_now",
+    demoUrl: "https://bukka-now.miiiwa.com",
+  },
+  {
+    slug: "meltalk",
+    title: { ja: "MelTalk（メルトーク）", en: "MelTalk" },
+    description: {
+      ja: "「メールを溶かして、会話にする。」定型の挨拶・署名・引用履歴を取り除いてメールをチャットのように表示し、チャット感覚の短文をビジネスメールに整えて送るスマホアプリ。",
+      en: '"Melt email into conversation." A phone app that strips greetings, signatures and quoted history to show email as a chat, and turns short chat-style replies into properly formatted business email.',
+    },
+    image: "/images/coming_soon.png",
+    tags: ["React Native", "Expo", "TypeScript", "IMAP"],
+    category: "APP",
+    status: "dev",
+    githubUrl: "https://github.com/miiiwa3330/meltalk",
+    demoUrl: "#",
+  },
+  {
+    slug: "plavo",
+    title: { ja: "plavo", en: "plavo" },
+    description: {
+      ja: "カメラを植物に向けると、実物の植物から吹き出しが出て、その植物が自分の言葉で状態を伝えるiOSアプリ。キャラクターは作らず、主役は目の前の植物のまま、センサーの値を植物のセリフに翻訳します。",
+      en: "An iOS app where pointing the camera at a plant makes a speech bubble rise from the real plant, which tells you how it is doing in its own words. No mascot: the plant itself stays the star, and sensor readings are translated into what it says.",
+    },
+    image: "/images/coming_soon.png",
+    tags: ["Swift", "SwiftUI", "ARKit", "Vision", "RealityKit"],
+    category: "APP",
+    status: "dev",
+    githubUrl: "https://github.com/miiiwa1121/plavo",
+    demoUrl: "#",
+  },
+  {
     slug: "gashaan",
     title: { ja: "gashaan", en: "gashaan" },
     description: {

@@ -1,21 +1,21 @@
 /**
- * Reading the About column to the end is how you leave it.
+ * Reading the hologram's self-introduction to the end is how you leave it.
  *
- * It is the one area with no detail sheet — the text sits straight over the
- * diorama — so it had no way home but the HOME button, which is a control
- * asking to be noticed rather than a way of finishing. Scrolling to the bottom
- * of what there is to read *is* finishing, so that is what returns.
+ * The text plays by itself (`autoScrollStep`), a few lines a second on the
+ * diorama's clock, and when its last line has scrolled away the camera goes
+ * back to the middle of the room like any other area being left. The wheel
+ * and a finger scroll it natively on top of that.
  *
- * The scroll does not merely *trigger* the return, it *is* the return: past
- * the half way mark the same gesture that carries the text away into its
- * Star Wars-style crawl fade carries the camera back to the home framing, and
- * the two land together. See `aboutReturnProgress` below and the About branch
- * of `3d/Scene.tsx`'s frame loop.
+ * Carried over from the self-introduction crawl that this replaced (step 5 of
+ * docs/room-migration.md): the pace in lines rather than pixels, playing by
+ * itself, and finishing as the way out. Not carried over: the scroll *being*
+ * the camera's trip home (`aboutReturn`, gone with the crawl), and with it the
+ * wheel's slow-down and catch-up, which existed only so the camera driven by
+ * `scrollTop` would not judder.
  *
  * The arithmetic lives here rather than inline for the same reason the sheet's
- * does: the awkward cases are all about numbers (the entrance settle window, a
- * reader who reaches the end before the return blend has anywhere to land)
- * and they are worth pinning down without a DOM.
+ * does: the awkward cases are all about numbers, and they are worth pinning
+ * down without a DOM.
  */
 
 /**
@@ -29,63 +29,19 @@
  * means "the prose block's own bottom edge has scrolled past the top of the
  * box" rather than "the column has reached its scroll ceiling" (see
  * `aboutScrollProgress`), there is real headroom past that point before the
- * ceiling — the trailing spacer in About.tsx is sized to guarantee it — so a
+ * ceiling — the trailing spacer in Hologram.tsx is sized to guarantee it — so a
  * browser stopping short of its true maximum has nothing to strand here.
  */
 export const ABOUT_RETURN_AT = 1;
 
 /**
- * How long after the column appears before scrolling can send it away.
+ * How long after the text appears before reaching its end can send the
+ * reader away.
  *
- * The entrance animation slides the text in, and a wheel already in motion
- * when the area was opened would otherwise arrive during it and bounce
- * straight back home.
+ * A wheel already in motion when the area was opened would otherwise arrive
+ * during the zoom and bounce straight back home.
  */
 export const ABOUT_SETTLE_MS = 500;
-
-/**
- * How far a wheel gesture carries the column, as a share of the travel the
- * browser would have given it.
- *
- * One-fifth speed. The column is not a document being skimmed for a heading —
- * it is a piece of writing that also flies the camera home, and at the
- * browser's own rate one flick of a trackpad crosses most of it, taking the
- * diorama with it. Cutting the travel down makes the same gesture read a
- * paragraph rather than a page, and gives the return the length of a trip
- * instead of a jump cut.
- *
- * The one number to change if it still wants tuning.
- */
-export const ABOUT_SCROLL_RATE = 0.2;
-
-/**
- * A wheel notch in lines, in pixels.
- *
- * Firefox reports wheel deltas in lines rather than pixels (and, on a page-up
- * key or an unusual mouse, in pages). Multiplying by 40 is what the browsers
- * themselves land near for a notch, and is the figure the wheel-normalising
- * libraries settled on; the alternative — reading the column's own
- * line-height — would make a notch travel a different distance in Firefox than
- * everywhere else, which is the opposite of what normalising is for.
- */
-const WHEEL_LINE_PX = 40;
-
-/**
- * How far the column should move for one wheel event, in pixels.
- *
- * `deltaMode` first, then the rate: a Firefox delta of 3 is three *lines*, and
- * damping it as though it were three pixels would leave the column all but
- * frozen there.
- */
-export function wheelScrollStep(
-  deltaY: number,
-  deltaMode: number,
-  viewportHeight: number
-): number {
-  const pixels =
-    deltaMode === 1 ? deltaY * WHEEL_LINE_PX : deltaMode === 2 ? deltaY * viewportHeight : deltaY;
-  return pixels * ABOUT_SCROLL_RATE;
-}
 
 /**
  * How fast the column advances on its own, once open, in **lines of text per
@@ -94,8 +50,8 @@ export function wheelScrollStep(
  * A real crawl runs with nobody's hand on it — reaching for a wheel to move
  * something styled after one would be a strange first ask of a reader. Slow
  * on purpose: this is the piece of the page meant to be read, not scrolled
- * past, and the wheel (`wheelScrollStep`) is still there for anyone who wants
- * to go faster or back up to re-read a line.
+ * past, and the wheel is still there for anyone who wants to go faster or
+ * back up to re-read a line.
  *
  * **Lines, not pixels** — it was 22px/s, then 14px/s. A pixel rate silently
  * encodes a type size: when the crawl was resized to match
@@ -107,11 +63,13 @@ export function wheelScrollStep(
  * type steps through. A line is the unit a reader actually consumes, so
  * holding *that* rate fixed is what keeps the pace the same everywhere.
  *
- * Half a line a second is a deliberate amble — comfortably slower than
- * reading speed for a 14-character line, so the wheel is an accelerator
- * rather than a necessity.
+ * The crawl ran at half a line a second over 14-character lines — about 7
+ * characters a second, a deliberate amble below reading speed, so the wheel
+ * was an accelerator rather than a necessity. **Provisional (仮):** the
+ * hologram's lines hold about 25 characters (`HOLOGRAM_PX`, 22px type), so
+ * the same 7 a second is 0.3 lines.
  */
-export const ABOUT_AUTO_SCROLL_LINES_PER_SECOND = 0.5;
+export const ABOUT_AUTO_SCROLL_LINES_PER_SECOND = 0.3;
 
 /**
  * The most one frame of auto-scroll is allowed to advance the column, in
@@ -121,7 +79,7 @@ export const ABOUT_AUTO_SCROLL_LINES_PER_SECOND = 0.5;
  * next `requestAnimationFrame` can arrive with a multi-second gap since the
  * last one, and advancing the column by that much in one step would jump
  * straight over lines — or over `ABOUT_RETURN_AT`; a reader stepping back to
- * the tab could find the column already gone.
+ * the tab could find the text already gone.
  */
 const MAX_AUTO_SCROLL_STEP_SECONDS = 0.1;
 
@@ -150,49 +108,10 @@ export function autoScrollStep(deltaSeconds: number, lineHeightPx: number): numb
 }
 
 /**
- * How hard the column chases the position the reader has asked for — the `λ`
- * of `MathUtils.damp`, i.e. the gap left shrinks by `1 - exp(-λΔt)` a frame.
- * A quarter of a second to close a gap of any size: fast enough that a flick
- * still feels like a flick, slow enough that the notches inside one are gone.
- *
- * **The camera is the reason this exists at all.** Reading the column *is* the
- * trip home (see `aboutReturnProgress`), so the camera's framing is a direct
- * function of `scrollTop` — no smoothing of its own, by design, because the
- * scroll is supposed to be the thing driving it. A wheel that wrote `scrollTop`
- * the instant an event arrived therefore put the trackpad's own delta pattern
- * straight onto the camera: a flick delivers large, irregular steps, so the
- * planet advanced in the same irregular steps. The column read as janky and the
- * camera with it, but only when a hand was on the wheel — hands-off, the
- * auto-play advances a smooth fraction of a line per frame and nothing stutters.
- *
- * Smoothing the scroll rather than the camera keeps `aboutReturnProgress`
- * meaning exactly what it did, so nothing about where the trip ends changes;
- * and the text, which is styled after a crawl, stops jumping too.
- */
-const SCROLL_CATCH_UP_LAMBDA = 12;
-
-/**
- * How far the column should move this frame to close in on `target`, in pixels.
- *
- * `deltaSeconds` is real time, not the diorama's: the pause button freezes the
- * town, not the reader, and a wheel turned while paused still has to arrive
- * somewhere. Only the auto-play (`autoScrollStep`) is on the scene's clock.
- *
- * Cannot overshoot — `1 - exp(-λΔt)` approaches 1 from below however long the
- * frame was — so a tab returning from the background snaps to the target rather
- * than sailing past it and bouncing.
- */
-export function scrollCatchUp(current: number, target: number, deltaSeconds: number): number {
-  const gap = target - current;
-  if (!Number.isFinite(gap) || deltaSeconds <= 0) return 0;
-  return gap * (1 - Math.exp(-SCROLL_CATCH_UP_LAMBDA * deltaSeconds));
-}
-
-/**
  * How far through the column the reader is, 0 to 1 — measured against the
  * prose block's own bottom edge, not the column's total scroll range.
  *
- * `proseBottom` is `proseRef.offsetTop + proseRef.offsetHeight` (About.tsx):
+ * `proseBottom` is `prose.offsetTop + prose.offsetHeight` (Hologram.tsx):
  * a fixed document-space pixel, the position the last line sits at before any
  * scrolling. Once `scrollTop` reaches it, that line has scrolled past the top
  * of the box — the same document position the browser's own overflow clip
@@ -216,73 +135,3 @@ export function aboutScrollProgress(scrollTop: number, proseBottom: number): num
 export function shouldReturnHome(progress: number, sinceOpenedMs: number): boolean {
   return progress >= ABOUT_RETURN_AT && sinceOpenedMs > ABOUT_SETTLE_MS;
 }
-
-/**
- * How long to wait before reconsidering a scroll that arrived too early, or 0
- * when there is nothing to reconsider.
- *
- * The settle window refuses a scroll that lands during the entrance, and at
- * the bottom of the column there is no further scroll event to change its
- * mind with — the reader has already run out of things to scroll. That used to
- * merely leave them at the end of the text; now that the text scrolls clean
- * off the top of the screen it would leave them facing an empty one, with the
- * writing gone and no way back but the logo.
- */
-export function settleRetryDelay(progress: number, sinceOpenedMs: number): number {
-  if (progress < ABOUT_RETURN_AT) return 0; // not at the end; a scroll will come
-  if (sinceOpenedMs > ABOUT_SETTLE_MS) return 0; // it went home already
-  return ABOUT_SETTLE_MS - sinceOpenedMs + 1;
-}
-
-/**
- * How far down the column the camera starts making its way home.
- *
- * The trip home is not a flight of its own here — the scroll drives it, so
- * that reading the back of the column *is* the return. Starting it partway
- * rather than at the end means the diorama is already coming back and
- * already growing while there is still text to read, and the last line
- * leaving the screen and the camera arriving are one moment instead of two.
- *
- * Was 0.5 (the back half) until 2026-08-03, when the approach was asked to
- * begin sooner. Lowering this does not speed the camera up — the trip is
- * still exactly one column's worth of scrolling — it stretches the same trip
- * over more of the column, so the planet is further along at any given point
- * in the reading. Which is also the constraint on how far this can go: the
- * planet grows while text is still on screen, and the two share the frame.
- */
-export const ABOUT_RETURN_FROM = 0.35;
-
-/**
- * How far through its trip home the camera should be, for a column scrolled
- * `progress` of the way through.
- *
- * Clamped at both ends rather than trusted: this feeds an interpolation
- * between two framings, where a value outside 0..1 does not read as "past the
- * end" but as a camera thrown somewhere neither framing ever put it.
- */
-export function aboutReturnProgress(progress: number): number {
-  const span = 1 - ABOUT_RETURN_FROM;
-  return Math.max(0, Math.min(1, (progress - ABOUT_RETURN_FROM) / span));
-}
-
-/**
- * The trip's progress, handed from the column to the camera.
- *
- * Deliberately not React state: the scene reads it inside `useFrame`, and the
- * column writes it on every scroll event — routing that through a setState
- * would re-render the whole overlay on the same thread that is drawing the
- * diorama, for a number no DOM node displays. Same reasoning as
- * `3d/markerScreen.ts` and `3d/sceneClock.ts`.
- *
- * A single number rather than a subscription because the reader is a frame
- * loop that is running anyway: there is nothing to wake up.
- */
-let returnProgress = 0;
-
-export const aboutReturn = {
-  /** 0 while there is still reading to do, 1 once the column has gone. */
-  progress: () => returnProgress,
-  publish(value: number) {
-    returnProgress = value;
-  },
-};

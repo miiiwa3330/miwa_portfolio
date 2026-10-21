@@ -183,7 +183,7 @@ export const MARKER_FACING_INK = "#7fe8ff";
  *
  * Darker than either marker colour on purpose — the trail's near end and the
  * dot sit on the *white* card, where `#a6dbf7` all but disappears, while the
- * markers themselves only ever sit against the planet or open space.
+ * markers themselves only ever sit against the room's walls and furniture.
  */
 export const MARKER_TRAIL_INK = "rgba(58, 160, 208, 0.75)";
 

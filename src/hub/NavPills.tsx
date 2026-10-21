@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { SectionType } from "@/types";
-import { NAV, PAGE_LINKS, leadsToHub, navKey, offPlanetHref, type NavEntry } from "./nav";
+import { NAV, PAGE_LINKS, leadsToHub, navKey, offHubHref, type NavEntry } from "./nav";
 
 type Props = {
   isJa: boolean;
@@ -9,7 +9,7 @@ type Props = {
   /**
    * Given on the hub, where an area is a camera flight rather than a page:
    * its entry becomes a button that calls this. Without it (the reading
-   * pages) every area is a link — see `offPlanetHref`, and `leadsToHub`
+   * pages) every area is a link — see `offHubHref`, and `leadsToHub`
    * for why the ones into the hub are plain <a>. The page links after the
    * divider are next/link everywhere.
    */
@@ -26,7 +26,7 @@ const itemClass = (lit: boolean) =>
 /**
  * The white pill of navigation in the header's top right — the hub's and the
  * reading pages', drawn by this one component so the two cannot drift apart.
- * The five areas, then a divider, then the pages off the planet (`PAGE_LINKS`).
+ * The five areas, then a divider, then the pages off the hub (`PAGE_LINKS`).
  */
 export default function NavPills({ isJa, current, onSectionClick, className = "" }: Props) {
   return (
@@ -46,7 +46,7 @@ export default function NavPills({ isJa, current, onSectionClick, className = ""
             </button>
           );
         }
-        const href = offPlanetHref(item);
+        const href = offHubHref(item);
         const linkProps = { href, "aria-current": lit ? ("page" as const) : undefined, className: itemClass(lit) };
         return leadsToHub(href) ? (
           <a key={navKey(item)} {...linkProps}>
@@ -59,7 +59,7 @@ export default function NavPills({ isJa, current, onSectionClick, className = ""
         );
       })}
 
-      {/* The "｜" between the planet and the pages off it. */}
+      {/* The "｜" between the areas and the pages off the hub. */}
       <span aria-hidden="true" className="self-center w-px h-5 mx-1 bg-black/15" />
 
       {PAGE_LINKS.map((link) => {

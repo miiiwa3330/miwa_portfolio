@@ -1,14 +1,19 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, ReactNode } from "react";
-import { hashForSection, sectionFromHash } from "./sectionUrl";
-import type { SectionType } from "@/types";
-import type { OrbitZoom } from "@/scene/camera/cameraLayout";
+import { hasSheet, hashForState, sectionFromHash } from "./sectionUrl";
+import type { Focus, SectionType } from "@/types";
+import type { ViewZoom } from "@/scene/room/layout";
+import { DEFAULT_LIGHTS, flipLight as flip, type LightSwitch, type RoomLights } from "@/scene/room/lighting";
 
 interface AppStateContextType {
-  /** Which building the camera is focused on (null = home diorama view). */
-  activeSection: SectionType;
-  setActiveSection: (section: SectionType) => void;
+  /**
+   * What the camera has stepped in to (null = standing in the middle of the
+   * room): one of the areas, or the desk — the PC, which is focused like an
+   * area but has no detail page and no card.
+   */
+  activeSection: Focus;
+  setActiveSection: (section: Focus) => void;
   /** Whether the detail page (About…Footer) is shown and scrollable. */
   pageOpen: boolean;
   setPageOpen: (open: boolean) => void;
@@ -39,35 +44,44 @@ interface AppStateContextType {
   paused: boolean;
   togglePaused: () => void;
   /**
-   * Which of the free orbit's two altitudes the satellite sits at while no
-   * section is focused — "near" (the default) or "far" (the original
-   * overview). Only ever changes while resting in the orbit; every way of
-   * leaving a section resets it back to "near", so "far" is always a
-   * deliberate, temporary choice (a pinch or the zoom control), never
-   * something you can get stuck in.
+   * Which of the free view's two stages is in effect while no section is
+   * focused — "standard" (the default) or "fisheye" (widened to take in the
+   * room). Only ever changes in the free view; every way of leaving a section
+   * resets it back to "standard", so "fisheye" is always a deliberate,
+   * temporary choice (a pinch or the zoom control), never something you can
+   * get stuck in.
    */
-  orbitZoom: OrbitZoom;
-  setOrbitZoom: (zoom: OrbitZoom) => void;
+  viewZoom: ViewZoom;
+  setViewZoom: (zoom: ViewZoom) => void;
   /**
-   * Ask the free orbit for a specific altitude, unfocusing whatever section
-   * was open to get there if one was. What the zoom control's far/near
-   * stages do — unlike `setOrbitZoom` alone (what a pinch does, only ever
+   * Ask the free view for a specific stage, unfocusing whatever section was
+   * open to get there if one was. What the zoom control's standard/fisheye
+   * stages do — unlike `setViewZoom` alone (what a pinch does, only ever
    * while already unfocused), this can also back out of a section, landing
-   * at the requested altitude instead of the "near" every other way of
+   * at the requested stage instead of the "standard" every other way of
    * leaving a section resets to.
    */
-  goToOrbit: (zoom: OrbitZoom) => void;
+  goToView: (zoom: ViewZoom) => void;
+  /**
+   * The room's lights — the ceiling light, the desk lamp and the neon's
+   * colours. The one copy: the switch plate in the room and the light menu in
+   * the header both only call `flipLight` (see `scene/room/lighting.ts`).
+   */
+  lights: RoomLights;
+  flipLight: (which: LightSwitch) => void;
 }
 
 const AppStateContext = createContext<AppStateContextType | undefined>(undefined);
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
-  const [activeSection, setActiveSection] = useState<SectionType>(null);
+  const [activeSection, setActiveSection] = useState<Focus>(null);
   const [pageOpen, setPageOpen] = useState(false);
   const [homeNonce, setHomeNonce] = useState(0);
   const [turnRequest, setTurnRequest] = useState<{ section: NonNullable<SectionType>; nonce: number } | null>(null);
   const [paused, setPaused] = useState(false);
-  const [orbitZoom, setOrbitZoom] = useState<OrbitZoom>("near");
+  const [viewZoom, setViewZoom] = useState<ViewZoom>("standard");
+  const [lights, setLights] = useState<RoomLights>(DEFAULT_LIGHTS);
+  const flipLight = useCallback((which: LightSwitch) => setLights((current) => flip(current, which)), []);
 
   const togglePaused = useCallback(() => setPaused((p) => !p), []);
 
@@ -78,14 +92,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     } else {
       setPageOpen(false);
     }
-    // Normalizes the eventual return-to-orbit altitude the moment a section
-    // is entered, not just when it's left. Needed for About specifically:
-    // its scroll-driven return blends towards this altitude for the whole
-    // time the column is open (Scene.tsx's `homeward` pose), not only at the
-    // instant it finishes, so leaving this until closePage() would mean the
-    // blend spends the entire read heading for the wrong altitude and then
-    // hops the last frame.
-    setOrbitZoom("near");
+    // Normalizes the stage the free view comes back to the moment a section is
+    // entered, not just when it is left — the flight back out is framed for
+    // whatever this says when it starts.
+    setViewZoom("standard");
   }, []);
 
   const turnTo = useCallback((section: NonNullable<SectionType>) => {
@@ -95,7 +105,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const closePage = useCallback(() => {
     setActiveSection(null);
     setPageOpen(false);
-    setOrbitZoom("near");
+    setViewZoom("standard");
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "auto" });
   }, []);
 
@@ -105,14 +115,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, [closePage]);
 
   /**
-   * What the zoom control's far/near stages call — unlike closePage()/
-   * goHome(), which always settle on "near", this can leave the visitor at
-   * "far" if that's what they asked for.
+   * What the zoom control's standard/fisheye stages call — unlike
+   * closePage()/goHome(), which always settle on "standard", this can leave
+   * the visitor at "fisheye" if that's what they asked for.
    */
-  const goToOrbit = useCallback((zoom: OrbitZoom) => {
+  const goToView = useCallback((zoom: ViewZoom) => {
     setActiveSection(null);
     setPageOpen(false);
-    setOrbitZoom(zoom);
+    setViewZoom(zoom);
   }, []);
 
   // --- The URL ---------------------------------------------------------
@@ -126,13 +136,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     const applyUrl = (fromHistory: boolean) => {
       const section = sectionFromHash(window.location.hash);
       setActiveSection(section);
-      setPageOpen(!!section && section !== "about");
+      setPageOpen(hasSheet(section));
       // Bypasses openPage()/closePage() (it calls the raw setters above
       // directly, to apply both section and page-open in one pass), so the
       // same "always land at near" normalization those two carry has to be
       // repeated here — otherwise the back button or a direct link could
-      // leave the visitor stranded at "far".
-      setOrbitZoom("near");
+      // leave the visitor stranded in the fisheye.
+      setViewZoom("standard");
       // Going back to no section is a request to see the diorama again.
       if (fromHistory && !section) setHomeNonce((n) => n + 1);
       urlApplied.current = true;
@@ -155,7 +165,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     // Until the incoming hash has been read, writing to the URL would erase it.
     if (!urlApplied.current) return;
 
-    const wanted = hashForSection(pageOpen ? activeSection : null);
+    const wanted = hashForState(activeSection, pageOpen);
     // Already correct — which is exactly the case when this state came *from*
     // the URL, so following a link or going back never pushes a second entry.
     if (window.location.hash === wanted) return;
@@ -173,9 +183,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       activeSection, setActiveSection, pageOpen, setPageOpen, openPage, closePage, goHome, homeNonce,
-      turnTo, turnRequest, paused, togglePaused, orbitZoom, setOrbitZoom, goToOrbit,
+      turnTo, turnRequest, paused, togglePaused, viewZoom, setViewZoom, goToView, lights, flipLight,
     }),
-    [activeSection, pageOpen, openPage, closePage, goHome, homeNonce, turnTo, turnRequest, paused, togglePaused, orbitZoom, goToOrbit]
+    [activeSection, pageOpen, openPage, closePage, goHome, homeNonce, turnTo, turnRequest, paused, togglePaused, viewZoom, goToView, lights, flipLight]
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;

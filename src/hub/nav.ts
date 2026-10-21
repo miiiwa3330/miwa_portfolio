@@ -4,8 +4,8 @@ import { hashForSection } from "@/state/sectionUrl";
 type Label = { ja: string; en: string };
 
 /**
- * One area on the planet, as the navigation names it: on the hub, choosing
- * one flies the camera there; off the planet, it leads to the hub with that
+ * One area of the room, as the navigation names it: on the hub, choosing
+ * one flies the camera there; off the hub, it leads to the hub with that
  * area's sheet open.
  */
 export type NavItem = Label & {
@@ -13,7 +13,7 @@ export type NavItem = Label & {
 };
 
 /**
- * A page of its own off the planet, drawn after the areas past a divider
+ * A page of its own off the hub, drawn after the areas past a divider
  * ("｜" on the header, a rule in the full-screen menu). It has no building, no
  * marker, no card and no place on the tour — choosing it leaves the diorama.
  */
@@ -37,7 +37,7 @@ export const NAV: readonly NavItem[] = [
 ];
 
 /**
- * The pages off the planet, drawn after `NAV`. The notes are here in words,
+ * The pages off the hub, drawn after `NAV`. The notes are here in words,
  * not only behind the monitor button's unlabelled book icon: they are the
  * site's answer to the AdSense "low value content" rejection, and a reviewer
  * who reads only the labelled navigation — five areas, all one page — sees
@@ -51,15 +51,15 @@ export function navKey(item: NavEntry): string {
 }
 
 /**
- * Where an area leads from a page off the planet: the hub, opened on that
+ * Where an area leads from a page off the hub: the hub, opened on that
  * area through the hash the hub reads on arrival (`sectionUrl`).
  */
-export function offPlanetHref(item: NavItem): string {
+export function offHubHref(item: NavItem): string {
   return `/${hashForSection(item.section)}`;
 }
 
 /**
- * Whether a link drawn off the planet goes into the hub — and so has to be a
+ * Whether a link drawn off the hub goes into the hub — and so has to be a
  * plain <a>, a full page load, rather than next/link. Both reasons measured
  * on the production build (devlog 2026-09-19):
  *
@@ -81,7 +81,7 @@ export function navItemForSection(section: SectionType): NavItem | undefined {
   return section ? NAV.find((item) => item.section === section) : undefined;
 }
 
-/** The entry lit on a page off the planet: the page link whose page contains it. */
+/** The entry lit on a page off the hub: the page link whose page contains it. */
 export function pageLinkForPath(pathname: string): PageLink | undefined {
   return PAGE_LINKS.find(({ page }) => pathname === page || pathname.startsWith(`${page}/`));
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hashForSection, sectionFromHash } from "./sectionUrl";
+import { hasSheet, hashForSection, hashForState, sectionFromHash } from "./sectionUrl";
 
 describe("sectionFromHash", () => {
   it("reads every real section", () => {
@@ -33,5 +33,27 @@ describe("hashForSection", () => {
 
   it("gives an empty hash for no section, so the URL goes back to clean", () => {
     expect(hashForSection(null)).toBe("");
+  });
+});
+
+describe("the desk's URL", () => {
+  it("reads #desk as the desk", () => {
+    expect(sectionFromHash("#desk")).toBe("desk");
+    expect(sectionFromHash(hashForSection("desk"))).toBe("desk");
+  });
+
+  it("shows #desk while sitting at the desk, which has no sheet to be open", () => {
+    expect(hashForState("desk", false)).toBe("#desk");
+  });
+
+  it("shows an area only while its sheet is open, as before", () => {
+    expect(hashForState("products", true)).toBe("#products");
+    expect(hashForState("products", false)).toBe("");
+    expect(hashForState(null, false)).toBe("");
+  });
+
+  it("opens a sheet for the four areas that have one, and for nothing else", () => {
+    for (const id of ["products", "skills", "experience", "contact"] as const) expect(hasSheet(id)).toBe(true);
+    for (const id of ["about", "desk", null] as const) expect(hasSheet(id)).toBe(false);
   });
 });

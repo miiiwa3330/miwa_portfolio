@@ -20,10 +20,13 @@ import { navItemForSection } from "./nav";
 import PauseFlash from "./PauseFlash";
 import HomeButton from "./HomeButton";
 import SemanticSEO from "./SemanticSEO";
-import About from "./about/About";
+import Hologram from "./about/Hologram";
 import type { ZoomStage } from "./ZoomControl";
-import { adjacentOnTour, TOUR_ORDER } from "@/scene/planet/tour";
+import { adjacentSection } from "@/scene/room/tour";
 import Sheet from "@/detail/Sheet";
+import { RoomHtmlLayer, RoomPanel } from "./room/RoomHtml";
+import DeskScreen from "./desk/DeskScreen";
+import { DESK_SCREEN, HOLOGRAM_PANEL } from "@/scene/room/screens";
 import { exitDirectionFor, type ExitDirection } from "@/detail/detailSheet";
 
 // Each transparent spacer bracketing the detail page is exactly one viewport
@@ -58,8 +61,8 @@ export default function Hub() {
     turnTo,
     paused,
     togglePaused,
-    orbitZoom,
-    goToOrbit,
+    viewZoom,
+    goToView,
   } = useAppState();
   const { language, toggleLanguage } = useLanguage();
   const { openTerminal } = useTerminal();
@@ -118,18 +121,35 @@ export default function Hub() {
    * — and with it the `<Canvas>` and the whole three.js tree — several times a
    * lap of the idle drift. See `facingChannel`.
    */
-  const cardSection = () => activeSection ?? facingNow();
+  //
+  // Null while the desk is in front: it is on the tour but has no card, so
+  // there is no area for the card's own handlers to act on (and the card is
+  // not on screen to fire them — see `SectionCard`).
+  const cardSection = (): NonNullable<SectionType> | null => {
+    const stop = activeSection ?? facingNow();
+    return stop === "desk" ? null : stop;
+  };
+  const openCard = () => {
+    const section = cardSection();
+    if (section) openPage(section);
+  };
+  const stepCard = (step: number) => {
+    const section = cardSection();
+    if (section) turnTo(adjacentSection(section, step));
+  };
   const openedAt = useRef(0);
 
   // What the zoom control highlights: any focused section (including About)
-  // reads as its own "building" stage, same as a pinch reaching the closest
-  // step — otherwise it's whichever free-orbit altitude orbitZoom names.
-  const zoomStage: ZoomStage = activeSection ? "building" : orbitZoom;
+  // reads as its own "zoom" stage, same as a pinch reaching the closest step —
+  // otherwise it's whichever free-view stage viewZoom names.
+  const zoomStage: ZoomStage = activeSection ? "zoom" : viewZoom;
   const handleZoomSelect = (stage: ZoomStage) => {
-    if (stage === "building") {
-      setActiveSection(facingNow());
+    if (stage === "zoom") {
+      // Step in to whatever is in front — the desk included, which sits the
+      // reader down at the PC.
+      setActiveSection(activeSection ?? facingNow());
     } else {
-      goToOrbit(stage);
+      goToView(stage);
     }
   };
 
@@ -186,9 +206,9 @@ export default function Hub() {
     // was in front *before* this one was opened — and the card and the trail,
     // which both read it, pointed at the wrong spot until the flight landed.
     if (resetCamera) {
-      // The tour's own starting point (u = 0) is what HOME actually flies to
-      // — see the destination effect's "reset" branch in Scene.tsx.
-      publishFacing(TOUR_ORDER[0]);
+      // The tour's own starting point (u = 0), the desk, is what HOME actually
+      // flies to — see the destination effect's "reset" branch in Scene.tsx.
+      publishFacing("desk");
       goHome();
     } else {
       if (activeSection) publishFacing(activeSection);
@@ -252,15 +272,24 @@ export default function Hub() {
     }
   };
 
-  // Whether the self-intro crawl is on screen — read by both the crawl's own
-  // layer below and the canvas's pointer-events toggle, so the two can never
-  // disagree about which one is meant to catch a gesture.
-  const aboutShowing = !pageOpen && activeSection === "about";
+  // Whether the hologram is projecting the self-introduction.
+  const aboutFocused = !pageOpen && activeSection === "about";
+
+  // Whether the reader is sitting at the PC. The PC's screen is HTML behind
+  // the canvas (seen through a hole in it), so while seated the canvas lets
+  // every gesture through to it. Turning the head is locked out at the desk
+  // anyway, as it is in every focused area.
+  const seated = !pageOpen && activeSection === "desk";
+
+  // The area the overlay talks about, if any. The desk is focused like an
+  // area but is not one: it has no sheet, no card and no nav entry.
+  const section = activeSection === "desk" ? null : activeSection;
 
   // Whether there is a card to show at all. Not while the detail sheet is up
-  // (the page says what the card would have), and not during About, which is
-  // frameless — it has no card and no leader line to anchor one to.
-  const cardShowing = !pageOpen && activeSection !== "about";
+  // (the page says what the card would have), not during About, which is
+  // frameless — it has no card and no leader line to anchor one to — and not
+  // at the desk, which has neither.
+  const cardShowing = !pageOpen && activeSection !== "about" && activeSection !== "desk";
 
   return (
     <main className="w-full h-screen overflow-hidden relative font-sans">
@@ -272,28 +301,15 @@ export default function Hub() {
           more. */}
       <div className="fixed inset-0 w-full h-full z-0 bg-[#070a14]" />
 
-      {/* Self-intro crawl: floating text straight over the space colour,
-          *underneath* the (now transparent) canvas. The planet, buildings and
-          satellites the canvas draws occlude the crawl per-pixel wherever
-          they paint an opaque pixel — a z-index alone could never do this,
-          since the canvas is one flat layer and cannot have part of its own
-          content behind DOM and part in front of it. Moved out of HubDock
-          (where it used to live inside the z-40 chrome stack, on top of
-          everything) for exactly this reason. `pointer-events-none` on the
-          wrapper, same as before — the scroller inside opts itself back in. */}
-      <div className="fixed inset-0 z-[5] pointer-events-none">
-        <AnimatePresence>
-          {aboutShowing && (
-            // `closePage`, not a fly-home. The scroll that carried the text
-            // off the screen carried the camera home with it (see the About
-            // branch of Scene's frame loop), so by now it is already in the
-            // home framing, and a flight would only be a second arrival on
-            // top of the one the reader just made. Facing is published by
-            // the scene from the angle it actually stopped at.
-            <About onFinish={closePage} />
-          )}
-        </AnimatePresence>
-      </div>
+      {/* HTML placed in the room, behind the canvas: the PC's screen, seen
+          through the hole the canvas leaves for it (`ScreenHole`). Between
+          the background and the canvas, so the room in front of it — the
+          chair, the lamp — still covers it. */}
+      <RoomHtmlLayer className="z-[5]">
+        <RoomPanel panel={DESK_SCREEN} interactive={seated}>
+          <DeskScreen isJa={isJa} onLeave={() => closeToHome("down", false)} openTerminal={openTerminal} />
+        </RoomPanel>
+      </RoomHtmlLayer>
 
       {/* 3D scene, transparent, painted over both layers above. */}
       {/* z-10, not -z-10. Behind a negative index the canvas painted *under*
@@ -317,17 +333,37 @@ export default function Hub() {
           other half of this — see its own prop comment for why turning off
           pointer-events on just this wrapper div is not enough by itself. */}
       <div
-        className={`fixed inset-0 w-full h-full z-10 touch-none ${aboutShowing ? "pointer-events-none" : ""}`}
+        className={`fixed inset-0 w-full h-full z-10 touch-none ${seated ? "pointer-events-none" : ""}`}
       >
         <Scene
           obscured={sceneObscured}
-          interactive={!aboutShowing}
+          interactive={!seated}
           // Only a phone gets the tap: a desktop still has a pause button, and
           // handing the gesture over as well would mean a stray click on the
           // starfield froze the town with nothing to say why.
           onEmptyTap={handheld ? handleEmptyTap : undefined}
         />
       </div>
+
+      {/* The hologram's self-introduction, in front of the canvas: a
+          hologram has to let the room show through it (no cut-out), and
+          nothing stands between it and the reader. On a phone the panel in
+          the room is too small to read at any zoom the frame allows, so the
+          same text is projected flat over the lower part of the frame instead
+          — provisional, see docs/room-migration.md (step 5). */}
+      {handheld ? (
+        aboutFocused && (
+          <div className="fixed inset-x-4 top-[38%] bottom-28 z-[15]">
+            <Hologram isJa={isJa} active onFinish={() => closeToHome("down", false)} />
+          </div>
+        )
+      ) : (
+        <RoomHtmlLayer className="z-[15]">
+          <RoomPanel panel={HOLOGRAM_PANEL} interactive={aboutFocused} hidden={!aboutFocused}>
+            <Hologram isJa={isJa} active={aboutFocused} onFinish={() => closeToHome("down", false)} />
+          </RoomPanel>
+        </RoomHtmlLayer>
+      )}
 
       {/* --- PERSISTENT CHROME (always visible in both modes) --- */}
       {/* `safe-inset` on the outside and the usual padding on the inside:
@@ -337,7 +373,7 @@ export default function Hub() {
       <div className="fixed inset-0 pointer-events-none z-40 safe-inset">
         <div className="w-full h-full flex flex-col justify-between p-7 sm:p-9">
           <HubHeader
-            activeSection={activeSection}
+            activeSection={section}
             isJa={isJa}
             toggleLanguage={toggleLanguage}
             paused={paused}
@@ -364,11 +400,11 @@ export default function Hub() {
           {cardShowing &&
             (handheld ? (
               <CardRail
-                focusedSection={activeSection}
+                focusedSection={section}
                 isJa={isJa}
                 anchorRef={anchorDotRef}
-                onOpen={() => openPage(cardSection())}
-                onStep={(step) => turnTo(adjacentOnTour(cardSection(), step))}
+                onOpen={openCard}
+                onStep={stepCard}
                 // The HOME button, moved onto the rail's own corner — the
                 // desktop keeps it at the bottom of the frame, where on a
                 // phone it landed on top of the rail itself.
@@ -377,14 +413,14 @@ export default function Hub() {
             ) : (
               <div className="flex-1 flex items-center w-full">
                 <SectionCard
-                  focusedSection={activeSection}
+                  focusedSection={section}
                   isJa={isJa}
                   anchorRef={anchorDotRef}
                   // Both read the area in front when they fire rather than
                   // closing over it, so this component never has to re-render
                   // for it — see `facingChannel` for why that matters here.
-                  onOpen={() => openPage(cardSection())}
-                  onStep={(step) => turnTo(adjacentOnTour(cardSection(), step))}
+                  onOpen={openCard}
+                  onStep={stepCard}
                 />
               </div>
             ))}
@@ -397,16 +433,17 @@ export default function Hub() {
         </div>
       </div>
 
-      {/* HOME button — zoomed into a building, page not yet open.
-          About is the exception: its column is read to the end to leave it, so
-          a button offering the same thing would be a second, competing way out
-          of the one area that already has a natural one.
+      {/* HOME button — zoomed into an area, page not yet open. About has one
+          too now: reading the hologram to the end still takes the reader
+          back, but the crawl that made reading the only way out is gone, and
+          with it the reason for a second exit to compete with.
 
-          Not here on a phone, where the bottom of the frame is the card
-          rail — it landed on top of the rail, the links button and the
-          copyright all at once (measured at 390x844). The rail carries its
-          own copy, just above the card; see `CardRail`. */}
-      {!handheld && activeSection && activeSection !== "about" && !pageOpen && (
+          On a phone only where there is no card rail (the desk, About): the
+          bottom of the frame is otherwise the rail — the button landed on
+          top of the rail, the links button and the copyright all at once
+          (measured at 390x844) — and the rail carries its own copy, just
+          above the card; see `CardRail`. */}
+      {activeSection && !pageOpen && (!handheld || !cardShowing) && (
         <HomeButton
           onClick={() => closeToHome("down", true)}
           className="fixed bottom-6 left-1/2 -translate-x-1/2"
@@ -419,7 +456,7 @@ export default function Hub() {
         {menuOpen && (
           <MobileMenu
             isJa={isJa}
-            current={navItemForSection(activeSection)}
+            current={navItemForSection(section)}
             onNavClick={handleNav}
             onClose={() => setMenuOpen(false)}
             openTerminal={openTerminal}
@@ -447,7 +484,7 @@ export default function Hub() {
       {/* --- PAGE CONTENT (detail reading) --- */}
       <Sheet
         pageOpen={pageOpen}
-        activeSection={activeSection}
+        activeSection={section}
         exitDirection={exitDirection}
         scrollerRef={scroller}
         onScroll={handleScroll}

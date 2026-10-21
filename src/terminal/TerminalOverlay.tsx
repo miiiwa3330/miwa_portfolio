@@ -29,11 +29,12 @@ const ASCII_ABOUT = `
 
 const ASCII_SKILLS = `
       .-----------.
-     /__________ /|  [FRONTEND] React, Next.js, Tailwind, TS/JS, HTML/CSS
-    |           | |  [BACKEND]  Node.js, Python, PHP, Laravel, Java, C, C#
-    |  SKILLS   | |  [MOBILE]   Flutter, Dart
-    |           | /  [INFRA/DB] AWS, GCP, Vercel, Cloudflare, Supabase, MySQL...
-    \`-----------´/   [TOOLS]    Git, GitHub, Cypress, Figma
+     /__________ /|  [FRONTEND] React, Next.js, Astro, Vite, Tailwind, TS/JS, HTML/CSS
+    |           | |  [3D/AR]    Three.js, React Three Fiber, Unity, ARKit
+    |  SKILLS   | |  [BACKEND]  Node.js, Hono, Python, PHP, Laravel, Java, C, C#
+    |           | |  [MOBILE]   Swift/SwiftUI, React Native (Expo), Flutter, Dart
+    |           | /  [INFRA/DB] Cloudflare Workers/D1, Vercel, AWS, GCP, Supabase...
+    \`-----------´/   [TOOLS]    Git, GitHub, Vitest, Cypress, Figma
       [=======]
 `;
 

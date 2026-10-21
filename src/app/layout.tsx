@@ -58,7 +58,7 @@ export const metadata: Metadata = {
   },
 };
 
-// userScalable: false — without it, a two-finger gesture over the planet
+// userScalable: false — without it, a two-finger gesture over the room
 // zooms the whole page (the browser's native pinch-zoom) rather than
 // reaching Scene.tsx's own pinch handler, which drives the free orbit's
 // near/far altitude instead. See Hub.tsx's touch-none on the canvas div for

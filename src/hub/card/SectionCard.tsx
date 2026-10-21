@@ -23,7 +23,7 @@ import { CARD_COPY } from "./cardCopy";
  * Which area it shows is not decided here. It reads `section` and asks for a
  * step; the camera turns, and the area it ends up facing comes back down as a
  * new `section`. Card and camera never write to each other — see
- * `facingSection` in cameraLayout for why that direction matters.
+ * `facingStop` in `scene/room/layout.ts` for why that direction matters.
  */
 
 /** How far each layer behind sits below the front card, in px. */
@@ -89,20 +89,32 @@ type Props = {
   onStep: (step: number) => void;
 };
 
-export default function SectionCard({
-  focusedSection,
-  isJa,
-  anchorRef,
-  onOpen,
-  onStep,
-}: Props) {
-  // Subscribed here rather than handed down from `Hub`. The area in front
+/**
+ * The desk is on the tour but has no card (docs/room-migration.md): while it is
+ * in front, there is nothing here at all. Split from the card's own body so
+ * that the hooks below always run for an area — leaving early half way through
+ * them is not something a component can do.
+ */
+export default function SectionCard(props: Props) {
+  // Subscribed here rather than handed down from `Hub`. The stop in front
   // changes several times a lap, and `Hub` sits above the `<Canvas>` — a
   // re-render there re-renders the entire three.js tree (see `facingChannel`).
   // This is the one place the answer is displayed, so this is the one place
   // that has any reason to re-render for it.
   const facing = useFacing();
-  const section = focusedSection ?? facing;
+  const section = props.focusedSection ?? facing;
+  if (section === "desk") return null;
+  return <SectionCardBody {...props} section={section} />;
+}
+
+function SectionCardBody({
+  section,
+  focusedSection,
+  isJa,
+  anchorRef,
+  onOpen,
+  onStep,
+}: Props & { section: NonNullable<SectionType> }) {
   /** True once an area is focused, which retires the trail and its anchor. */
   const focused = !!focusedSection;
   const card = CARD_COPY[section];
