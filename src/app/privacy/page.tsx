@@ -39,7 +39,7 @@ export default function PrivacyPage() {
             </h1>
           </div>
           <p className="text-sm text-gray-500 font-mono">
-            最終更新日: 2026年9月9日 / Last updated: September 9, 2026
+            最終更新日: 2026年10月22日 / Last updated: October 22, 2026
           </p>
         </div>
 
@@ -142,6 +142,28 @@ export default function PrivacyPage() {
             </h2>
             <p>
               当サイトに掲載されている文章、画像、デザイン、プログラムコード等の著作権および知的財産権は、当サイト運営者（Miiiwa）または各権利所有者に帰属します。法的に認められた引用の範囲を超えて、無断で複製・転載・改変・再配布することを禁じます。
+            </p>
+            <p className="mt-3">
+              <span className="font-semibold">使用している素材:</span>{" "}
+              トップページの部屋にあるキーボードの打鍵音は、Makoto Hiramatsu「
+              <a
+                href="https://makotohiramatsu.itch.io/press-click-free"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-orange-600 underline font-medium hover:text-orange-700"
+              >
+                Press &amp; Click FREE
+              </a>
+              」を、
+              <a
+                href="https://creativecommons.org/licenses/by/4.0/deed.ja"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-orange-600 underline font-medium hover:text-orange-700"
+              >
+                CC BY 4.0
+              </a>
+              のもとで使用しています。当サイトで、1打ずつの切り出し・音量の調整・MP3 への変換を行っています。
             </p>
           </section>
 

@@ -357,95 +357,39 @@ export function keyWear(key: Key): number {
 }
 
 /**
- * How a key sounds, for the synthesised click (`objects/keySound.ts`): a few
- * resonances of the cap and case, each a decaying sine, struck together —
- * measured off the reference recording `reference/4/PC-Keyboard06/`
- * (2026-10-22, the close "Mid" takes; docs/devlog/202610.md has the method).
- * Per resonance: its frequency, its level against the strongest (dB), and
- * how long it takes to fall 60 dB (ms) — the median over the takes. A letter
- * key rings at 1.3–3 kHz for about a tenth of a second; there is no low
- * thump (under 300 Hz the takes hold 0–2% of their energy), and a release
- * is 60 dB or more under its press, so keys sound only going down. The wide
- * keys the recording has are quieter; the space bar and Shift ring lower.
+ * How a key sounds: recorded presses of an HHKB, played back
+ * (`objects/keySound.ts`). The recordings are Makoto Hiramatsu's "Press &
+ * Click FREE" (https://makotohiramatsu.itch.io/press-click-free, CC BY 4.0,
+ * credited on /privacy) — synthesising the sound from measurements of a
+ * recording did not sound like it (2026-10-22, the user). Each recorded
+ * press holds the key going down and, about 0.15–0.3 s later, coming back up
+ * (a Topre key sounds both ways), cut into two clips. The pack does not say
+ * which key each press is; the presses with a low body (30% or more of the
+ * energy under 400 Hz) are taken for the wide keys, the rest for the letters.
  */
-export type KeyMode = { hz: number; db: number; t60: number };
-export type KeyVoice = {
-  modes: KeyMode[];
-  /** A gain on the key, dB, set so its peak against a letter's comes out as recorded (see `VOICES`). */
-  level: number;
-  /** The tick at the start (noise over 5 kHz), against the resonances' combined amplitude (see `VOICES`). */
-  tick: number;
-  /** From silence to the peak, ms (measured 1–7). */
-  rise: number;
-};
+export const KEY_SAMPLES = { letter: 9, heavy: 4 } as const;
+export type KeySampleGroup = keyof typeof KEY_SAMPLES;
+export type KeySample = { group: KeySampleGroup; n: number };
 
-/**
- * `tick` and `level` are not read off the recording directly but calibrated
- * against it: the synthesis is rendered offline and measured the same way as
- * the takes, and they are set so that the share of energy above 5 kHz in the
- * first 23 ms, and the peak against a letter's, come out as recorded —
- * letter 5% / 0 dB, Return 5% / −4.5 dB, space 1% / −7 dB, Shift 1% / −9 dB.
- * (The space bar's gain is above a letter's because its tick, as recorded,
- * is small, and the tick is most of a letter's peak.)
- */
-const VOICES: Record<"letter" | "return" | "space" | "shift", Omit<KeyVoice, "rise">> = {
-  letter: {
-    level: 0,
-    tick: 5.92,
-    modes: [
-      { hz: 1770, db: 0, t60: 67 },
-      { hz: 2040, db: -2, t60: 200 },
-      { hz: 2350, db: -1, t60: 77 },
-      { hz: 1400, db: -2, t60: 80 },
-      { hz: 3050, db: -6, t60: 83 },
-    ],
-  },
-  return: {
-    level: -3.8,
-    tick: 5.45,
-    modes: [
-      { hz: 2627, db: 0, t60: 70 },
-      { hz: 1723, db: -2.3, t60: 61 },
-      { hz: 991, db: -6.3, t60: 65 },
-      { hz: 560, db: -5, t60: 156 },
-    ],
-  },
-  space: {
-    level: 3.4,
-    tick: 1.76,
-    modes: [
-      { hz: 1120, db: 0, t60: 37 },
-      { hz: 818, db: -2.5, t60: 35 },
-      { hz: 1593, db: -8, t60: 77 },
-      { hz: 603, db: -11.6, t60: 105 },
-    ],
-  },
-  shift: {
-    level: -0.7,
-    tick: 2.23,
-    modes: [
-      { hz: 1034, db: 0, t60: 81 },
-      { hz: 2326, db: -0.7, t60: 46 },
-      { hz: 1249, db: -8, t60: 85 },
-      { hz: 2670, db: -10, t60: 97 },
-    ],
-  },
-};
-const RISE_MS = 3;
-
-/** Which recorded voice a key takes: the four the recording has, every other key a letter's. */
-function voiceOf(key: Key): keyof typeof VOICES {
-  if (key.id === "space") return "space";
-  if (key.id === "return") return "return";
-  if (key.id.startsWith("shift")) return "shift";
-  return "letter";
+/** The wide keys (1.75 u and over: Control, Return, the Shifts, the space bar) play the low-bodied presses. */
+export function keySampleGroup(key: Key): KeySampleGroup {
+  return key.units >= 1.75 ? "heavy" : "letter";
 }
 
-export function keyVoice(key: Key): KeyVoice {
-  // A few percent off the next key (the takes scatter more than this), so a run does not sound like a loop.
-  const spread = 1 + (((key.index * 7919) % 97) / 97 - 0.5) * 0.08;
-  const voice = VOICES[voiceOf(key)];
-  return { level: voice.level, tick: voice.tick, rise: RISE_MS, modes: voice.modes.map((m) => ({ ...m, hz: m.hz * spread })) };
+/**
+ * Which recorded press the `strike`-th press of `key` plays (1-based `n`):
+ * walking the group's presses from a different start for each key, so one
+ * key pressed again and again, or a run of keys, does not repeat a clip.
+ */
+export function keySample(key: Key, strike: number): KeySample {
+  const group = keySampleGroup(key);
+  const count = KEY_SAMPLES[group];
+  return { group, n: ((key.index * 5 + strike) % count) + 1 };
+}
+
+/** Where a clip is served from (`public/sounds/keyboard/`). */
+export function keySampleUrl(sample: KeySample, part: "down" | "up"): string {
+  return `/sounds/keyboard/${sample.group}-${String(sample.n).padStart(2, "0")}-${part}.mp3`;
 }
 
 /**

@@ -1,3 +1,5 @@
+import { existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   CAP,
@@ -8,7 +10,10 @@ import {
   capTop,
   capTopHeight,
   growOutline,
-  keyVoice,
+  KEY_SAMPLES,
+  keySample,
+  keySampleGroup,
+  keySampleUrl,
   keyWear,
   trayOutline,
   keyIndex,
@@ -209,47 +214,43 @@ describe("wear", () => {
   });
 });
 
-describe("the keys' voices", () => {
-  const main = (id: string) => keyVoice(byId(id)).modes[0].hz;
-
-  it("ring between 0.5 and 3.5 kHz, with no low thump: the recording holds almost nothing under 300 Hz", () => {
-    for (const key of keys) for (const m of keyVoice(key).modes) {
-      expect(m.hz, key.id).toBeGreaterThan(500);
-      expect(m.hz, key.id).toBeLessThan(3500);
-    }
+describe("the keys' recorded sound", () => {
+  it("plays the low-bodied presses on the wide keys and the others on the rest", () => {
+    for (const id of ["space", "return", "shiftleft", "shiftright", "control"]) expect(keySampleGroup(byId(id)), id).toBe("heavy");
+    for (const id of ["a", "q", "1", "tab", "delete", "esc", "fn", "metaleft"]) expect(keySampleGroup(byId(id)), id).toBe("letter");
   });
 
-  it("die away within a quarter of a second, and rise in a few milliseconds", () => {
+  it("does not repeat a clip on the same key pressed twice running", () => {
     for (const key of keys) {
-      const v = keyVoice(key);
-      expect(v.rise).toBeGreaterThanOrEqual(1);
-      expect(v.rise).toBeLessThanOrEqual(7);
-      for (const m of v.modes) expect(m.t60, key.id).toBeLessThanOrEqual(250);
+      for (let strike = 0; strike < 20; strike++) expect(keySample(key, strike + 1).n, key.id).not.toBe(keySample(key, strike).n);
     }
   });
 
-  it("ring the space bar and Shift lower than a letter, as recorded", () => {
-    // Shift's strongest resonance (1034 Hz) is a little under the space bar's (1120 Hz).
-    for (const id of ["space", "shiftleft", "shiftright"]) expect(main(id) * 1.05, id).toBeLessThan(main("g") * 0.95);
-  });
-
-  it("tick loudest on a letter and Return, faintly on the space bar and Shift (5% against 1% above 5 kHz, as recorded)", () => {
-    const tick = (id: string) => keyVoice(byId(id)).tick;
-    for (const id of ["space", "shiftleft"]) expect(tick(id) * 2, id).toBeLessThan(tick("g"));
-    expect(tick("return")).toBeGreaterThan(tick("space") * 2);
-  });
-
-  it("strike their strongest resonance at 0 dB, the others under it", () => {
-    for (const key of keys) {
-      const dbs = keyVoice(key).modes.map((m) => m.db);
-      expect(Math.max(...dbs), key.id).toBe(0);
+  it("uses every clip of a group, and only clips that exist", () => {
+    for (const group of ["letter", "heavy"] as const) {
+      const key = keys.find((k) => keySampleGroup(k) === group)!;
+      const used = new Set(Array.from({ length: 40 }, (_, i) => keySample(key, i).n));
+      expect([...used].sort((a, b) => a - b)).toEqual(Array.from({ length: KEY_SAMPLES[group] }, (_, i) => i + 1));
     }
   });
 
-  it("differ a little from key to key, within 4%", () => {
-    const letters = keys.filter((k) => /^[a-z]$/.test(k.id)).map((k) => main(k.id));
-    expect(new Set(letters.map((t) => t.toFixed(2))).size).toBeGreaterThan(10);
-    for (const f of letters) expect(Math.abs(f / 1770 - 1)).toBeLessThanOrEqual(0.04 + 1e-9);
+  it("serves every clip it can ask for, both ways, from public/", () => {
+    for (const group of ["letter", "heavy"] as const) {
+      for (let n = 1; n <= KEY_SAMPLES[group]; n++) {
+        for (const part of ["down", "up"] as const) {
+          const url = keySampleUrl({ group, n }, part);
+          expect(existsSync(join(process.cwd(), "public", url)), url).toBe(true);
+        }
+      }
+    }
+    expect(keySampleUrl({ group: "letter", n: 3 }, "up")).toBe("/sounds/keyboard/letter-03-up.mp3");
+  });
+
+  it("serves no clip it never asks for", () => {
+    const asked = new Set<string>();
+    for (const group of ["letter", "heavy"] as const) for (let n = 1; n <= KEY_SAMPLES[group]; n++) for (const part of ["down", "up"] as const) asked.add(keySampleUrl({ group, n }, part).split("/").pop()!);
+    const served = readdirSync(join(process.cwd(), "public", "sounds", "keyboard")).filter((f) => f.endsWith(".mp3"));
+    expect(served.sort()).toEqual([...asked].sort());
   });
 });
 

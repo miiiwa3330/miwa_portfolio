@@ -13,7 +13,7 @@ import {
   PLATE_TILT_DEG,
   PRESS_DIRECTION,
   growOutline,
-  keyVoice,
+  keySample,
   keyWear,
   keyboardKeys,
   keysForCode,
@@ -24,7 +24,7 @@ import {
 import { keycapMesh, legendAtlas } from "../room/keycaps";
 import { isInteractive, pointerClaim } from "../pointerClaim";
 import { makeLegendTexture, makeLogoTexture, makeRoughnessTexture } from "./keyboardLegends";
-import { playKey, wakeKeySound } from "./keySound";
+import { playKey, prefetchKeySound, wakeKeySound } from "./keySound";
 
 /**
  * The PC's keyboard, a HHKB Professional2 (`room/keyboard.ts`) with the
@@ -32,7 +32,7 @@ import { playKey, wakeKeySound } from "./keySound";
  * case with a recessed tray and rounded edges, 60 sculpted caps printed with
  * their legends and worn by use (`keyWear`: yellowed, polished, a little
  * grime, the print faded), and the logo on the right blank. **The keys go
- * down, and sound** (`keySound`, measured off a recording).
+ * down, and sound** (`keySound`: recorded presses of an HHKB).
  *
  * - **With the mouse**: press a key and it stays down until the button is let
  *   go. In the free view the canvas hears the click (the key claims the
@@ -276,6 +276,8 @@ export default function HhkbKeyboard({ typing }: { typing: boolean }) {
   // The reader's own keyboard, while typing: held codes hold their keys down.
   useEffect(() => {
     if (!typing) return;
+    // Sitting down is the moment to fetch the sound, ahead of the first key.
+    void prefetchKeySound();
     const codes = held.current;
     const down = (e: KeyboardEvent) => {
       const keys = keysForCode(e.code);
@@ -296,13 +298,16 @@ export default function HhkbKeyboard({ typing }: { typing: boolean }) {
     };
   }, [typing]);
 
-  // What was held last frame, to hear a key go down.
+  // What was held last frame, to hear a key go down and come back up — the
+  // same recorded press both ways, picked afresh for each press.
   const wasDown = useRef(new Set<number>());
+  const strikes = useRef(new Uint32Array(KEY_COUNT));
   useFrame((_, delta) => {
     const down = new Set<number>();
     if (mouseKey.current >= 0) down.add(mouseKey.current);
     for (const keys of held.current.values()) for (const k of keys) down.add(k);
-    for (const k of down) if (!wasDown.current.has(k)) playKey(keyVoice(KEYS[k]));
+    for (const k of down) if (!wasDown.current.has(k)) playKey(keySample(KEYS[k], ++strikes.current[k]), "down");
+    for (const k of wasDown.current) if (!down.has(k)) playKey(keySample(KEYS[k], strikes.current[k]), "up");
     wasDown.current = down;
     stepPress(press.current, down, delta);
   });

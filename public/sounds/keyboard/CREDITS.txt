@@ -1,0 +1,5 @@
+Keyboard sounds: "Press & Click FREE" by Makoto Hiramatsu
+https://makotohiramatsu.itch.io/press-click-free
+Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+Changes: single key presses cut from KEY_PRESS_001-003, 005, 008, 009, 011-013,
+019-021 and 023 into key-down and key-up clips, levelled, converted to MP3.
