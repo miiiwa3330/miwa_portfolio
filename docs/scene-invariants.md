@@ -141,4 +141,6 @@
 ## 描画
 
 - **1モデル＝1ドローコール。** 本（約200冊）は `InstancedMesh`。同じ形を数十以上並べるときは同じようにまとめる
+- **机と PC まわりの形は `objects/DeskSet.tsx`、置き場所と寸法の取り決めは `room/layout.ts`。** 作り込んでも**動かさないもの**: モニターの画面面（`MONITOR_BEZEL`・`MONITOR_GLASS`・`MONITOR_FACE_Z`。PC の HTML と穴はここから置く）、キーボードとマウスの場所と高さ（`KEYBOARD`・`MOUSE`。座った手 `DESK_HANDS` がここに置かれる）、ランプの電球（`DESK_LAMP_BULB`。デスクライトの光源）。キーキャップの上面は `HAND_Y`（0.82m）より下に収める。2026-10-22 に作り込んだあと、座った構図で HTML の画面の位置と手の載り方が変わっていないことを撮って確かめた
+- **キーボードの配列は `room/keyboard.ts` の表が正。** 約100キーを1つの `InstancedMesh` で描く（1ドローコール）。座標を手で書かない
 - **飾りの乱数は `scene/hash.ts` の `hash01`。`Math.random()` を使わない。** `useMemo` が作り直されたときに配置が変わらず、撮るたびに同じ絵になる

@@ -9,8 +9,9 @@
 | `scene/Scene.tsx` | キャンバスとカメラの制御。**行き先を決める effect はここ1つだけ**（[scene-invariants.md](scene-invariants.md) の「カメラ — 行き先と飛行」）。R3F のポインタイベントの光線もここ（`roomEvents`） |
 | `scene/LensRenderer.tsx` | 描画そのもの（通常の遠近と、魚眼の立方体）。`useFrame` の優先度1で R3F の描画を乗っ取る唯一の場所 |
 | `scene/camera/` | カメラの姿勢・飛行・歩く飛行・キーで歩く・レンズ・画面への射影・HTML を3Dに置く CSS の計算・カメラの値を運ぶチャンネル（`roomCamera` / `walkFlight` / `freeWalk` / `fisheye` / `cssView` / `cameraMotion` / `markerScreen` / `viewChannel`）。three.js を持ち込まない |
-| `scene/room/` | 部屋の配置・巡回・HTML を載せる板・照明の切り替え・人物の寸法・体の関節・歩き・座る度合いと椅子の位置・カーブミラーの位置・歩ける床の純粋関数（`layout` / `tour` / `screens` / `lighting` / `figure` / `self` / `gait` / `seat` / `mirror` / `floor`）。three.js を持ち込まない |
-| `scene/objects/` | シーンに置かれる R3F コンポーネント。`RoomScene.tsx` がその根。canvas に描くテクスチャ（`roomTextures.ts`・人物の顔の `figureTextures.ts`）もここ |
+| `scene/room/` | 部屋の配置・巡回・HTML を載せる板・照明の切り替え・人物の寸法・体の関節・歩き・座る度合いと椅子の位置・カーブミラーの位置・歩ける床・キーボードの配列の純粋関数（`layout` / `tour` / `screens` / `lighting` / `figure` / `self` / `gait` / `seat` / `mirror` / `floor` / `keyboard`）。three.js を持ち込まない |
+| `scene/objects/` | シーンに置かれる R3F コンポーネント。`RoomScene.tsx` がその根。机と PC まわりの形は `DeskSet.tsx`（複数を束ねるので named export）。canvas に描くテクスチャ（`roomTextures.ts`・人物の顔の `figureTextures.ts`）もここ |
+| `lab/`（`src/lab/`） | 部屋の部品を1つずつ見る開発用のページの中身（`LabView.tsx`）と、見る部品の一覧（`parts.ts`）・カメラの数（`orbit.ts`）。**画面上の役割が「開発の道具」なので `scene/` には入れない。** ページ本体は `app/lab/page.dev.tsx`（理由は下） |
 | `scene/` 直下のその他 | 層をまたぐもの（`sceneClock` / `markerBolt` / `hash` / `direction` / `layers`）と、入力の交通整理（`pointerClaim` / `viewGesture`）だけ。**迷ったらここではない** |
 
 ハブ（`hub/`）の側で3Dに関わるもの:
@@ -25,10 +26,12 @@
 - **`camera/cameraLayout.ts` と `planet/geometry.ts` の旧称は `worldLayout.ts` / `planetLayout.ts`**（devlog 202607〜202608 の記述はこの旧称のまま。どちらも今は無い）
 - **同じ5エリアを指す語は `section` に統一してある。** `SectionCard`（旧 `AreaCard`）・`SectionMarkers`（旧 `AreaMarkers`）も含めて、コード内で `Area` は使わない（画面に出る日本語が「エリア」なのは別の話）。詳細ページの見出しコンテナは `detail/DetailSection.tsx` で、`SectionType` とは無関係
 - **`SectionType`・`Stop`・`Focus` は `@/types` からだけ読む。** `AppStateContext` の再エクスポート経由という第2の経路は撤去済み。`ViewZoom` は `@/scene/room/layout` が唯一の定義元。`room/layout.ts` は `Stop` を再エクスポートしているが、定義は `@/types`
+- **`/lab` のページ本体は `app/lab/page.dev.tsx`。** `next.config.ts` の `pageExtensions` が、開発のときだけ `dev.tsx` を拾う。`output: 'export'` では `app/` の下のページが全部書き出されるので、本番のビルドからルートごと外した（`notFound()` で404にする案は、`out/lab.html` と、ラボのコードのチャンクが配信物に残ったので退けた。詳細は [devlog 2026-10-22](devlog/202610.md#2026-10-22)）。`next.config.ts` を変えたら dev サーバーを起動し直す
+- **`RoomScene.tsx` は default export（`RoomScene`）に加えて、部屋の部品（`Shell`・`Desk`・`Shelf`・`Bookcase`・`PortholeAndHammock`・`Board`・`Comms`・`Door`・`Workbench`・`Lights`）を named で出している。** `/lab` が1つずつ描くため。部品を足したら `lab/parts.ts` に1行足す
 - **1ファイル1コンポーネントなら default export。** 複数を束ねるモジュール（`objects/SecurityCamera.tsx` / `hub/room/RoomHtml.tsx`）だけが named
 - **コンポーネント（PascalCase `.tsx`）とロジック（camelCase `.ts`）で、大文字小文字だけ違う名前を付けない。** macOS のファイルシステムは大文字小文字を区別しないので、`CardRail.tsx` と `cardRail.ts` を並べると TypeScript が `TS1149`（「すでに読み込んだファイルと大文字小文字しか違わない」）で止まる。ロジック側に別の名前を与える（`CardRail.tsx` ↔ `railLayout.ts`。既存の `SectionCard.tsx` ↔ `cardWheel.ts` も同じ形）
-- **`public/` には「公開したいもの」しか置かない。** `output: 'export'` なので中身はそのまま配信される。git に残したいだけの制作物は `assets/` へ、試作 HTML は `sandbox/` へ
-- **`sandbox/` は動く試作物、`docs/` は書かれた記録。** 2026-09-16 に `docs/prototypes/` から移した——`docs/` は「判断の理由・実測値・経緯」を持つ場所で、単体で動く HTML はその種類ではない。ルート直下の `assets/`・`reference/`（ムード参考、gitignore）と同じ「公開しないが git に残す成果物」の並びに置いている。**`test/` や `tests/` という名前は避けた**——`src/**/*.test.ts` の Vitest 一式と紛らわしく、新しく入った人がまずそこを探すため
+- **`public/` には「公開したいもの」しか置かない。** `output: 'export'` なので中身はそのまま配信される。git に残したいだけの制作物は `assets/` へ。試作 HTML の置き場は持たない
+- **`sandbox/`（動く試作物の置き場）は 2026-10-22 に削除した。** 5本の HTML（`voxel-lab`・`station-draft`・`station-draft-smooth`・`room-lab`・`test-anim`）のうち、ボクセルと外から見る衛星の案は退役済みで、`room-lab` の検証結果は [room-migration.md](room-migration.md) に書き残してあり、本体の `RoomScene` が実物になっている。試作は git の履歴に残る（最後に載っていたコミットは `8b017cc`。例: `git show 8b017cc:sandbox/room-lab.html`）。**今後、試作 HTML の置き場は作らない。** 目で確かめたいものは開発サーバーの上で本体の部品を使って見る。`test/`・`tests/` という名前を避けた理由（Vitest と紛らわしい）は、置き場を作り直すときに思い出すためにここに残す
 
 ## 読み物のページ（2026-09-19）
 
@@ -49,7 +52,7 @@
 
 ## `public/archive/` — 過去バージョンの保存庫
 
-制作実績で「ポートフォリオ自身の沿革」を見せるために、**過去バージョンの静的書き出しをそのまま** `public/archive/vN/` に置く（手を入れるのは、下の手順6〜8の「画像のパス」「検索よけ」「どこからも参照されないファイルの削除」だけ）。訪問者が当時の動く画面をそのまま触れるようにするためで、スクリーンショットではなくビルド成果物そのもの。**`public/` 直下の例外ではなく、上の規約どおり「公開したいもの」に該当する**（試作物の退避先である `sandbox/` とは目的が違う）。
+制作実績で「ポートフォリオ自身の沿革」を見せるために、**過去バージョンの静的書き出しをそのまま** `public/archive/vN/` に置く（手を入れるのは、下の手順6〜8の「画像のパス」「検索よけ」「どこからも参照されないファイルの削除」だけ）。訪問者が当時の動く画面をそのまま触れるようにするためで、スクリーンショットではなくビルド成果物そのもの。**`public/` 直下の例外ではなく、上の規約どおり「公開したいもの」に該当する**（過去に試作物の置き場だった `sandbox/` とは目的が違う）。
 
 | パス | 中身 | タグ（元のコミット） | 公開していた期間 |
 | --- | --- | --- | --- |

@@ -6,7 +6,6 @@ import * as THREE from "three";
 import {
   BOARD_FRAME,
   MONITORS,
-  MONITOR_BEZEL,
   MONITOR_GLASS,
   MONITOR_SCREEN,
   MONITOR_Y,
@@ -18,8 +17,6 @@ import {
   CHAIR_SEAT,
   CHAIR_SEAT_FORWARD,
   CHAIR_SEAT_TOP,
-  KEYBOARD,
-  MOUSE,
   horizontalAt,
   pieceCentreDistance,
   pieceToWorld,
@@ -45,13 +42,14 @@ import Self from "./Self";
 import CurveMirror from "./CurveMirror";
 import HologramSelf from "./HologramSelf";
 import { SecurityCameraBody, SecurityFeed } from "./SecurityCamera";
+import { DeskBody, DeskKeyboard, DeskLamp, DeskMonitor, DeskMouse, DeskSmalls, useDeskMaterials } from "./DeskSet";
 
 /**
  * The room the camera stands in — **placeholder shapes** (step 2 of
  * docs/room-migration.md). Where everything stands comes from
  * `scene/room/layout.ts`; what it looks like is boxes and cylinders until the
  * step that builds the furniture properly (step 8). Kept close to
- * `sandbox/room-lab.html`, which the user tuned the room's size and views in.
+ * the room-lab prototype, which the user tuned the room's size and views in.
  */
 
 const DEG = Math.PI / 180;
@@ -121,7 +119,7 @@ function useCables(): THREE.TubeGeometry[] {
 }
 
 
-function Shell({ ceiling, neon }: { ceiling: boolean; neon: NeonTheme }) {
+export function Shell({ ceiling, neon }: { ceiling: boolean; neon: NeonTheme }) {
   const wall = useMemo(() => makeWallTexture(), []);
   const floor = useMemo(() => makeFloorTexture(), []);
   useEffect(
@@ -247,8 +245,7 @@ function VideoFeed() {
 /** The lit colour each monitor shows where no HTML is drawn on it: the fisheye's view, and the two side screens. */
 const MONITOR_GLOW: Record<MonitorKey, string> = { video: "#c45ad0", gui: "#1f5f9e", camera: "#3a3d3a" };
 
-function Desk() {
-  const { width, depth } = PIECES.desk;
+export function Desk() {
   const pcX = SUBJECTS.desk.local[0];
   const holoX = SUBJECTS.about.local[0];
   // The hologram is projecting the self-introduction while About is focused.
@@ -257,59 +254,35 @@ function Desk() {
   const { activeSection, lights } = useAppState();
   const projecting = activeSection === "about";
   const lamp = lights.desk;
+  const m = useDeskMaterials();
   // Where the cone of light meets the bottom of the text.
   const beamTop = SUBJECTS.about.local[1] - HOLOGRAM_PANEL.height / 2;
   return (
     <Piece name="desk">
-      <Box size={[width, 0.05, depth]} at={[0, 0.75, 0]} color="#55504a" />
-      {[-1, 1].map((side) => (
-        <group key={side} position={[side * (width / 2 - 0.3), 0, 0]}>
-          <Box size={[0.5, 0.72, depth - 0.05]} at={[0, 0.36, 0]} color="#3d4148" />
-          {/* Three drawers: a seam and a handle each. */}
-          {[0.6, 0.38, 0.16].map((y) => (
-            <group key={y}>
-              <Box size={[0.48, 0.008, 0.01]} at={[0, y + 0.1, (depth - 0.05) / 2 + 0.003]} color="#15171b" />
-              <Box size={[0.16, 0.02, 0.02]} at={[0, y, (depth - 0.05) / 2 + 0.01]} color="#8a8e96" />
-            </group>
-          ))}
-        </group>
-      ))}
-      {/* What lives on the desk: a mug, a cup of pens. */}
-      <mesh position={[0.55, 0.825, 0.2]}>
-        <cylinderGeometry args={[0.04, 0.035, 0.1, 16]} />
-        <meshStandardMaterial color="#d9d4c7" roughness={0.6} />
-      </mesh>
-      <mesh position={[-0.68, 0.83, 0.28]}>
-        <cylinderGeometry args={[0.035, 0.035, 0.11, 12]} />
-        <meshStandardMaterial color="#3a3d44" roughness={0.5} metalness={0.5} />
-      </mesh>
-      {[-0.012, 0.01, 0.0].map((dx, i) => (
-        <mesh key={i} position={[-0.68 + dx, 0.9, 0.28 + (i - 1) * 0.012]} rotation={[0.1 * (i - 1), 0, 0.15 * (i - 1)]}>
-          <cylinderGeometry args={[0.005, 0.005, 0.14, 6]} />
-          <meshStandardMaterial color={["#ff6a1a", "#2fe8ff", "#e8e8e8"][i]} />
-        </mesh>
-      ))}
+      <DeskBody m={m} />
+      <DeskSmalls m={m} />
       {/* Three monitors: video, the PC's own screen, the security camera. */}
       {(Object.keys(MONITORS) as MonitorKey[]).map((key) => {
         const { x, z, yaw } = MONITORS[key];
         return (
           <group key={key} position={[x, MONITOR_Y, z]} rotation={[0, yaw, 0]}>
-            <Box size={[MONITOR_BEZEL.width, MONITOR_BEZEL.height, MONITOR_BEZEL.depth]} at={[0, 0, 0]} color="#111318" />
-            <Box
-              size={[MONITOR_SCREEN.width, MONITOR_SCREEN.height, MONITOR_GLASS.thickness]}
-              at={[0, 0, MONITOR_GLASS.z]}
-              color="#000000"
-              glow={MONITOR_GLOW[key]}
-              glowStrength={1.2}
-            />
-            {key === "camera" && <SecurityFeed />}
-            {key === "video" && <VideoFeed />}
+            <DeskMonitor m={m}>
+              <Box
+                size={[MONITOR_SCREEN.width, MONITOR_SCREEN.height, MONITOR_GLASS.thickness]}
+                at={[0, 0, MONITOR_GLASS.z]}
+                color="#000000"
+                glow={MONITOR_GLOW[key]}
+                glowStrength={1.2}
+              />
+              {key === "camera" && <SecurityFeed />}
+              {key === "video" && <VideoFeed />}
+            </DeskMonitor>
           </group>
         );
       })}
       {/* The keyboard and the mouse, where a seated reader's hands rest (`Self`). */}
-      <Box size={[KEYBOARD.width, 0.02, KEYBOARD.depth]} at={[KEYBOARD.x, KEYBOARD.y, KEYBOARD.z]} color="#1c1e22" />
-      <Box size={[0.06, 0.03, 0.1]} at={[MOUSE.x, MOUSE.y, MOUSE.z]} color="#1c1e22" />
+      <DeskKeyboard m={m} />
+      <DeskMouse m={m} />
       {/* The hologram's device. Idle, it projects the reader themselves, turning
           (`HologramSelf`); focused, it projects the self-introduction instead — the text is
           HTML in front of the canvas (`HOLOGRAM_PANEL`), and a cone of light
@@ -330,10 +303,7 @@ function Desk() {
         />
       </mesh>
       {/* Desk lamp (the "desk light" the lighting requirement switches). */}
-      <Box size={[0.16, 0.03, 0.16]} at={[pcX - 0.42, 0.79, 0.22]} color="#222428" />
-      <Box size={[0.025, 0.5, 0.025]} at={[pcX - 0.42, 1.04, 0.22]} color="#2a2d33" />
-      <Box size={[0.14, 0.08, 0.12]} at={[pcX - 0.42, 1.25, -0.06]} color="#3a3d44" />
-      <Box size={[0.1, 0.01, 0.08]} at={DESK_LAMP_BULB} color="#000000" glow="#ffcf8a" glowStrength={lamp ? 3 : 0} />
+      <DeskLamp m={m} x={pcX - 0.42} bulb={DESK_LAMP_BULB} on={lamp} />
       <Chair />
     </Piece>
   );
@@ -454,7 +424,7 @@ function Gadget({ kind, color }: { kind: number; color: string }) {
   );
 }
 
-function Shelf({ neon }: { neon: NeonTheme }) {
+export function Shelf({ neon }: { neon: NeonTheme }) {
   const { width, depth } = PIECES.shelf;
   const gadgets = useMemo(
     () =>
@@ -517,7 +487,7 @@ function Books({ books, depth }: { books: { x: number; y: number; w: number; h: 
   );
 }
 
-function Bookcase() {
+export function Bookcase() {
   const { width, depth } = PIECES.bookcase;
   const books = useMemo(() => {
     const out: { x: number; y: number; w: number; h: number; color: string }[] = [];
@@ -584,7 +554,7 @@ function Reflection() {
   );
 }
 
-function PortholeAndHammock() {
+export function PortholeAndHammock() {
   const city = useMemo(() => makeCityTexture(), []);
   useEffect(() => () => city.dispose(), [city]);
   const curve = useMemo(
@@ -620,7 +590,7 @@ function PortholeAndHammock() {
   );
 }
 
-function Board() {
+export function Board() {
   const { width, depth } = PIECES.board;
   const cy = SUBJECTS.experience.local[1];
   const papers = useMemo(
@@ -673,7 +643,7 @@ function Board() {
   );
 }
 
-function Comms({ neon }: { neon: NeonTheme }) {
+export function Comms({ neon }: { neon: NeonTheme }) {
   const { width, depth } = PIECES.comms;
   return (
     <Piece name="comms">
@@ -715,7 +685,7 @@ function Comms({ neon }: { neon: NeonTheme }) {
   );
 }
 
-function Door({ neon }: { neon: NeonTheme }) {
+export function Door({ neon }: { neon: NeonTheme }) {
   const { width, depth } = PIECES.door;
   return (
     <Piece name="door">
@@ -738,7 +708,7 @@ function Door({ neon }: { neon: NeonTheme }) {
   );
 }
 
-function Workbench({ neon }: { neon: NeonTheme }) {
+export function Workbench({ neon }: { neon: NeonTheme }) {
   const { width, depth } = PIECES.workbench;
   return (
     <Piece name="workbench">
@@ -824,7 +794,7 @@ const DESK_LAMP_LIGHT = 2.5;
  * The room's lights: a floor of ambient light that is always there, the two
  * switchable lights, and the neon's coloured glow near the things that glow.
  */
-function Lights({ lights }: { lights: RoomLights }) {
+export function Lights({ lights }: { lights: RoomLights }) {
   const neon = neonTheme(lights);
   const at = (angle: number, distance: number, y: number): [number, number, number] => {
     const [x, z] = horizontalAt(angle);

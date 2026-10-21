@@ -43,6 +43,7 @@ import {
   zoomView,
   type ViewZoom,
 } from "./room/layout";
+import { ROOM_EXPOSURE } from "./room/lighting";
 import { ROOM_TOUR, stopU } from "./room/tour";
 import { sceneClock } from "./sceneClock";
 import { pointerClaim } from "./pointerClaim";
@@ -1072,7 +1073,7 @@ export default function Scene({
         // The prototype's exposure, for its placeholder lights. Not a design
         // value — it means nothing once the lighting is rebuilt (step 6).
         onCreated={({ gl, camera }) => {
-          gl.toneMappingExposure = 1.75;
+          gl.toneMappingExposure = ROOM_EXPOSURE;
           // The reader's eye is the one camera that draws the screen cut-outs.
           camera.layers.enable(SCREEN_HOLE_LAYER);
         }}

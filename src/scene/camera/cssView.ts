@@ -6,7 +6,7 @@ import type { Panel } from "../room/screens";
  * where the WebGL camera sees its rectangle, so the two line up to the pixel.
  *
  * The same construction as three.js's `CSS3DRenderer` (which
- * `sandbox/room-lab.html` used), written out as plain arithmetic so it can be
+ * the room-lab prototype used), written out as plain arithmetic so it can be
  * tested:
  *
  *     layer   perspective: f px, perspective-origin at the frame's centre

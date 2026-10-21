@@ -3,6 +3,13 @@ import createMDX from "@next/mdx";
 
 const nextConfig: NextConfig = {
   output: 'export',
+  // 開発のときだけ `page.dev.tsx` をページとして拾う（`src/app/lab/` の部品の
+  // 確認用ページ）。**本番のビルドにはルートそのものが無い。** `notFound()` で
+  // 404 にする方法は試して退けた: `out/lab.html` が書き出され（`index, follow`
+  // と `noindex` の2つの robots が並ぶ）、ラボのコードのチャンクも配信物に
+  // 入った。この設定なら `out/` に HTML もチャンクも出ない（実測）。
+  // **変えたら dev サーバーを起動し直す**（`next.config.ts` は HMR で効かない）。
+  pageExtensions: ["tsx", "ts", "jsx", "js", ...(process.env.NODE_ENV === "production" ? [] : ["dev.tsx"])],
   // 開発時のみ出るルート表示を切っている。**見た目の好みではなく、操作を
   // 奪うため。** 390px 幅で `#devtools-indicator` は [334,20,36,36] に出て、
   // ヘッダー右端のメニュー／閉じるボタン [318,28,44,44] に重なる——

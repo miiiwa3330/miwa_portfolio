@@ -36,7 +36,7 @@ Next.js 16（App Router / `output: 'export'`）・React・TypeScript・Tailwind�
 ## コマンド
 
 ```bash
-npm run dev          # 開発サーバー (:3000)
+npm run dev          # 開発サーバー (:3000)。/lab で部屋の部品を1つずつ見られる（開発のときだけ）
 npm run build        # 静的書き出し → out/
 npm test             # Vitest 一回実行（435件で2秒未満）
 npm run test:watch
@@ -73,7 +73,7 @@ docs 全体の地図は [docs/README.md](docs/README.md)。
 - **同じ数を2箇所に持たない。** 片方だけ直る状態を作らない
 - **無言で失敗する機構を足したら、機能したことを別途テストする**
 - **スマホかどうかの判定は `src/state/useHandheld.ts` ただ1つ。** 2つ目の述語を作らない。PC 用の定数を「スマホで具合が悪い」という理由で書き換えず、スマホ用の定数を別に足す
-- **`public/` には「公開したいもの」しか置かない。** `output: 'export'` なので中身はそのまま配信される。git に残したいだけの制作物は `assets/`、試作 HTML は `sandbox/` へ
+- **`public/` には「公開したいもの」しか置かない。** `output: 'export'` なので中身はそのまま配信される。git に残したいだけの制作物は `assets/` へ。試作 HTML の置き場は持たない（作ったら結果を docs に書き、HTML は残さない）
 
 ## docs のルール
 

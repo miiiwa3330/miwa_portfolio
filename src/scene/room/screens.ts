@@ -67,7 +67,7 @@ export function piecePanel(
 /**
  * The PC's screen, at the resolution its GUI is laid out in.
  *
- * 1240 × 760 is the prototype's (`sandbox/room-lab.html`): at the seated zoom
+ * 1240 × 760 is the prototype's (the room-lab prototype): at the seated zoom
  * its 22px body text read comfortably, and the ratio is the screen's own
  * (0.62 × 0.38 m), so the HTML fills it exactly.
  */

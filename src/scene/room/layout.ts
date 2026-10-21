@@ -19,7 +19,7 @@ const DEG = Math.PI / 180;
 export type { Stop };
 
 /**
- * Chosen by the user in `sandbox/room-lab.html` (2026-10-01) at 3.3 m, and
+ * Chosen by the user in the room-lab prototype (2026-10-01) at 3.3 m, and
  * brought in to 3.0 m by the user (2026-10-02): the floor between the
  * furniture, about 5 m across, read as empty space.
  */
