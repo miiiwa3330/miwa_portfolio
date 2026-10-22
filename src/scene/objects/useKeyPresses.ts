@@ -6,7 +6,7 @@ import { useCursor } from "@react-three/drei";
 import * as THREE from "three";
 import type { KeySample } from "../room/keyboard";
 import { isInteractive, pointerClaim } from "../pointerClaim";
-import { setDeskFocus, useDeskFocus, type Machine } from "../deskFocus";
+import { useDeskFocus, type Machine } from "../deskFocus";
 import { playKey, prefetchKeySound, wakeKeySound } from "./keySound";
 
 /**
@@ -23,10 +23,9 @@ import { playKey, prefetchKeySound, wakeKeySound } from "./keySound";
  *   behind it, so this listens on the window and casts its own ray — but not
  *   for a press on the page's own controls (`isInteractive`).
  * - **With the reader's own keyboard**, while seated and while this is the
- *   machine they type on (`deskFocus`): every key held down holds down the
- *   key in the same place (`keysFor`).
- *
- * Pressing a key makes its machine the one the reader types on.
+ *   machine they type on — the one whose screen they are looking at
+ *   (`deskFocus`, `deskView`): every key held down holds down the key in the
+ *   same place (`keysFor`).
  */
 
 /** The key a face of the caps' mesh belongs to, or −1. */
@@ -128,7 +127,6 @@ export function useKeyPresses({
       const hit = raycaster.intersectObject(caps.current, false)[0];
       if (!hit) return;
       wakeKeySound();
-      setDeskFocus(machine);
       mouseKey.current = keyOf(caps.current, hit.face);
     };
     window.addEventListener("pointerdown", down);
@@ -180,7 +178,6 @@ export function useKeyPresses({
       e.stopPropagation();
       pointerClaim.claim(e.pointerId);
       wakeKeySound();
-      setDeskFocus(machine);
       mouseKey.current = key;
     },
     onPointerOver: (e: ThreeEvent<PointerEvent>) => {

@@ -20,8 +20,8 @@ import {
 } from "../room/self";
 import { FIGURE, TORSO } from "../room/figure";
 import { bodyNow, viewNow } from "../camera/viewChannel";
-import { seatShare } from "../room/seat";
-import { deskPointerNow } from "../deskPointer";
+import { seatOnLine, seatShare } from "../room/seat";
+import { macPointer, pcPointer } from "../deskPointer";
 import { HEAD_LAYER } from "../layers";
 import { hash01 } from "../hash";
 import { SKIN, makeFaceTexture } from "./figureTextures";
@@ -196,7 +196,8 @@ function useHair() {
 
 /**
  * Put every part of a `FigureModel` where the joints say, the head turned
- * to `pitch` as well as the body's yaw. Called every frame.
+ * its own way (`headYaw`, which sat at the desk is not the body's) and to
+ * `pitch`. Called every frame.
  */
 export function poseFigure(root: THREE.Object3D | null, j: BodyJoints, pitch: number) {
   if (!root) return;
@@ -222,7 +223,7 @@ export function poseFigure(root: THREE.Object3D | null, j: BodyJoints, pitch: nu
   const head = part("head");
   if (head) {
     head.position.set(j.head[0], j.head[1], j.head[2]);
-    head.rotation.set(pitch, -j.yaw, 0, "YXZ");
+    head.rotation.set(pitch, -j.headYaw, 0, "YXZ");
   }
 }
 
@@ -427,7 +428,7 @@ export default function Self() {
   useFrame(() => {
     const { gait, held } = bodyNow();
     const pose = viewNow().pose;
-    poseFigure(body.current, bodyJoints(pose, gait, seatShare(held), deskPointerNow().mouse), pose.pitch);
+    poseFigure(body.current, bodyJoints(pose, gait, seatShare(held), pcPointer.now().mouse, macPointer.now().mouse, seatOnLine(held)), pose.pitch);
   });
   return <FigureModel ref={body} />;
 }

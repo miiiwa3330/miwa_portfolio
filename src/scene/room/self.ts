@@ -1,7 +1,9 @@
 import { CHAIR_SEAT_TOP, DESK_HANDS, PIECES, SEATED_EYE_HEIGHT, horizontalAt, pieceToWorld } from "./layout";
 import { floorSpot, placeCamera, type RoomPose } from "../camera/roomCamera";
 import { STANDING, footStep, ARM_SWING, type Gait } from "./gait";
-import { seatShare, seatedShare } from "./seat";
+import { seatFacing, seatOnLine, seatShare, seatedShare } from "./seat";
+import { macHands } from "./deskViews";
+import { wrapAngle } from "../camera/cameraMotion";
 import { FIGURE, NECK_BACK, NECK_DROP, SEATED_LEAN, TORSO, seatedHipsFromEye } from "./figure";
 
 export { placeCamera, seatedShare, NECK_BACK, NECK_DROP, TORSO };
@@ -65,8 +67,14 @@ export const HEAD_BEHIND_EYE = 0.085;
 export const HEAD_OVER_EYE = 0.025;
 
 export type BodyJoints = {
-  /** The way the body faces: the camera's yaw, never its pitch — the body does not tilt to look up or down. */
+  /**
+   * The way the body faces: the camera's yaw, never its pitch — the body does
+   * not tilt to look up or down. Sat, the seat's way: looking round at the
+   * desk's other screens turns the head, not the body (`headYaw`).
+   */
   yaw: number;
+  /** The way the head faces: the camera's yaw. */
+  headYaw: number;
   /** How far the body leans forward at the hips, in radians (sitting at the PC). */
   lean: number;
   head: Vec3;
@@ -125,17 +133,24 @@ export function bendLeg(hip: Vec3, target: Vec3, pole: Vec3): { knee: Vec3; foot
  * Every joint of the body for a pose. `pose` is the pose as drawn (sway and
  * step included — the body carries the head); `gait` is the walk
  * (`room/gait.ts`); `sat` is how far through sitting down at the PC the
- * reader is, worked out from the held pose (`seatShare`).
+ * reader is, worked out from the held pose (`seatShare`); `along` how far
+ * over from the PC's seat to the Mac's (`seatOnLine`), which turns the body
+ * and moves the hands from the PC's keyboard and mouse to the Mac's;
+ * `mouse` and `macMouse` where the two mice have slid.
  */
 export function bodyJoints(
   pose: RoomPose,
   gait: Gait = STANDING,
   sat: number = seatShare(pose),
-  mouse: readonly [number, number] = [0, 0]
+  mouse: readonly [number, number] = [0, 0],
+  macMouse: readonly [number, number] = [0, 0],
+  along: number = seatOnLine(pose)
 ): BodyJoints {
+  // Sat, the body faces the seat's way, whichever screen the head is turned to.
+  const yaw = pose.yaw + wrapAngle(seatFacing(along) - pose.yaw) * sat;
   // The eye with the head held level: the body hangs from there, and the
   // head leaning forward to look down (`headLean`) does not take it along.
-  const [fx, fz] = horizontalAt(pose.yaw / (Math.PI / 180));
+  const [fx, fz] = horizontalAt(yaw / (Math.PI / 180));
   const [sx, sz] = floorSpot(pose);
   const eye: Vec3 = [sx, pose.eyeHeight, sz];
   const forward: Vec3 = [fx, 0, fz];
@@ -144,7 +159,9 @@ export function bodyJoints(
   const inBody = (offset: [number, number]): Vec3 => add(scale(right, offset[0]), scale(forward, offset[1]));
 
   // The head goes where the eye goes, leaning included.
-  const head = add(placeCamera(pose).position, add(scale(forward, -HEAD_BEHIND_EYE), [0, HEAD_OVER_EYE, 0]));
+  // Behind the eye the way the head faces, which turns on its own while sat.
+  const [hx, hz] = horizontalAt(pose.yaw / (Math.PI / 180));
+  const head = add(placeCamera(pose).position, add(scale([hx, 0, hz], -HEAD_BEHIND_EYE), [0, HEAD_OVER_EYE, 0]));
   const neck = add(eye, add(scale(forward, -NECK_BACK), [0, -NECK_DROP, 0]));
   // Sitting, the body leans in over the desk from the hips: the hips go back.
   const lean = SEATED_LEAN * sat;
@@ -164,7 +181,9 @@ export function bodyJoints(
       inBody([-steps[i].offset[0] * ARM_SWING * 0.3, -steps[i].offset[1] * ARM_SWING])
     )
   ) as [Vec3, Vec3];
-  const resting = deskHands(mouse);
+  const pc = deskHands(mouse);
+  const mac = macHands(macMouse);
+  const resting = [mix(pc[0], mac[0], along), mix(pc[1], mac[1], along)];
   const arms = shoulders.map((s, i) => {
     const side = i === 0 ? -1 : 1;
     // Elbows bend back and out, and down at the desk.
@@ -184,7 +203,7 @@ export function bodyJoints(
   const knees = legs.map((l) => l.knee) as [Vec3, Vec3];
   const feet = legs.map((l) => l.foot) as [Vec3, Vec3];
 
-  return { yaw: pose.yaw, lean, head, neck, hips, shoulders, elbows, hands, knees, feet };
+  return { yaw, headYaw: pose.yaw, lean, head, neck, hips, shoulders, elbows, hands, knees, feet };
 }
 
 /** Where a seated body's hip joints come to rest: over the chair's cushion. */

@@ -19,7 +19,7 @@ export type DeskPointer = {
   mouse: [number, number];
   /** The cursor's place on the screen, in its px — always where the mouse puts it (`cursorFromMouse`). */
   cursor: { x: number; y: number };
-  /** The reader's own pointer is on the screen, so the drawn cursor stands aside for the real one. */
+  /** The reader's own pointer is on the screen: the drawn cursor is right under it, and stands in for the real one, which is hidden (`hideRealCursorOverScreens`). */
   overScreen: boolean;
 };
 
@@ -70,3 +70,27 @@ export const macPointer = pointerChannel(MAC_MAPPING);
 export const deskPointerNow = pcPointer.now;
 export const publishDeskPointer = pcPointer.publish;
 export const onDeskPointer = pcPointer.on;
+
+/**
+ * Hide the reader's own cursor while it is on either machine's screen, so
+ * the cursor drawn there stands in for it (2026-10-23, the user: 「本物のカーソ
+ * ルが画面内に重なったときは画面内のカーソルとして表示」). By an attribute on
+ * the root that a rule in `globals.css` reads — over everything, the page's
+ * links included, which would otherwise bring back their own hand. Returns
+ * the undo.
+ */
+export function hideRealCursorOverScreens(): () => void {
+  const root = document.documentElement;
+  const sync = () => {
+    const over = pcPointer.now().overScreen || macPointer.now().overScreen;
+    if (over) root.setAttribute("data-screen-cursor", "");
+    else root.removeAttribute("data-screen-cursor");
+  };
+  const offPc = pcPointer.on(sync);
+  const offMac = macPointer.on(sync);
+  return () => {
+    offPc();
+    offMac();
+    root.removeAttribute("data-screen-cursor");
+  };
+}

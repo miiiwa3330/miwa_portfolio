@@ -48,7 +48,7 @@ import Kickstand from "./Kickstand";
 import Macintosh from "./Macintosh";
 import MacKeyboard from "./MacKeyboard";
 import MacMouse from "./MacMouse";
-import { setDeskFocus } from "../deskFocus";
+import { setDeskView } from "../deskView";
 import ExgMouse from "./ExgMouse";
 import HhkbKeyboard from "./HhkbKeyboard";
 
@@ -278,9 +278,9 @@ export function Desk({ typing }: { typing?: boolean }) {
   const projecting = activeSection === "about";
   const seated = activeSection === "desk";
   const lamp = lights.desk;
-  // Standing up hands the reader's keyboard back to the PC (`deskFocus`).
+  // Standing up turns back to the PC's screen, and hands the reader's keyboard back to it (`deskView`).
   useEffect(() => {
-    if (!seated) setDeskFocus("pc");
+    if (!seated) setDeskView("pc");
   }, [seated]);
   const m = useDeskMaterials();
   // Where the cone of light meets the bottom of the text.

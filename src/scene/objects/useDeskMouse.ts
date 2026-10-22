@@ -9,7 +9,7 @@ import { panelPoint, type Panel } from "../room/screens";
 import { screenRay } from "../camera/roomCamera";
 import { viewNow } from "../camera/viewChannel";
 import { isInteractive, pointerClaim } from "../pointerClaim";
-import { setDeskFocus, type Machine } from "../deskFocus";
+import type { Machine } from "../deskFocus";
 import type { PointerChannel } from "../deskPointer";
 import { playMouse, prefetchKeySound, wakeKeySound } from "./keySound";
 
@@ -20,10 +20,12 @@ import { playMouse, prefetchKeySound, wakeKeySound } from "./keySound";
  * screen (`TravelMapping`): the two always agree, and `channel` carries both
  * to whatever draws the cursor.
  *
- * - **Linked to the reader's own mouse while their pointer is on the
- *   machine's screen**, and only then (2026-10-22, the user): the desk's
- *   mouse goes where the real cursor is (and the drawn cursor stands aside
- *   for it); the reader's buttons, pressed there, hold down the same buttons
+ * - **Linked to the reader's own mouse while they sit at the desk and
+ *   their pointer is on the machine's screen**, and only then (2026-10-22
+ *   and 10-23, the user): the desk's
+ *   mouse goes where the real cursor is, and the drawn cursor stands in for
+ *   the real one, right under the pointer (2026-10-23, the user: the real
+ *   one is hidden there, `hideRealCursorOverScreens`); the reader's buttons, pressed there, hold down the same buttons
  *   (`MouseEvent.buttons`), and their scrolling there turns a wheel, if the
  *   mouse has one.
  * - **Pressed directly**, with the pointer on the mouse: a button clicks at
@@ -35,9 +37,6 @@ import { playMouse, prefetchKeySound, wakeKeySound } from "./keySound";
  *   captured, the press is at the crosshair and the slide follows the
  *   movement. Sitting at the desk the canvas lets pointers through, so the
  *   mouse listens on the window and casts its own ray.
- *
- * Using a mouse — pressing it, or the reader's pointer pressing on its
- * screen — makes its machine the one the reader types on (`deskFocus`).
  *
  * The caller draws the mouse in `group` (placed here, in the desk's frame)
  * and moves its buttons in `onPress`, called every frame with how far each
@@ -103,6 +102,8 @@ export function useDeskMouse(spec: DeskMouseSpec) {
   const target = useRef<[number, number]>([0, 0]);
   const shown = useRef<[number, number]>([0, 0]);
   const overScreen = useRef(false);
+  /** Where the reader's pointer is on the screen, while it is: the drawn cursor is put right there, not where the sliding mouse has got to. */
+  const spot = useRef<{ x: number; y: number } | null>(null);
   const seated = useRef(spec.seated);
   // The spec's callbacks read the caller's refs; keep the latest without re-binding the listeners.
   const latest = useRef(spec);
@@ -160,7 +161,6 @@ export function useDeskMouse(spec: DeskMouseSpec) {
       const frame = group.current?.parent;
       if (!frame) return;
       wakeKeySound();
-      setDeskFocus(latest.current.machine);
       const hit = frame.worldToLocal(worldPoint.clone());
       const at = document.pointerLockElement ? frameCentre() : { x: clientX, y: clientY };
       const part = partOf(object, hit);
@@ -227,23 +227,29 @@ export function useDeskMouse(spec: DeskMouseSpec) {
       }
       if (g || e.pointerType !== "mouse") return;
       // A captured mouse has no place on the screen (the browser holds its
-      // coordinates where the capture began).
-      if (locked) {
+      // coordinates where the capture began); and the machine is used only
+      // sitting at it (2026-10-23, the user: 「PC 操作ができるのは、椅子に座って
+      // いる時だけ」) — standing, the pointer over the screen is just looking.
+      if (locked || !seated.current) {
         overScreen.current = false;
+        spot.current = null;
+        if (hovering) {
+          hovering = false;
+          document.body.style.cursor = "";
+        }
         return;
       }
       // Only on its own screen does the desk's mouse follow: an earlier
       // version followed every movement anywhere, by the distance moved, which
       // was not what was asked.
-      const spot = api.onScreen(e.clientX, e.clientY);
-      overScreen.current = !!spot;
-      if (spot) api.sendCursor(spot);
-      if (seated.current) {
-        const over = !spot && !isInteractive(e.target) && !!api.hitAt(e.clientX, e.clientY);
-        if (over !== hovering) {
-          hovering = over;
-          document.body.style.cursor = over ? "pointer" : "";
-        }
+      const at = api.onScreen(e.clientX, e.clientY);
+      overScreen.current = !!at;
+      spot.current = at;
+      if (at) api.sendCursor(at);
+      const over = !at && !isInteractive(e.target) && !!api.hitAt(e.clientX, e.clientY);
+      if (over !== hovering) {
+        hovering = over;
+        document.body.style.cursor = over ? "pointer" : "";
       }
     };
     const up = (e: PointerEvent) => api.end(e.pointerId);
@@ -288,7 +294,6 @@ export function useDeskMouse(spec: DeskMouseSpec) {
       overScreen.current = !!api.onScreen(e.clientX, e.clientY);
       if (reader(e) && overScreen.current) {
         wakeKeySound();
-        setDeskFocus(latest.current.machine);
         linked.current = e.buttons;
       }
     };
@@ -312,6 +317,7 @@ export function useDeskMouse(spec: DeskMouseSpec) {
       window.removeEventListener("blur", clear);
       linked.current = 0;
       overScreen.current = false;
+      spot.current = null;
     };
   }, [spec.seated, api]);
 
@@ -358,7 +364,9 @@ export function useDeskMouse(spec: DeskMouseSpec) {
     if (Math.abs(tx - at[0]) < 1e-5) at[0] = tx;
     if (Math.abs(tz - at[1]) < 1e-5) at[1] = tz;
     group.current?.position.set(rest.x + at[0], rest.y, rest.z + at[1]);
-    channel.publish({ mouse: at, cursor: mapping.cursorFromMouse(at), overScreen: overScreen.current });
+    // On the screen, the cursor is the reader's pointer itself: the mouse eases after it (`FOLLOW_RATE`), and a drawn cursor standing in for the real one cannot lag.
+    const cursor = overScreen.current && spot.current ? mapping.clampCursor(spot.current) : mapping.cursorFromMouse(at);
+    channel.publish({ mouse: at, cursor, overScreen: overScreen.current });
     latest.current.onPress(depth);
   });
 

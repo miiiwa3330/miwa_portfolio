@@ -184,3 +184,35 @@ export function planRoomMove(from: RoomPose, to: RoomPose, minDuration: number):
     },
   };
 }
+
+/**
+ * Sat at the desk, from one of its views to another (`room/deskViews.ts`):
+ * the head turns, and between the PC's seat and the Mac's the chair rolls —
+ * so the eye goes straight over the floor from the one seat to the other,
+ * whatever the turn does. Blending the poses' places instead swung the eye
+ * out along the turn (6 cm forward half-way through a turn of the head to
+ * the right-hand monitor, where nothing should move but the head).
+ */
+export function seatedMove(from: RoomPose, to: RoomPose, duration: number): RoomMove {
+  const a = floorSpot(from);
+  const b = floorSpot(to);
+  return {
+    duration,
+    at(elapsed) {
+      const t = easeInOutCubic(duration > 0 ? Math.min(1, elapsed / duration) : 1);
+      if (t >= 1) return to;
+      const pose = blendRoomPose(from, to, t);
+      const [x, z] = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+      // Back along the view by its step out, so `floorSpot` lands on the straight line.
+      return { ...pose, x: x - Math.sin(pose.yaw) * pose.forward, z: z + Math.cos(pose.yaw) * pose.forward };
+    },
+  };
+}
+
+/** One move and then another, as one flight. */
+export function chainMoves(first: RoomMove, second: RoomMove): RoomMove {
+  return {
+    duration: first.duration + second.duration,
+    at: (elapsed) => (elapsed < first.duration ? first.at(elapsed) : second.at(elapsed - first.duration)),
+  };
+}

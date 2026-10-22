@@ -62,8 +62,9 @@ import { profilePrism, shapeOf, sideRibbon } from "./caseShapes";
  * a cool white, as the lit screens in 5.png and 6.png. The screen shows a
  * 512 × 342 one-bit picture at the 128K's 72 dpi (180.6 × 120.7 mm) — a
  * desktop, until the games come — and the mouse's arrow over it, where the
- * Mac's mouse puts it (`macPointer`; hidden while the reader's own pointer
- * is on the screen, as the PC's is).
+ * Mac's mouse puts it (`macPointer`) — and while the reader's own pointer
+ * is on the screen, right under it, standing in for the real cursor (which
+ * is hidden there, as on the PC's).
  *
  * **仮**: the recess's depth and how far its inner edge sits up, the tube's
  * bulge, the base's marks, the handle's floor and bar, the back's parts.
@@ -486,13 +487,12 @@ export default function Macintosh() {
   const arrowSize = ARROW_SIZE;
   useEffect(
     () =>
-      macPointer.on(({ cursor, overScreen }) => {
+      macPointer.on(({ cursor }) => {
         const mesh = arrow.current;
         if (!mesh) return;
         const x = (cursor.x / PICTURE.px.width - 0.5) * PICTURE.width + arrowSize / 2;
         const y = (0.5 - cursor.y / PICTURE.px.height) * PICTURE.height - arrowSize / 2;
         mesh.position.set(x, picture[1] + y, picture[2] + bulge(x, y) + 0.0003);
-        mesh.visible = !overScreen;
       }),
     [picture, arrowSize]
   );

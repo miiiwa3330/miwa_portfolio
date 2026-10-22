@@ -31,10 +31,13 @@ import {
   type RoomPose,
 } from "./camera/roomCamera";
 import { publishBody, publishView, viewNow } from "./camera/viewChannel";
-import { planRoomMove } from "./camera/walkFlight";
+import { chainMoves, planRoomMove, seatedMove } from "./camera/walkFlight";
+import { deskViewPose, deskViewSeconds, deskViewToward, feedSwipe, type DeskView, type SwipeLatch } from "./room/deskViews";
+import { deskViewNow, onDeskView, setDeskView } from "./deskView";
+import { macPointer, pcPointer } from "./deskPointer";
 import { STANDING, advanceGait, stepBob } from "./room/gait";
 import { AT_CENTRE, NO_KEYS, stepFreeWalk, type FreeWalk, type WalkKeys } from "./camera/freeWalk";
-import { seatShare } from "./room/seat";
+import { seatOnLine, seatShare } from "./room/seat";
 import {
   EYE_HEIGHT,
   facingStop,
@@ -699,6 +702,46 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
   const canvas = useThree((state) => state.gl.domElement);
   useViewInput(canvas, yawRef, pitchRef, yawTargetRef, pitchTargetRef, tourURef, draggingRef, followTourRef, lockedRef, flightRef, setViewZoom);
 
+  // Sat at the desk: a two-finger swipe off the screens turns to the next of
+  // its four screens that way (`room/deskViews.ts`). On a screen the swipe is
+  // the screen's own (the PC's page scrolls, the mouse's wheel turns).
+  const sectionRef = useRef(activeSection);
+  /** The flight under way is a turn between the desk's views (not sitting down or getting up), so another swipe may take over from it. */
+  const deskTurnRef = useRef(false);
+  const viewFromRef = useRef<DeskView>("pc");
+  useEffect(() => {
+    sectionRef.current = activeSection;
+  }, [activeSection]);
+  useEffect(() => {
+    if (activeSection !== "desk" || pageOpen) return;
+    let latch: SwipeLatch | null = null;
+    const onWheel = (e: WheelEvent) => {
+      // A pinch, the page's own controls, or a screen: not a swipe between the screens.
+      if (e.ctrlKey || isInteractive(e.target) || pcPointer.now().overScreen || macPointer.now().overScreen) return;
+      // Ours, horizontal ones included: left alone, they page the browser back.
+      e.preventDefault();
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+      const fed = feedSwipe(latch, e.deltaX * unit, e.deltaY * unit, e.timeStamp);
+      latch = fed.latch;
+      if (!fed.swipe || (flightRef.current && !deskTurnRef.current)) return;
+      setDeskView(deskViewToward(deskViewNow(), fed.swipe));
+    };
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => window.removeEventListener("wheel", onWheel);
+  }, [activeSection, pageOpen]);
+  useEffect(
+    () =>
+      onDeskView((view) => {
+        const from = viewFromRef.current;
+        viewFromRef.current = view;
+        if (sectionRef.current !== "desk") return;
+        const to: RoomPose = { ...deskViewPose(view), ...zoomFraming("desk", handheld) };
+        flightRef.current = beginRoomFlight(seatedMove(poseRef.current, to, deskViewSeconds(from, view)), null);
+        deskTurnRef.current = true;
+      }),
+    [handheld]
+  );
+
   /** Where the keys have walked the reader, and their jump: the free view's place on the floor. */
   const walkRef = useRef<FreeWalk>(AT_CENTRE);
   const walkKeys = useWalkKeys();
@@ -775,7 +818,15 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
 
   /** Fly to `to`, walking whatever distance the reader covers on foot (`camera/walkFlight.ts`). */
   const startFlight = (to: RoomPose, duration: number, land: RoomFlight["land"]) => {
-    flightRef.current = beginRoomFlight(planRoomMove(poseRef.current, to, duration), land);
+    deskTurnRef.current = false;
+    // Getting up from another of the desk's screens than the PC's — the Mac's
+    // seat, or the head turned — turns back to the PC's first, and gets up
+    // from there: standing up and the chair being pushed aside go from its seat.
+    const from = poseRef.current;
+    const pc = poseFromView(zoomView("desk"), zoomFraming("desk", handheld));
+    const turnedAway = seatShare(from) >= 1 && seatShare(to) < 1 && (Math.hypot(from.x - pc.x, from.z - pc.z) > 1e-4 || Math.abs(wrapAngle(from.yaw - pc.yaw)) > 1e-4 || Math.abs(from.pitch - pc.pitch) > 1e-4);
+    const move = turnedAway ? chainMoves(seatedMove(from, pc, deskViewSeconds(seatOnLine(from) > 1e-3 ? "mac" : "camera", "pc")), planRoomMove(pc, to, duration)) : planRoomMove(from, to, duration);
+    flightRef.current = beginRoomFlight(move, land);
   };
 
   // Swiping the card asks for a stop. Steering tourURef is all it takes — the
