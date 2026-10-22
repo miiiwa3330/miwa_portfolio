@@ -53,10 +53,11 @@ function fileName(key: FileKey, label: string): string {
 
 /**
  * How much larger the window's contents are drawn than on the detail sheet.
- * **Provisional (仮).** At the seated zoom the screen spans roughly 870 of a
- * 1600px frame's pixels, so the GUI's 1240px come out at about 0.7 of their
- * size and the sheet's 16px body text at about 11px. The prototype read
- * comfortably at 22px; 1.3 brings 16px to about 21px.
+ * **Provisional (仮).** At the seated zoom the GUI's px come out at about 0.7
+ * of their size on a 1600px frame (measured on the first, 1240px screen;
+ * the larger monitor keeps the same px to the metre, `DESK_SCREEN_PX`), so
+ * the sheet's 16px body text is about 11px. The prototype read comfortably
+ * at 22px; 1.3 brings 16px to about 21px.
  */
 const WINDOW_ZOOM = 1.3;
 

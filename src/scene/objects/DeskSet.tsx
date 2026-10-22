@@ -188,7 +188,7 @@ export function DeskMonitor({ m, monitor, children }: { m: DeskMaterials; monito
   const neckTop = -0.12;
   return (
     <>
-      <Slab size={[width, height, depth]} at={[0, 0, 0]} material={m.plastic} radius={0.008} />
+      <Slab size={[width, height, depth]} at={[0, -monitor.chin / 2, 0]} material={m.plastic} radius={0.008} />
       <Slab size={[width * 0.66, height * 0.58, 0.04]} at={[0, 0.01, -0.035]} material={m.plastic} radius={0.016} />
       <Plain size={[0.05, neckTop - neckBottom, 0.025]} at={[0, (neckTop + neckBottom) / 2, -0.056]} material={m.steel} />
       <Slab size={[0.26, 0.012, 0.18]} at={[0, deskLevel + 0.006, -0.04]} material={m.steel} radius={0.005} />

@@ -67,14 +67,21 @@ export function piecePanel(
 /**
  * The PC's screen, at the resolution its GUI is laid out in.
  *
- * 1240 × 760 is the prototype's (the room-lab prototype): at the seated zoom
- * its 22px body text read comfortably, and the ratio is the screen's own
- * (0.62 × 0.38 m), so the HTML fills it exactly.
+ * 2000 px to the metre, the prototype's (the room-lab prototype laid 1240 ×
+ * 760 on a 0.62 m screen; at the seated zoom its 22px body text read
+ * comfortably). The main monitor grew to the U3223QE's 0.697 m on
+ * 2026-10-22 at the same density, so text is as large as it was: 1400 × 787,
+ * the nearest whole px to the screen's own ratio (0.6973 × 0.3922 m).
+ *
+ * The CSS layer scales the HTML by its width alone (`cssPanelTransform`), so
+ * the panel takes its height from the px rather than from the glass: 0.02 mm
+ * shorter than the lit screen, and the cut-out and the HTML agree exactly.
  */
-export const DESK_SCREEN_PX = { width: 1240, height: 760 } as const;
+export const DESK_SCREEN_PX = { width: 1400, height: 787 } as const;
 
 const gui = monitorFace("gui");
-export const DESK_SCREEN: Panel = piecePanel("desk", gui.centre, gui.yaw, MONITORS.gui.screen, DESK_SCREEN_PX);
+const guiWidth = MONITORS.gui.screen.width;
+export const DESK_SCREEN: Panel = piecePanel("desk", gui.centre, gui.yaw, { width: guiWidth, height: (guiWidth * DESK_SCREEN_PX.height) / DESK_SCREEN_PX.width }, DESK_SCREEN_PX);
 
 /**
  * The hologram's text, standing in the air over the device on the desk and

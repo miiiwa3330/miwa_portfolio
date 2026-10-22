@@ -180,10 +180,10 @@ export type Subject = {
  * and the right shows the security camera (docs/room-migration.md). The side
  * ones are turned in towards the chair and stand a little forward.
  *
- * Each has its own size: `x`, `y`, `z` are the middle of its screen (the
- * frame's front, not the housing behind it), `yaw` its turn about +Y, and the
- * frame may run further below the screen than above it (`chin`), the way a
- * real monitor's does.
+ * Each has its own size. `x` and `y` are the middle of its screen, `z` the
+ * middle of its front frame's depth (not the housing behind it), `yaw` its
+ * turn about +Y; the frame may run further below the screen than above it
+ * (`chin`), the way a real monitor's does.
  *
  * Both the monitors' meshes (`RoomScene`) and the HTML laid on the middle
  * screen (`room/screens.ts`) read these, so the two cannot drift apart.
@@ -210,11 +210,57 @@ const PLAIN_MONITOR = {
   chin: 0,
 } as const;
 
+/**
+ * The main monitor is a **Dell UltraSharp U3223QE** (31.5", 16:9; 2026-10-22,
+ * the user asked for a larger one): the panel without its stand is 712.6 ×
+ * 410.0 × 55.8 mm and its viewable area 697.3 × 392.2 mm (the maker's spec
+ * as resellers list it). The side frames are (712.6 − 697.3) / 2 = 7.65 mm;
+ * the top is taken to be as thin as the sides (**仮**), which leaves 10.15 mm
+ * under the screen. `depth` is the panel's thickness at its edge (**仮**,
+ * 18 mm); the housing behind it bulges out to the full 55.8 mm
+ * (`MAIN_STAND.housingDepth`).
+ *
+ * Its screen's surface stays where the first, smaller monitor's was (z −0.125 m
+ * in the desk's frame): the seat is framed from it, and the seat does not
+ * move (docs/scene-invariants.md).
+ */
+const MAIN_FRAME_SIDE = 0.00765;
+const MAIN_MONITOR: Omit<Monitor, "x" | "z" | "yaw"> = {
+  y: 1.08,
+  bezel: { width: 0.7126, height: 0.41, depth: 0.018 },
+  screen: { width: 0.6973, height: 0.3922 },
+  chin: 0.41 - 0.3922 - 2 * MAIN_FRAME_SIDE,
+};
+
 export const MONITORS: Record<MonitorKey, Monitor> = {
   video: { ...PLAIN_MONITOR, x: -0.7, z: -0.066, yaw: 0.35 },
-  gui: { ...PLAIN_MONITOR, x: 0, z: -0.15, yaw: 0 },
+  gui: { ...MAIN_MONITOR, x: 0, z: -0.139, yaw: 0 },
   camera: { ...PLAIN_MONITOR, x: 0.7, z: -0.066, yaw: -0.35 },
 };
+
+/**
+ * The U3223QE's stand. From the maker's spec: the whole is 469.3 mm tall at
+ * its lowest, so the panel's bottom edge is 59.3 mm over the desk there, and
+ * it rises 150 mm; the panel's front to the back of the base is 233.2 mm.
+ * **仮**: the base's width, thickness, corners and how far it is set back
+ * from the panel's front, and the column's section — no photo of the stand
+ * from the side yet.
+ */
+export const MAIN_STAND = {
+  lowest: 0.4693 - 0.41,
+  travel: 0.15,
+  depth: 0.2332,
+  housingDepth: 0.0558,
+  base: { width: 0.25, thickness: 0.012, corner: 0.035, setBack: 0.012 },
+  column: { width: 0.07, depth: 0.028 },
+} as const;
+
+/** How far the bottom edge of a monitor's frame is above the desk's top. */
+export function monitorBottomOverDesk(key: MonitorKey): number {
+  const { y, bezel, screen, chin } = MONITORS[key];
+  const under = (bezel.height - screen.height + chin) / 2;
+  return y - screen.height / 2 - under - KEYBOARD.y;
+}
 
 /** The lit glass in front of a monitor's frame: its centre's depth in the monitor's frame, and its thickness. */
 export function monitorGlass(key: MonitorKey): { z: number; thickness: number } {

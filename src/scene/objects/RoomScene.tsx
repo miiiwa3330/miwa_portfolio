@@ -41,6 +41,7 @@ import CurveMirror from "./CurveMirror";
 import HologramSelf from "./HologramSelf";
 import { SecurityCameraBody, SecurityFeed } from "./SecurityCamera";
 import { DeskBody, DeskLamp, DeskMat, DeskMonitor, DeskSmalls, useDeskMaterials } from "./DeskSet";
+import MainMonitor from "./MainMonitor";
 import ExgMouse from "./ExgMouse";
 import HhkbKeyboard from "./HhkbKeyboard";
 
@@ -269,23 +270,32 @@ export function Desk({ typing }: { typing?: boolean }) {
     <Piece name="desk">
       <DeskBody m={m} />
       <DeskSmalls m={m} />
-      {/* Three monitors: video, the PC's own screen, the security camera. */}
+      {/* Three monitors: video, the PC's own screen (the U3223QE), the security camera. */}
       {(Object.keys(MONITORS) as MonitorKey[]).map((key) => {
         const { x, y, z, yaw, screen } = MONITORS[key];
         const glass = monitorGlass(key);
+        const lit = (
+          <>
+            <Box
+              size={[screen.width, screen.height, glass.thickness]}
+              at={[0, 0, glass.z]}
+              color="#000000"
+              glow={MONITOR_GLOW[key]}
+              glowStrength={1.2}
+            />
+            {key === "camera" && <SecurityFeed />}
+            {key === "video" && <VideoFeed />}
+          </>
+        );
         return (
           <group key={key} position={[x, y, z]} rotation={[0, yaw, 0]}>
-            <DeskMonitor m={m} monitor={MONITORS[key]}>
-              <Box
-                size={[screen.width, screen.height, glass.thickness]}
-                at={[0, 0, glass.z]}
-                color="#000000"
-                glow={MONITOR_GLOW[key]}
-                glowStrength={1.2}
-              />
-              {key === "camera" && <SecurityFeed />}
-              {key === "video" && <VideoFeed />}
-            </DeskMonitor>
+            {key === "gui" ? (
+              <MainMonitor>{lit}</MainMonitor>
+            ) : (
+              <DeskMonitor m={m} monitor={MONITORS[key]}>
+                {lit}
+              </DeskMonitor>
+            )}
           </group>
         );
       })}

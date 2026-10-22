@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NAV } from "@/hub/nav";
+import { HHKB } from "./keyboard";
 import {
   EYE_HEIGHT,
   MIN_PIECE_GAP,
@@ -36,6 +37,10 @@ import {
   CHAIR_BACK_HEIGHT,
   HANDHELD_STANDARD_HFOV as PHONE_HFOV,
   MONITORS,
+  MAIN_STAND,
+  KEYBOARD,
+  monitorBottomOverDesk,
+  monitorFace,
   chairBackZ,
   wallRibAngles,
   floorGridLines,
@@ -297,6 +302,38 @@ describe("the chair", () => {
     const screenBottom = MONITORS.gui.y - MONITORS.gui.screen.height / 2;
     const sightAtChair = EYE_HEIGHT + ((screenBottom - EYE_HEIGHT) * backFromCentre) / screenDistance;
     expect(CHAIR_BACK_HEIGHT).toBeLessThan(sightAtChair);
+  });
+});
+
+describe("the main monitor (U3223QE)", () => {
+  const main = MONITORS.gui;
+
+  it("keeps its screen's surface where the seat was framed from", () => {
+    // The first monitor's face, 2.5 cm in front of z −0.15: the seat, the chair
+    // and the seated pitch were all measured from it.
+    expect(monitorFace("gui").centre[2]).toBeCloseTo(-0.125, 9);
+  });
+
+  it("is the maker's panel round the maker's screen, the frame never thinner than the sides", () => {
+    const sides = (main.bezel.width - main.screen.width) / 2;
+    const over = (main.bezel.height - main.screen.height - main.chin) / 2;
+    expect(sides).toBeCloseTo(0.00765, 9);
+    expect(over).toBeCloseTo(sides, 9);
+    expect(over + main.chin).toBeCloseTo(0.41 - 0.3922 - 0.00765, 9);
+  });
+
+  it("stands at a height its stand can reach", () => {
+    const bottom = monitorBottomOverDesk("gui");
+    expect(bottom).toBeGreaterThanOrEqual(MAIN_STAND.lowest);
+    expect(bottom).toBeLessThanOrEqual(MAIN_STAND.lowest + MAIN_STAND.travel);
+  });
+
+  it("has its base on the desk, behind the keyboard", () => {
+    const front = main.z + main.bezel.depth / 2;
+    const baseBack = front - MAIN_STAND.depth;
+    const baseFront = front - MAIN_STAND.base.setBack;
+    expect(baseBack).toBeGreaterThan(-PIECES.desk.depth / 2);
+    expect(baseFront).toBeLessThan(KEYBOARD.z - HHKB.depth / 2);
   });
 });
 
