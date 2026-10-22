@@ -41,6 +41,10 @@ import {
   KEYBOARD,
   monitorBottomOverDesk,
   monitorFace,
+  monitorToDesk,
+  armJoints,
+  MAC,
+  MONITOR_ARM,
   chairBackZ,
   wallRibAngles,
   floorGridLines,
@@ -334,6 +338,51 @@ describe("the main monitor (U3223QE)", () => {
     const baseFront = front - MAIN_STAND.base.setBack;
     expect(baseBack).toBeGreaterThan(-PIECES.desk.depth / 2);
     expect(baseFront).toBeLessThan(KEYBOARD.z - HHKB.depth / 2);
+  });
+});
+
+describe("the upper monitor and its arm", () => {
+  const upper = MONITORS.camera;
+  const j = armJoints();
+
+  it("turns a monitor's frame yaw first, then pitch, the way its \"YXZ\" group does", () => {
+    // The main monitor is neither turned nor tipped: its frame is the desk's, moved.
+    expect(monitorToDesk("gui", [0.1, 0.2, 0.3])).toEqual([0.1, MONITORS.gui.y + 0.2, MONITORS.gui.z + 0.3]);
+    // The left one is only turned: its face swings round to the right (+X).
+    const out = monitorToDesk("video", [0, 0, 1]);
+    expect(out[0] - MONITORS.video.x).toBeCloseTo(Math.sin(MONITORS.video.yaw), 12);
+    // The upper one tips its face down, towards the seat.
+    const face = monitorToDesk("camera", [0, 0, 1]);
+    expect(face[1] - upper.y).toBeCloseTo(-Math.sin(upper.pitch), 12);
+    expect(face[2] - upper.z).toBeCloseTo(Math.cos(upper.pitch), 12);
+  });
+
+  it("stands clear above the main monitor, every corner of its frame", () => {
+    const mainTop = MONITORS.gui.y + (MONITORS.gui.bezel.height - MONITORS.gui.chin) / 2;
+    const { width, height, depth } = upper.bezel;
+    for (const x of [-width / 2, width / 2])
+      for (const z of [-depth / 2, depth / 2]) expect(monitorToDesk("camera", [x, -height / 2, z])[1]).toBeGreaterThan(mainTop + 0.02);
+  });
+
+  it("is a reversed 「く」 seen from the front: out to the right at the elbow, back in to the monitor", () => {
+    expect(j.elbow[0]).toBeGreaterThan(j.shoulder[0]);
+    expect(j.elbow[0]).toBeGreaterThan(j.wrist[0]);
+    expect(j.elbow[1]).toBeGreaterThan(j.shoulder[1]);
+    expect(j.elbow[1]).toBeLessThan(j.wrist[1]);
+    expect(j.wrist[0]).toBeGreaterThan(j.head[0]);
+  });
+
+  it("is clamped to the desk's back edge, behind where the Macintosh stands", () => {
+    expect(j.clamp[0]).toBe(MAC.x);
+    expect(j.clamp[2]).toBeLessThan(MAC.z - MAC.depth / 2);
+    expect(j.clamp[2]).toBeGreaterThan(-PIECES.desk.depth / 2);
+  });
+
+  it("holds the monitor from behind: the head is behind its back plate, the beams behind the head", () => {
+    const plateBack = MONITOR_ARM.plate.z - MONITOR_ARM.plate.thickness / 2;
+    expect(MONITOR_ARM.head[2]).toBeLessThan(plateBack);
+    expect(j.wrist[2]).toBeLessThan(j.head[2]);
+    expect(j.elbow[2]).toBeLessThan(j.wrist[2]);
   });
 });
 

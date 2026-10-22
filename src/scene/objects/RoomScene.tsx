@@ -42,6 +42,7 @@ import HologramSelf from "./HologramSelf";
 import { SecurityCameraBody, SecurityFeed } from "./SecurityCamera";
 import { DeskBody, DeskLamp, DeskMat, DeskMonitor, DeskSmalls, useDeskMaterials } from "./DeskSet";
 import MainMonitor from "./MainMonitor";
+import MonitorArm from "./MonitorArm";
 import ExgMouse from "./ExgMouse";
 import HhkbKeyboard from "./HhkbKeyboard";
 
@@ -245,7 +246,7 @@ function VideoFeed() {
   );
 }
 
-/** The lit colour each monitor shows where no HTML is drawn on it: the fisheye's view, and the two side screens. */
+/** The lit colour each monitor shows where no HTML is drawn on it: the fisheye's view, and the other two screens. */
 const MONITOR_GLOW: Record<MonitorKey, string> = { video: "#c45ad0", gui: "#1f5f9e", camera: "#3a3d3a" };
 
 /**
@@ -270,9 +271,9 @@ export function Desk({ typing }: { typing?: boolean }) {
     <Piece name="desk">
       <DeskBody m={m} />
       <DeskSmalls m={m} />
-      {/* Three monitors: video, the PC's own screen (the U3223QE), the security camera. */}
+      {/* Three monitors: video, the PC's own screen (the U3223QE), and the security camera above it on its arm. */}
       {(Object.keys(MONITORS) as MonitorKey[]).map((key) => {
-        const { x, y, z, yaw, screen } = MONITORS[key];
+        const { x, y, z, yaw, pitch, screen } = MONITORS[key];
         const glass = monitorGlass(key);
         const lit = (
           <>
@@ -288,7 +289,7 @@ export function Desk({ typing }: { typing?: boolean }) {
           </>
         );
         return (
-          <group key={key} position={[x, y, z]} rotation={[0, yaw, 0]}>
+          <group key={key} position={[x, y, z]} rotation={[pitch, yaw, 0, "YXZ"]}>
             {key === "gui" ? (
               <MainMonitor>{lit}</MainMonitor>
             ) : (
@@ -299,6 +300,7 @@ export function Desk({ typing }: { typing?: boolean }) {
           </group>
         );
       })}
+      <MonitorArm />
       {/* The keyboard and the mouse, where a seated reader's hands rest (`Self`). */}
       <DeskMat m={m} />
       <HhkbKeyboard typing={typing ?? seated} />

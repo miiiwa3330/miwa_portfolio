@@ -3,7 +3,7 @@
 import { useEffect, useMemo, type ReactNode } from "react";
 import * as THREE from "three";
 import { RoundedBox } from "@react-three/drei";
-import { DESK_MAT, MUG, PIECES, type Monitor } from "../room/layout";
+import { DESK_MAT, MONITOR_ARM, MUG, PIECES, type Monitor } from "../room/layout";
 
 /**
  * The PC's desk and everything on it, built from rounded forms rather than
@@ -190,8 +190,19 @@ export function DeskMonitor({ m, monitor, children }: { m: DeskMaterials; monito
     <>
       <Slab size={[width, height, depth]} at={[0, -monitor.chin / 2, 0]} material={m.plastic} radius={0.008} />
       <Slab size={[width * 0.66, height * 0.58, 0.04]} at={[0, 0.01, -0.035]} material={m.plastic} radius={0.016} />
-      <Plain size={[0.05, neckTop - neckBottom, 0.025]} at={[0, (neckTop + neckBottom) / 2, -0.056]} material={m.steel} />
-      <Slab size={[0.26, 0.012, 0.18]} at={[0, deskLevel + 0.006, -0.04]} material={m.steel} radius={0.005} />
+      {monitor.mount === "stand" ? (
+        <>
+          <Plain size={[0.05, neckTop - neckBottom, 0.025]} at={[0, (neckTop + neckBottom) / 2, -0.056]} material={m.steel} />
+          <Slab size={[0.26, 0.012, 0.18]} at={[0, deskLevel + 0.006, -0.04]} material={m.steel} radius={0.005} />
+        </>
+      ) : (
+        // The arm's back plate, screwed to the housing (VESA 100).
+        <Plain
+          size={[MONITOR_ARM.plate.size, MONITOR_ARM.plate.size, MONITOR_ARM.plate.thickness]}
+          at={[0, MONITOR_ARM.plate.y, MONITOR_ARM.plate.z]}
+          material={m.steel}
+        />
+      )}
       {/* The power light, in the frame under the screen's bottom right corner. */}
       <mesh position={[width / 2 - 0.011, -height / 2 + 0.01, depth / 2 + 0.0005]} material={m.led}>
         <boxGeometry args={[0.004, 0.004, 0.001]} />
