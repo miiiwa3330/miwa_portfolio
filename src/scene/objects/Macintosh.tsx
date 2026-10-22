@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { RoundedBox } from "@react-three/drei";
-import { MAC, macToDesk } from "../room/layout";
+import { MAC, MAC_CASE, macPictureCentre, macToDesk } from "../room/layout";
+import { macPointer } from "../deskPointer";
 import { roundedRectOutline } from "../room/keyboard";
 
 /**
@@ -22,12 +23,14 @@ import { roundedRectOutline } from "../room/keyboard";
  * - **The sides**: seven slots along the bottom, near the front.
  *
  * Measured in マッキントッシュ2.webp, at 3.5 px to the millimetre across the
- * front: the recess starts 19 mm under the top and is 212 × 172 mm, the glass
- * in it 196 × 152 mm; the slot is 90 mm long, 58 mm right of the middle and
+ * front (the recess, the glass and the picture are `MAC_CASE`): the slot is
+ * 90 mm long, 58 mm right of the middle and
  * 233 mm under the top; the badge is 17 mm, 81 mm left of the middle and
  * 269 mm under the top. Colours are the photo's medians (sRGB): the case
  * `#bcae7f`, the glass `#304248`. The screen shows a 512 × 342 one-bit picture
- * at the 128K's 72 dpi (180.6 × 120.7 mm) — a desktop, until the games come.
+ * at the 128K's 72 dpi (180.6 × 120.7 mm) — a desktop, until the games come —
+ * and the mouse's arrow over it, where the Mac's mouse puts it (`macPointer`;
+ * hidden while the reader's own pointer is on the screen, as the PC's is).
  *
  * **Step 1 (form).** **仮**: how far the front stands proud, the edge's
  * radius, the recess's depth and how far its inner edge sits up, the rails'
@@ -39,14 +42,9 @@ import { roundedRectOutline } from "../room/keyboard";
 
 const { width: W, height: H, depth: D } = MAC;
 const FRONT = D / 2;
-/** The front plate: its thickness, how much it stands out round the case, and its rounded edge. */
-const PLATE = { thickness: 0.03, proud: 0.004, edge: 0.008, corner: 0.014 } as const;
-const RECESS = { width: 0.212, height: 0.172, corner: 0.016, top: 0.019, depth: 0.028, lift: 0.004 } as const;
-const GLASS = { width: 0.196, height: 0.152, corner: 0.012 } as const;
-const PICTURE = { width: 0.1806, height: 0.1207, px: [512, 342] as const };
+const { plate: PLATE, recess: RECESS, glass: GLASS, picture: PICTURE, rail: RAIL } = MAC_CASE;
 const SLOT = { length: 0.09, x: 0.058, down: 0.233 } as const;
 const BADGE = { size: 0.017, x: -0.081, down: 0.269 } as const;
-const RAIL = { width: 0.085, height: 0.012, front: 0.05 } as const;
 /** The case's top, under the front plate's (which stands proud of it all round). */
 const BODY_TOP = H - 2 * PLATE.proud;
 /** The case's rounded edges, front and back. */
@@ -118,7 +116,7 @@ function path(r: Ring, shape: THREE.Path | THREE.Shape) {
  * real ones here). No maker's marks: a diamond where the maker's apple menu is.
  */
 function makeDesktop(): THREE.CanvasTexture {
-  const [w, h] = PICTURE.px;
+  const { width: w, height: h } = PICTURE.px;
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
@@ -177,18 +175,6 @@ function makeDesktop(): THREE.CanvasTexture {
   ctx.fillText(title, win.x + win.w / 2 - tw / 2, win.y + 10);
   ctx.fillRect(win.x, win.y + 19, win.w, 1);
   ["Snake", "Breakout", "Mines"].forEach((label, i) => icon(win.x + 40 + i * 100, win.y + 60, label));
-  // The arrow.
-  ctx.fillStyle = black;
-  ctx.beginPath();
-  ctx.moveTo(300, 200);
-  ctx.lineTo(300, 216);
-  ctx.lineTo(304, 212);
-  ctx.lineTo(307, 219);
-  ctx.lineTo(309, 218);
-  ctx.lineTo(306, 211);
-  ctx.lineTo(311, 211);
-  ctx.closePath();
-  ctx.fill();
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   // Sharp pixels up close; from further off, mipmaps average the one-pixel
@@ -197,6 +183,41 @@ function makeDesktop(): THREE.CanvasTexture {
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.anisotropy = 4;
+  return texture;
+}
+
+/** The mouse's arrow, 16 px square as the 128K draws it: black with a white edge, on a clear canvas. */
+const ARROW_PX = 16;
+const ARROW_SIZE = (ARROW_PX * MAC_CASE.picture.width) / MAC_CASE.picture.px.width;
+/** The picture's middle, in the Mac's frame. */
+const PICTURE_AT = macPictureCentre();
+function makeArrow(): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = ARROW_PX;
+  canvas.height = ARROW_PX;
+  const ctx = canvas.getContext("2d")!;
+  const shape = () => {
+    ctx.beginPath();
+    ctx.moveTo(1, 1);
+    ctx.lineTo(1, 13);
+    ctx.lineTo(4, 10);
+    ctx.lineTo(7, 15);
+    ctx.lineTo(9, 14);
+    ctx.lineTo(6, 9);
+    ctx.lineTo(10, 9);
+    ctx.closePath();
+  };
+  ctx.fillStyle = COLOURS.phosphor;
+  ctx.strokeStyle = COLOURS.phosphor;
+  ctx.lineWidth = 2;
+  shape();
+  ctx.stroke();
+  ctx.fillStyle = COLOURS.ink;
+  shape();
+  ctx.fill();
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.magFilter = THREE.NearestFilter;
   return texture;
 }
 
@@ -261,12 +282,11 @@ export default function Macintosh() {
       face: faceGeometry,
       recess: loft(recessRing, FRONT, glassRing, FRONT - RECESS.depth),
       glass: glassGeometry,
-      glassY: recessY + RECESS.lift,
       body: bodyGeometry,
     };
   }, []);
 
-  const textures = useMemo(() => ({ desktop: makeDesktop(), badge: makeBadge() }), []);
+  const textures = useMemo(() => ({ desktop: makeDesktop(), badge: makeBadge(), arrow: makeArrow() }), []);
   const materials = useMemo(
     () => ({
       case: new THREE.MeshStandardMaterial({ color: COLOURS.case, roughness: 0.62, metalness: 0, side: THREE.DoubleSide }),
@@ -274,6 +294,7 @@ export default function Macintosh() {
       glass: new THREE.MeshStandardMaterial({ color: COLOURS.glass, roughness: 0.12, metalness: 0.1 }),
       slot: new THREE.MeshStandardMaterial({ color: COLOURS.slot, roughness: 0.8, metalness: 0 }),
       screen: new THREE.MeshBasicMaterial({ map: textures.desktop, color: "#cfd6cc", toneMapped: false }),
+      arrow: new THREE.MeshBasicMaterial({ map: textures.arrow, color: "#cfd6cc", transparent: true, toneMapped: false }),
       badge: new THREE.MeshStandardMaterial({ map: textures.badge, roughness: 0.35, metalness: 0.2 }),
       plate: new THREE.MeshStandardMaterial({ color: "#c9cbcc", roughness: 0.35, metalness: 0.2 }),
     }),
@@ -286,6 +307,25 @@ export default function Macintosh() {
       Object.values(materials).forEach((m) => m.dispose());
     },
     [parts, textures, materials]
+  );
+
+  // The arrow follows the Mac's mouse: its tip (the canvas's top left) at the cursor's place on the picture.
+  const arrow = useRef<THREE.Mesh>(null);
+  const picture = PICTURE_AT;
+  const arrowSize = ARROW_SIZE;
+  useEffect(
+    () =>
+      macPointer.on(({ cursor, overScreen }) => {
+        const mesh = arrow.current;
+        if (!mesh) return;
+        mesh.position.set(
+          (cursor.x / PICTURE.px.width - 0.5) * PICTURE.width + arrowSize / 2,
+          picture[1] + (0.5 - cursor.y / PICTURE.px.height) * PICTURE.height - arrowSize / 2,
+          picture[2] + 0.0003
+        );
+        mesh.visible = !overScreen;
+      }),
+    [picture, arrowSize]
   );
 
   const at = macToDesk([0, 0, 0]);
@@ -301,8 +341,11 @@ export default function Macintosh() {
       <mesh geometry={parts.face} material={materials.case} />
       <mesh geometry={parts.recess} material={materials.case} />
       <mesh geometry={parts.glass} material={materials.glass} />
-      <mesh position={[0, parts.glassY, FRONT - RECESS.depth + 0.0006]} material={materials.screen}>
+      <mesh position={picture} material={materials.screen}>
         <planeGeometry args={[PICTURE.width, PICTURE.height]} />
+      </mesh>
+      <mesh ref={arrow} material={materials.arrow} raycast={() => null}>
+        <planeGeometry args={[arrowSize, arrowSize]} />
       </mesh>
 
       {/* The floppy slot: its recessed strip, the notch at its right end, the slot and the pin hole. */}

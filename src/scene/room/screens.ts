@@ -1,4 +1,8 @@
 import {
+  MAC,
+  MAC_CASE,
+  macPictureCentre,
+  macToDesk,
   MONITORS,
   PIECES,
   SUBJECTS,
@@ -82,6 +86,20 @@ export const DESK_SCREEN_PX = { width: 1400, height: 787 } as const;
 const gui = monitorFace("gui");
 const guiWidth = MONITORS.gui.screen.width;
 export const DESK_SCREEN: Panel = piecePanel("desk", gui.centre, gui.yaw, { width: guiWidth, height: (guiWidth * DESK_SCREEN_PX.height) / DESK_SCREEN_PX.width }, DESK_SCREEN_PX);
+
+/**
+ * The Macintosh's picture (`MAC_CASE.picture`), as a panel: not HTML yet — it
+ * is drawn in WebGL — but the same rectangle, so the reader's pointer can be
+ * found on it (`panelPoint`) the way it is on the PC's, and the Mac's mouse
+ * follow it there.
+ */
+export const MAC_SCREEN: Panel = piecePanel(
+  "desk",
+  macToDesk(macPictureCentre()),
+  MAC.yaw,
+  { width: MAC_CASE.picture.width, height: MAC_CASE.picture.height },
+  MAC_CASE.picture.px
+);
 
 /**
  * The hologram's text, standing in the air over the device on the desk and

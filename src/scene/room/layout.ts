@@ -403,6 +403,42 @@ export function macToDesk(local: readonly [number, number, number]): [number, nu
   return [MAC.x + local[0] * c + local[2] * s, DESK_TOP_Y + local[1], MAC.z - local[0] * s + local[2] * c];
 }
 
+/**
+ * The Mac's case and front, in its own frame (`objects/Macintosh.tsx` draws
+ * them; the screen's HTML panel, the pen pot on its top and the mouse's
+ * cursor read them too). Measured in マッキントッシュ2.webp at 3.5 px to the
+ * millimetre across the front: the screen's recess starts 19 mm under the
+ * top and is 212 × 172 mm, the glass in it 196 × 152 mm. The picture is
+ * 512 × 342 px at the 128K's 72 dpi (180.6 × 120.7 mm). **仮**: the front
+ * plate's thickness, how far it stands proud of the case and its rounded
+ * edge; the recess's depth and how far its inner edge sits up; the rails on
+ * the top.
+ */
+export const MAC_CASE = {
+  plate: { thickness: 0.03, proud: 0.004, edge: 0.008, corner: 0.014 },
+  recess: { width: 0.212, height: 0.172, corner: 0.016, top: 0.019, depth: 0.028, lift: 0.004 },
+  glass: { width: 0.196, height: 0.152, corner: 0.012 },
+  picture: { width: 0.1806, height: 0.1207, px: { width: 512, height: 342 } },
+  /** The two rails along the back of the top, their tops level with the front plate's. */
+  rail: { width: 0.085, height: 0.012, front: 0.05 },
+} as const;
+
+/** The middle of the Mac's picture, in its own frame: centred in the glass, on its face. */
+export function macPictureCentre(): [number, number, number] {
+  const { recess } = MAC_CASE;
+  return [0, MAC.height - recess.top - recess.height / 2 + recess.lift, MAC.depth / 2 - recess.depth + 0.0006];
+}
+
+/**
+ * The pen pot (`DeskSet`), on the Mac's left rail (2026-10-22, the user: 「ペン立て
+ * はマッキントッシュの上に」): its middle in the Mac's frame, standing on the
+ * rail's top, and its radius.
+ */
+export const PEN_POT = {
+  local: [-(MAC.width / 2 - MAC_CASE.plate.proud - MAC_CASE.rail.width / 2), MAC.height, -0.045] as [number, number, number],
+  radius: 0.037,
+} as const;
+
 /** How far in front of the Mac's front its keyboard's case starts (**仮**: the cord's slack, as in マッキントッシュ3). */
 const MAC_KEYBOARD_GAP = 0.025;
 
@@ -412,9 +448,11 @@ export function macKeyboardPlace(): { x: number; z: number; yaw: number } {
   return { x, z, yaw: MAC.yaw };
 }
 
-/** The arm lamp's weighted base and the pen pot, on the desk's left (`DeskSet`): their middles and radii. */
-export const DESK_LAMP_BASE = { x: -0.42, z: 0.22, radius: 0.072 } as const;
-export const PEN_POT = { x: -0.68, z: 0.28, radius: 0.037 } as const;
+/**
+ * The Mac's mouse, an M0100 (`room/macMouse.ts`): where it rests on the mat,
+ * right of the Mac's keyboard and left of the HHKB (**仮**).
+ */
+export const MAC_MOUSE = { x: -0.235, z: 0.19, y: DESK_TOP_Y } as const;
 
 /**
  * The upper monitor's arm (2026-10-22, the user: from the back of the desk's
@@ -451,6 +489,38 @@ export function armJoints(): Record<"clamp" | "shoulder" | "elbow" | "wrist" | "
     elbow: [cx + MONITOR_ARM.elbow.out, MONITOR_ARM.elbow.y, MONITOR_ARM.elbow.z],
     wrist: [head[0] + MONITOR_ARM.wrist.right, head[1], head[2] - MONITOR_ARM.wrist.back],
     head,
+  };
+}
+
+/**
+ * The arm lamp, on the upper monitor's arm (2026-10-22, the user: 「アーム
+ * ランプは上のモニターのアームスタンドに接続し、上のモニターの左側から出て
+ * いる感じ」): a bar clamped to the arm's head runs left behind the monitor;
+ * past its left edge the lamp's own two arms come out, the first up and out,
+ * the second down and forward to the shade over the desk's left. The bulb is
+ * the desk light. **仮**: every joint's place.
+ */
+export const DESK_LAMP = {
+  /** How far behind the monitor's back the bar runs, and how far past its left edge it reaches. */
+  bar: { back: 0.035, past: 0.03 },
+  elbow: [-0.5, 1.64, -0.14] as [number, number, number],
+  head: [-0.45, 1.4, -0.01] as [number, number, number],
+  /** The bulb, this far under the head, in the shade's mouth. */
+  drop: 0.08,
+} as const;
+
+/** The lamp's joints in the desk's frame: where its bar is clamped to the arm, where the bar ends and the lamp's arms begin, the elbow, the head and the bulb. */
+export function lampJoints(): Record<"clamp" | "shoulder" | "elbow" | "head" | "bulb", [number, number, number]> {
+  const head = armJoints().head;
+  const upper = MONITORS.camera;
+  const z = head[2] - DESK_LAMP.bar.back;
+  const left = upper.x - upper.bezel.width / 2 - DESK_LAMP.bar.past;
+  return {
+    clamp: [head[0], head[1], z],
+    shoulder: [left, head[1], z],
+    elbow: DESK_LAMP.elbow,
+    head: DESK_LAMP.head,
+    bulb: [DESK_LAMP.head[0], DESK_LAMP.head[1] - DESK_LAMP.drop, DESK_LAMP.head[2]],
   };
 }
 

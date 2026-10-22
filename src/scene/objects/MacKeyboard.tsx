@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { DESK_TOP_Y, MAC, macKeyboardPlace, macToDesk } from "../room/layout";
-import { roundedRectOutline } from "../room/keyboard";
+import { keySample, roundedRectOutline } from "../room/keyboard";
 import { keycapMesh, legendAtlas } from "../room/keycaps";
-import { M0110, M0110_TILT_DEG, MAC_CAPS, macKeyboardKeys, macPlaneHeightAt } from "../room/macKeyboard";
+import { M0110, M0110_TILT_DEG, MAC_CAPS, MAC_KEY_COUNT, MAC_PRESS_DIRECTION, macKeyForCode, macKeyboardKeys, macPlaneHeightAt } from "../room/macKeyboard";
 import { fillet, shapeOf, slab } from "./caseShapes";
 import { makeMacLegendTexture, makeMacLipTexture } from "./macKeyboardLegends";
+import { pressableCaps, useKeyPresses } from "./useKeyPresses";
 
 /**
  * The Macintosh's keyboard, an M0110 (`room/macKeyboard.ts`), in front of the
@@ -19,9 +20,11 @@ import { makeMacLegendTexture, makeMacLipTexture } from "./macKeyboardLegends";
  * (`keycapMesh` with the M0110's cap shape), the case from outlines
  * (`caseShapes.ts`).
  *
- * **The keys do not move yet**: they will press when the Mac's game takes
- * the keyboard (step 8, docs/devlog/202610.md). Each vertex already knows its
- * key (`aKey`), as on the HHKB.
+ * **The keys go down and sound as the HHKB's do** (`useKeyPresses`): pressed
+ * with the mouse, and with the reader's own keyboard while seated and typing
+ * on the Mac (`deskFocus` — the last machine used). It has no arrows and no
+ * F-keys; the reader's Control is its ⌘. The sound is the HHKB's recording
+ * for now (the M0110's switches are louder; **仮**).
  *
  * Colours are `reference/4/マッキントッシュ2.webp`'s medians (sRGB): the caps'
  * tops `#a4a294`, the space bar `#c1ad73`, the lip `#bea87b`.
@@ -39,6 +42,11 @@ const GROOVE_IN = 0.008;
 const CORD = { from: [-0.05, 0.012, -M0110.depth / 2] as const, to: [0.08, 0.015, MAC.depth / 2] as const, radius: 0.0045, pitch: 0.0042, wire: 0.0013 };
 
 const KEYS = macKeyboardKeys();
+const keysFor = (code: string): number[] => {
+  const key = macKeyForCode(code);
+  return key === undefined ? [] : [key];
+};
+const sampleOf = (key: number, strike: number) => keySample(KEYS[key], strike);
 const TILT = (M0110_TILT_DEG * Math.PI) / 180;
 
 /** The case: the well's floor, the rim round it with its outer top edge rounded (the same three pieces as the HHKB's case). */
@@ -113,9 +121,13 @@ function useCord(): THREE.TubeGeometry {
   return geometry;
 }
 
-export default function MacKeyboard() {
+export default function MacKeyboard({ typing }: { typing: boolean }) {
+  const caps = useRef<THREE.Mesh>(null);
+  // The shader's copy of how far each key is down, filled in place every frame.
+  const press = useMemo(() => ({ value: new Float32Array(MAC_KEY_COUNT) }), []);
+  const bind = useKeyPresses({ caps, count: MAC_KEY_COUNT, onPress: (depth) => press.value.set(depth), keysFor, sample: sampleOf, seated: typing, machine: "mac" });
   const atlas = useMemo(() => legendAtlas(KEYS, MAC_CAPS), []);
-  const caps = useMemo(() => {
+  const geometry = useMemo(() => {
     const mesh = keycapMesh(KEYS, atlas, MAC_CAPS);
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.BufferAttribute(mesh.positions, 3));
@@ -136,19 +148,24 @@ export default function MacKeyboard() {
   const cord = useCord();
   const materials = useMemo(
     () => ({
-      caps: new THREE.MeshStandardMaterial({ vertexColors: true, map: legends, roughness: 0.58, metalness: 0 }),
+      caps: pressableCaps(
+        new THREE.MeshStandardMaterial({ vertexColors: true, map: legends, roughness: 0.58, metalness: 0 }),
+        press,
+        new THREE.Vector3(...MAC_PRESS_DIRECTION).multiplyScalar(M0110.travel),
+        "m0110-keys"
+      ),
       case: new THREE.MeshStandardMaterial({ color: COLOURS.case, roughness: 0.62, metalness: 0 }),
       well: new THREE.MeshStandardMaterial({ color: COLOURS.well, roughness: 0.75, metalness: 0 }),
       groove: new THREE.MeshStandardMaterial({ color: COLOURS.groove, roughness: 0.7, metalness: 0 }),
       cord: new THREE.MeshStandardMaterial({ color: COLOURS.case, roughness: 0.55, metalness: 0 }),
     }),
-    [legends]
+    [legends, press]
   );
   useEffect(
     () => () => {
-      [caps, legends, lip, ...Object.values(materials)].forEach((x) => x.dispose());
+      [geometry, legends, lip, ...Object.values(materials)].forEach((x) => x.dispose());
     },
-    [caps, legends, lip, materials]
+    [geometry, legends, lip, materials]
   );
 
   const place = macKeyboardPlace();
@@ -170,7 +187,7 @@ export default function MacKeyboard() {
           <planeGeometry args={[0.032, 0.008]} />
           <meshStandardMaterial map={lip} transparent depthWrite={false} roughness={0.62} />
         </mesh>
-        <mesh geometry={caps} material={materials.caps} />
+        <mesh ref={caps} geometry={geometry} material={materials.caps} {...bind} />
       </group>
       <mesh geometry={cord} material={materials.cord} />
     </>

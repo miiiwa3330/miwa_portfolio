@@ -3,7 +3,7 @@
 import { useEffect, useMemo, type ReactNode } from "react";
 import * as THREE from "three";
 import { RoundedBox } from "@react-three/drei";
-import { DESK_LAMP_BASE, DESK_MAT, MONITOR_ARM, MUG, PEN_POT, PIECES, type Monitor } from "../room/layout";
+import { DESK_MAT, MAC, MONITOR_ARM, MUG, PEN_POT, PIECES, lampJoints, macToDesk, type Monitor } from "../room/layout";
 
 /**
  * The PC's desk and everything on it, built from rounded forms rather than
@@ -225,27 +225,27 @@ export function DeskMat({ m }: { m: DeskMaterials }) {
 }
 
 /**
- * The arm lamp: a weighted base, two arms on ball joints, and a conical
- * shade over `bulb` — the point the desk light shines from (`RoomScene`).
- * `on` lights the opening of the shade.
+ * The arm lamp, on the upper monitor's arm (`lampJoints`): a bar clamped to
+ * the arm's head runs left behind the monitor, and past its left edge the
+ * lamp's two arms on ball joints come out to a conical shade over the bulb —
+ * the point the desk light shines from (`RoomScene`). `on` lights the
+ * opening of the shade.
  */
-export function DeskLamp({ m, bulb, on }: { m: DeskMaterials; bulb: Vec3; on: boolean }) {
-  const { x, z } = DESK_LAMP_BASE;
-  const base: Vec3 = [x, SURFACE_Y + 0.0125, z];
-  const pivot: Vec3 = [x, SURFACE_Y + 0.03, z];
-  const elbow: Vec3 = [x, 1.14, 0.12];
-  const head: Vec3 = [x, 1.285, bulb[2] - 0.0];
+export function DeskLamp({ m, on }: { m: DeskMaterials; on: boolean }) {
+  const { clamp, shoulder, elbow, head, bulb } = lampJoints();
   const shadeHeight = 0.085;
   const glow = useMemo(() => new THREE.MeshBasicMaterial({ color: "#ffcf8a", toneMapped: false }), []);
   useEffect(() => () => glow.dispose(), [glow]);
+  const barLength = clamp[0] - shoulder[0];
   return (
     <>
-      <mesh position={base} material={m.painted}>
-        <cylinderGeometry args={[DESK_LAMP_BASE.radius - 0.007, DESK_LAMP_BASE.radius, 0.025, 28]} />
-      </mesh>
-      <Rod from={pivot} to={elbow} radius={0.007} material={m.steel} />
+      {/* The clamp on the arm's head, the square bar behind the monitor, and the knuckle the lamp turns on. */}
+      <Plain size={[0.03, 0.04, 0.03]} at={clamp} material={m.painted} />
+      <Plain size={[barLength, 0.016, 0.016]} at={[(clamp[0] + shoulder[0]) / 2, clamp[1], clamp[2]]} material={m.painted} />
+      <Plain size={[0.026, 0.026, 0.026]} at={shoulder} material={m.painted} />
+      <Rod from={shoulder} to={elbow} radius={0.007} material={m.steel} />
       <Rod from={elbow} to={head} radius={0.007} material={m.steel} />
-      <Ball at={pivot} radius={0.014} material={m.steel} />
+      <Ball at={shoulder} radius={0.014} material={m.steel} />
       <Ball at={elbow} radius={0.016} material={m.steel} />
       <mesh position={[bulb[0], bulb[1] + shadeHeight / 2, bulb[2]]} material={m.shade}>
         <cylinderGeometry args={[0.026, 0.07, shadeHeight, 28, 1, true]} />
@@ -288,7 +288,8 @@ export function DeskSmalls({ m }: { m: DeskMaterials }) {
           <torusGeometry args={[0.024, 0.005, 8, 16, Math.PI]} />
         </mesh>
       </group>
-      <group position={[PEN_POT.x, SURFACE_Y, PEN_POT.z]}>
+      {/* The pen pot on the Mac's left rail. */}
+      <group position={macToDesk(PEN_POT.local)} rotation={[0, MAC.yaw, 0]}>
         <mesh geometry={pot} material={m.painted} />
         {pens.map((pen) => (
           <mesh key={pen.color} position={[pen.x, 0.1, pen.z]} rotation={[pen.turn, 0, pen.lean]}>

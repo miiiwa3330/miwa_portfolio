@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { NAV } from "@/hub/nav";
 import { HHKB } from "./keyboard";
 import { M0110 } from "./macKeyboard";
+import { M0100, M0100_TRAVEL } from "./macMouse";
 import {
   EYE_HEIGHT,
   MIN_PIECE_GAP,
@@ -52,9 +53,11 @@ import {
   MONITOR_ARM,
   macToDesk,
   macKeyboardPlace,
-  DESK_LAMP_BASE,
   PEN_POT,
   DESK_MAT,
+  MAC_CASE,
+  MAC_MOUSE,
+  lampJoints,
   chairBackZ,
   wallRibAngles,
   floorGridLines,
@@ -429,8 +432,6 @@ describe("the Macintosh and its keyboard", () => {
   const mac = footprint(MAC.x, MAC.z, MAC.yaw, MAC.width, MAC.depth);
   const place = macKeyboardPlace();
   const board = footprint(place.x, place.z, place.yaw, M0110.width, M0110.depth);
-  /** How far a point is outside a circle (negative inside). */
-  const outside = (p: readonly [number, number], c: { x: number; z: number; radius: number }) => Math.hypot(p[0] - c.x, p[1] - c.z) - c.radius;
   /** The nearest distance from a circle's middle to a convex footprint's edges, less its radius. */
   const clearance = (corners: (readonly [number, number])[], c: { x: number; z: number; radius: number }) => {
     const ring = [corners[0], corners[1], corners[3], corners[2]];
@@ -465,14 +466,56 @@ describe("the Macintosh and its keyboard", () => {
     expect(place.z).toBeGreaterThan(macFront);
   });
 
-  it("crowds the lamp's base and the pen pot without standing on them, and keeps off the desk mat and the HHKB", () => {
-    for (const thing of [DESK_LAMP_BASE, PEN_POT]) {
-      expect(clearance(board, thing)).toBeGreaterThan(0.005);
-      expect(clearance(mac, thing)).toBeGreaterThan(0.005);
-      for (const corner of board) expect(outside(corner, thing)).toBeGreaterThan(0);
-    }
+  it("keeps its keyboard off the desk mat and the HHKB", () => {
     for (const [x] of board) expect(x).toBeLessThan(DESK_MAT.x - DESK_MAT.width / 2 - 0.003);
     for (const [x] of board) expect(x).toBeLessThan(KEYBOARD.x - HHKB.width / 2);
+  });
+
+  it("carries the pen pot on its left rail", () => {
+    const [x, y, z] = PEN_POT.local;
+    const { rail, plate } = MAC_CASE;
+    const railLeft = -MAC.width / 2 + plate.proud;
+    const railBack = -MAC.depth / 2;
+    const railFront = MAC.depth / 2 - plate.thickness - rail.front;
+    expect(x - PEN_POT.radius).toBeGreaterThanOrEqual(railLeft);
+    expect(x + PEN_POT.radius).toBeLessThanOrEqual(railLeft + rail.width);
+    expect(z - PEN_POT.radius).toBeGreaterThanOrEqual(railBack);
+    expect(z + PEN_POT.radius).toBeLessThanOrEqual(railFront);
+    expect(y).toBe(MAC.height);
+  });
+
+  it("has its mouse slide clear of both keyboards, round where it rests", () => {
+    // Every place the mouse can reach, grown by half its size: the rectangle it sweeps.
+    const halfX = M0100_TRAVEL.width / 2 + M0100.width / 2;
+    const halfZ = M0100_TRAVEL.depth / 2 + M0100.length / 2;
+    const sweep = { minX: MAC_MOUSE.x - halfX, maxX: MAC_MOUSE.x + halfX, minZ: MAC_MOUSE.z - halfZ, maxZ: MAC_MOUSE.z + halfZ };
+    // The Mac's keyboard: none of its corners inside the sweep, and the sweep's corners outside its footprint (both are convex).
+    const inside = (p: readonly [number, number]) => p[0] > sweep.minX && p[0] < sweep.maxX && p[1] > sweep.minZ && p[1] < sweep.maxZ;
+    for (const corner of board) expect(inside(corner)).toBe(false);
+    for (const x of [sweep.minX, sweep.maxX])
+      for (const z of [sweep.minZ, sweep.maxZ]) expect(clearance(board, { x, z, radius: 0 })).toBeGreaterThan(0);
+    // The HHKB: entirely to the right.
+    expect(sweep.maxX).toBeLessThan(KEYBOARD.x - HHKB.width / 2);
+    expect(sweep.maxZ).toBeLessThan(PIECES.desk.depth / 2);
+  });
+});
+
+describe("the arm lamp", () => {
+  const j = lampJoints();
+  const upper = MONITORS.camera;
+
+  it("hangs off the upper monitor's arm, behind the monitor, and comes out past its left edge", () => {
+    const head = armJoints().head;
+    expect(j.clamp[0]).toBeCloseTo(head[0], 12);
+    expect(j.clamp[2]).toBeLessThan(head[2]);
+    expect(j.shoulder[0]).toBeLessThan(upper.x - upper.bezel.width / 2);
+    expect(j.shoulder[1]).toBeCloseTo(j.clamp[1], 12);
+  });
+
+  it("lights the desk's left from in front of the monitors, left of the main screen", () => {
+    expect(j.bulb[2]).toBeGreaterThan(monitorFace("gui").centre[2]);
+    expect(j.bulb[0]).toBeLessThan(-MONITORS.gui.bezel.width / 2);
+    expect(j.bulb[1]).toBeGreaterThan(MAC.height + KEYBOARD.y + 0.15);
   });
 });
 

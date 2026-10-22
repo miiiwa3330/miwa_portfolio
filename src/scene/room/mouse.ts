@@ -1100,45 +1100,54 @@ export function buttonsHeld(mask: number): MouseButton[] {
 }
 
 /**
- * Where the mouse may go on the mat, and what that does on the PC's screen:
- * the screen is mapped onto a rectangle of the mat around where the mouse
- * rests (its middle is the screen's middle), the screen's proportions, so
- * every place of the mouse is one place of the cursor and back — the two
- * ways of moving the cursor (the reader's own pointer over the screen, and
- * dragging the mouse on the desk) can never disagree about where the mouse
- * is. **Provisional (仮)** size, 14 cm wide: clear of the keyboard's right
- * end and of the mug, and on the mat (`layout.test`).
+ * A mouse's travel on the desk mapped onto a screen: the screen is laid on a
+ * rectangle of the mat round where the mouse rests (its middle is the
+ * screen's middle), in the screen's proportions, so every place of the mouse
+ * is one place of the cursor and back — the two ways of moving the cursor
+ * (the reader's own pointer over the screen, and sliding the mouse on the
+ * desk) can never disagree about where the mouse is. Towards the reader is
+ * down the screen.
  */
-export const MOUSE_TRAVEL = { width: 0.14, depth: (0.14 * DESK_SCREEN_PX.height) / DESK_SCREEN_PX.width } as const;
+export type TravelMapping = {
+  travel: { width: number; depth: number };
+  px: { width: number; height: number };
+  /** The mouse's offset from where it rests, kept inside its travel. */
+  clampTravel: (offset: readonly [number, number]) => [number, number];
+  /** The cursor's place on the screen (px from its top left) for the mouse moved `offset` from rest. */
+  cursorFromMouse: (offset: readonly [number, number]) => { x: number; y: number };
+  /** A place kept on the screen. */
+  clampCursor: (cursor: { x: number; y: number }) => { x: number; y: number };
+  /** `cursorFromMouse` backwards. */
+  mouseFromCursor: (cursor: { x: number; y: number }) => [number, number];
+};
 
-/** The mouse's offset from where it rests, kept inside its travel. */
-export function clampTravel([dx, dz]: readonly [number, number]): [number, number] {
-  const hw = MOUSE_TRAVEL.width / 2;
-  const hd = MOUSE_TRAVEL.depth / 2;
-  return [Math.min(hw, Math.max(-hw, dx)), Math.min(hd, Math.max(-hd, dz))];
-}
-
-/** The cursor's place on the PC's screen (CSS px from its top left) for the mouse moved `offset` from rest. Towards the reader is down. */
-export function cursorFromMouse(offset: readonly [number, number]): { x: number; y: number } {
-  const [dx, dz] = clampTravel(offset);
+export function travelMapping(travel: { width: number; depth: number }, px: { width: number; height: number }): TravelMapping {
+  const clampTravel = ([dx, dz]: readonly [number, number]): [number, number] => {
+    const hw = travel.width / 2;
+    const hd = travel.depth / 2;
+    return [Math.min(hw, Math.max(-hw, dx)), Math.min(hd, Math.max(-hd, dz))];
+  };
   return {
-    x: (dx / MOUSE_TRAVEL.width + 0.5) * DESK_SCREEN_PX.width,
-    y: (dz / MOUSE_TRAVEL.depth + 0.5) * DESK_SCREEN_PX.height,
+    travel,
+    px,
+    clampTravel,
+    cursorFromMouse: (offset) => {
+      const [dx, dz] = clampTravel(offset);
+      return { x: (dx / travel.width + 0.5) * px.width, y: (dz / travel.depth + 0.5) * px.height };
+    },
+    clampCursor: ({ x, y }) => ({ x: Math.min(px.width, Math.max(0, x)), y: Math.min(px.height, Math.max(0, y)) }),
+    mouseFromCursor: (cursor) => clampTravel([(cursor.x / px.width - 0.5) * travel.width, (cursor.y / px.height - 0.5) * travel.depth]),
   };
 }
 
-/** A place kept on the PC's screen. */
-export function clampCursor({ x, y }: { x: number; y: number }): { x: number; y: number } {
-  return { x: Math.min(DESK_SCREEN_PX.width, Math.max(0, x)), y: Math.min(DESK_SCREEN_PX.height, Math.max(0, y)) };
-}
-
-/** `cursorFromMouse` backwards. */
-export function mouseFromCursor(cursor: { x: number; y: number }): [number, number] {
-  return clampTravel([
-    (cursor.x / DESK_SCREEN_PX.width - 0.5) * MOUSE_TRAVEL.width,
-    (cursor.y / DESK_SCREEN_PX.height - 0.5) * MOUSE_TRAVEL.depth,
-  ]);
-}
+/**
+ * The EX-G's travel and the PC's screen. **Provisional (仮)** size, 14 cm
+ * wide: clear of the keyboard's right end and of the mug, and on the mat
+ * (`layout.test`).
+ */
+export const MOUSE_TRAVEL = { width: 0.14, depth: (0.14 * DESK_SCREEN_PX.height) / DESK_SCREEN_PX.width } as const;
+export const EXG_MAPPING = travelMapping(MOUSE_TRAVEL, DESK_SCREEN_PX);
+export const { clampTravel, cursorFromMouse, clampCursor, mouseFromCursor } = EXG_MAPPING;
 
 /**
  * Picking the mouse up to slide it: hold still on it this long (seconds)

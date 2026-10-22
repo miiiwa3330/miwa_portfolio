@@ -189,6 +189,9 @@ export function macPlaneHeightAt(z: number, offset: number): number {
   return PLATE_BASE + offset / Math.cos(TILT) - z * Math.tan(TILT);
 }
 
+/** Which way a key travels when pressed, in the keyboard's frame: down the plate's normal. */
+export const MAC_PRESS_DIRECTION: readonly [number, number, number] = [0, -Math.cos(TILT), -Math.sin(TILT)];
+
 export const MAC_CAPS: CapShape = {
   capFoot,
   capTop,

@@ -7,7 +7,7 @@ import {
   BOARD_FRAME,
   MONITORS,
   monitorGlass,
-  DESK_LAMP_BASE,
+  lampJoints,
   PIECES,
   ROOM_RADIUS,
   SUBJECTS,
@@ -47,6 +47,8 @@ import MonitorArm from "./MonitorArm";
 import Kickstand from "./Kickstand";
 import Macintosh from "./Macintosh";
 import MacKeyboard from "./MacKeyboard";
+import MacMouse from "./MacMouse";
+import { setDeskFocus } from "../deskFocus";
 import ExgMouse from "./ExgMouse";
 import HhkbKeyboard from "./HhkbKeyboard";
 
@@ -276,6 +278,10 @@ export function Desk({ typing }: { typing?: boolean }) {
   const projecting = activeSection === "about";
   const seated = activeSection === "desk";
   const lamp = lights.desk;
+  // Standing up hands the reader's keyboard back to the PC (`deskFocus`).
+  useEffect(() => {
+    if (!seated) setDeskFocus("pc");
+  }, [seated]);
   const m = useDeskMaterials();
   // Where the cone of light meets the bottom of the text.
   const beamTop = SUBJECTS.about.local[1] - HOLOGRAM_PANEL.height / 2;
@@ -315,7 +321,8 @@ export function Desk({ typing }: { typing?: boolean }) {
       <MonitorArm />
       <Kickstand />
       <Macintosh />
-      <MacKeyboard />
+      <MacKeyboard typing={typing ?? seated} />
+      <MacMouse typing={typing ?? seated} />
       {/* The keyboard and the mouse, where a seated reader's hands rest (`Self`). */}
       <DeskMat m={m} />
       <HhkbKeyboard typing={typing ?? seated} />
@@ -340,7 +347,7 @@ export function Desk({ typing }: { typing?: boolean }) {
         />
       </mesh>
       {/* Desk lamp (the "desk light" the lighting requirement switches). */}
-      <DeskLamp m={m} bulb={DESK_LAMP_BULB} on={lamp} />
+      <DeskLamp m={m} on={lamp} />
       <Chair />
     </Piece>
   );
@@ -765,7 +772,7 @@ export function Workbench({ neon }: { neon: NeonTheme }) {
 }
 
 /** Where the desk lamp's bulb is, in the desk's frame — its light shines from there. */
-const DESK_LAMP_BULB: [number, number, number] = [DESK_LAMP_BASE.x, 1.205, -0.06];
+const DESK_LAMP_BULB = lampJoints().bulb;
 
 /**
  * The switch plate by the door: three buttons, top to bottom the ceiling
