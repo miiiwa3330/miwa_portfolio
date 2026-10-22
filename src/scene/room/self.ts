@@ -85,9 +85,14 @@ const scale = (a: Vec3, k: number): Vec3 => [a[0] * k, a[1] * k, a[2] * k];
 const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const mix = (a: Vec3, b: Vec3, t: number): Vec3 => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
-/** Where the hands rest at the desk: the left on the keyboard, the right on the mouse. */
-export function deskHands(): [Vec3, Vec3] {
-  return [pieceToWorld(PIECES.desk, DESK_HANDS[0]), pieceToWorld(PIECES.desk, DESK_HANDS[1])];
+/**
+ * Where the hands rest at the desk: the left on the keyboard, the right on
+ * the mouse — which slides (`mouse`, its offset from rest in the desk's
+ * frame, `deskPointer`), and the hand goes with it.
+ */
+export function deskHands(mouse: readonly [number, number] = [0, 0]): [Vec3, Vec3] {
+  const [x, y, z] = DESK_HANDS[1];
+  return [pieceToWorld(PIECES.desk, DESK_HANDS[0]), pieceToWorld(PIECES.desk, [x + mouse[0], y, z + mouse[1]])];
 }
 
 /**
@@ -122,7 +127,12 @@ export function bendLeg(hip: Vec3, target: Vec3, pole: Vec3): { knee: Vec3; foot
  * (`room/gait.ts`); `sat` is how far through sitting down at the PC the
  * reader is, worked out from the held pose (`seatShare`).
  */
-export function bodyJoints(pose: RoomPose, gait: Gait = STANDING, sat: number = seatShare(pose)): BodyJoints {
+export function bodyJoints(
+  pose: RoomPose,
+  gait: Gait = STANDING,
+  sat: number = seatShare(pose),
+  mouse: readonly [number, number] = [0, 0]
+): BodyJoints {
   // The eye with the head held level: the body hangs from there, and the
   // head leaning forward to look down (`headLean`) does not take it along.
   const [fx, fz] = horizontalAt(pose.yaw / (Math.PI / 180));
@@ -154,7 +164,7 @@ export function bodyJoints(pose: RoomPose, gait: Gait = STANDING, sat: number = 
       inBody([-steps[i].offset[0] * ARM_SWING * 0.3, -steps[i].offset[1] * ARM_SWING])
     )
   ) as [Vec3, Vec3];
-  const resting = deskHands();
+  const resting = deskHands(mouse);
   const arms = shoulders.map((s, i) => {
     const side = i === 0 ? -1 : 1;
     // Elbows bend back and out, and down at the desk.

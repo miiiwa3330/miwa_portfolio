@@ -42,7 +42,8 @@ import Self from "./Self";
 import CurveMirror from "./CurveMirror";
 import HologramSelf from "./HologramSelf";
 import { SecurityCameraBody, SecurityFeed } from "./SecurityCamera";
-import { DeskBody, DeskLamp, DeskMonitor, DeskMouse, DeskSmalls, useDeskMaterials } from "./DeskSet";
+import { DeskBody, DeskLamp, DeskMat, DeskMonitor, DeskSmalls, useDeskMaterials } from "./DeskSet";
+import ExgMouse from "./ExgMouse";
 import HhkbKeyboard from "./HhkbKeyboard";
 
 /**
@@ -247,8 +248,9 @@ function VideoFeed() {
 const MONITOR_GLOW: Record<MonitorKey, string> = { video: "#c45ad0", gui: "#1f5f9e", camera: "#3a3d3a" };
 
 /**
- * The desk and the PC. `typing` makes the keyboard follow the reader's own
- * keys and clicks; by default, while the reader sits at the PC.
+ * The desk and the PC. `typing` makes the keyboard and the mouse follow the
+ * reader's own keys, pointer and clicks; by default, while the reader sits at
+ * the PC.
  */
 export function Desk({ typing }: { typing?: boolean }) {
   const pcX = SUBJECTS.desk.local[0];
@@ -287,8 +289,9 @@ export function Desk({ typing }: { typing?: boolean }) {
         );
       })}
       {/* The keyboard and the mouse, where a seated reader's hands rest (`Self`). */}
+      <DeskMat m={m} />
       <HhkbKeyboard typing={typing ?? seated} />
-      <DeskMouse m={m} />
+      <ExgMouse typing={typing ?? seated} />
       {/* The hologram's device. Idle, it projects the reader themselves, turning
           (`HologramSelf`); focused, it projects the self-introduction instead — the text is
           HTML in front of the canvas (`HOLOGRAM_PANEL`), and a cone of light

@@ -26,6 +26,7 @@ import { adjacentSection } from "@/scene/room/tour";
 import Sheet from "@/detail/Sheet";
 import { RoomHtmlLayer, RoomPanel } from "./room/RoomHtml";
 import DeskScreen from "./desk/DeskScreen";
+import ScreenCursor from "./desk/ScreenCursor";
 import { DESK_SCREEN, HOLOGRAM_PANEL } from "@/scene/room/screens";
 import { exitDirectionFor, type ExitDirection } from "@/detail/detailSheet";
 
@@ -308,6 +309,7 @@ export default function Hub() {
       <RoomHtmlLayer className="z-[5]">
         <RoomPanel panel={DESK_SCREEN} interactive={seated}>
           <DeskScreen isJa={isJa} onLeave={() => closeToHome("down", false)} openTerminal={openTerminal} />
+          <ScreenCursor />
         </RoomPanel>
       </RoomHtmlLayer>
 

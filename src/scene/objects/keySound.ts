@@ -1,14 +1,17 @@
 import { hash01 } from "../hash";
 import { KEY_SAMPLES, keySampleUrl, type KeySample, type KeySampleGroup } from "../room/keyboard";
+import { MOUSE_CLICKS, mouseSampleUrl } from "../room/mouse";
 
 /**
- * The keyboard's sound: recorded presses of an HHKB (`keySample`,
- * `room/keyboard.ts` says whose, and the licence), played with Web Audio —
- * the key going down on a press, coming back up on the release.
+ * The desk's sound: recorded presses of an HHKB (`keySample`,
+ * `room/keyboard.ts` says whose, and the licence) and clicks of a mouse from
+ * the same pack (`mouseSample`), played with Web Audio — the key or the
+ * button going down on a press, coming back up on the release.
  *
- * The clips (26, about 47 KB) are not fetched with the page — most visitors
- * never touch the keys — but once the reader sits at the PC
- * (`prefetchKeySound`), so the first key already has them. Browsers start
+ * The clips (26 for the keys, about 47 KB, and 16 for the mouse, about
+ * 23 KB) are not fetched with the page — most visitors never touch the desk
+ * — but once the reader sits at the PC (`prefetchKeySound`), so the first
+ * key or click already has them. Browsers start
  * audio only from a gesture (and warn about a context made before one), so
  * the context is made, and the clips decoded, by `wakeKeySound`, called from
  * the press handlers themselves; until they are decoded, `playKey` is silent.
@@ -16,6 +19,8 @@ import { KEY_SAMPLES, keySampleUrl, type KeySample, type KeySampleGroup } from "
 
 /** How loud the keyboard is, overall (**仮**). The clips' presses peak near −3 dBFS; this puts them near −12. */
 const VOLUME = 0.35;
+/** How loud the mouse is (**仮**): its clips peak at −10 dBFS, and a click under the palm is quieter than a key — this puts it near −19. */
+const MOUSE_VOLUME = 0.35;
 /** Each play is a little off the last: up to this much in pitch (fraction) and level (dB). */
 const JITTER = { rate: 0.03, db: 1.5 } as const;
 
@@ -30,6 +35,7 @@ function clipUrls(): string[] {
   for (const group of Object.keys(KEY_SAMPLES) as KeySampleGroup[]) {
     for (let n = 1; n <= KEY_SAMPLES[group]; n++) for (const part of ["down", "up"] as const) urls.push(keySampleUrl({ group, n }, part));
   }
+  for (let n = 1; n <= MOUSE_CLICKS; n++) for (const part of ["down", "up"] as const) urls.push(mouseSampleUrl(n, part));
   return urls;
 }
 
@@ -75,19 +81,27 @@ const LATE = 0.15;
 
 /** Play a key going `down`, or coming back `up`. */
 export function playKey(sample: KeySample, part: "down" | "up"): void {
+  playClip(keySampleUrl(sample, part), VOLUME);
+}
+
+/** Play one of the mouse's recorded clicks (`mouseSample`) going `down`, or coming back `up`. */
+export function playMouse(n: number, part: "down" | "up"): void {
+  playClip(mouseSampleUrl(n, part), MOUSE_VOLUME);
+}
+
+function playClip(url: string, volume: number): void {
   if (!audio) return;
-  const url = keySampleUrl(sample, part);
   if (!clips.has(url)) {
     const asked = audio.currentTime;
     void decoding?.then(() => {
-      if (audio && audio.currentTime - asked <= LATE) play(audio, url);
+      if (audio && audio.currentTime - asked <= LATE) play(audio, url, volume);
     });
     return;
   }
-  play(audio, url);
+  play(audio, url, volume);
 }
 
-function play(context: AudioContext, url: string): void {
+function play(context: AudioContext, url: string, volume: number): void {
   const buffer = clips.get(url);
   if (!buffer || context.state !== "running") return;
   plays++;
@@ -95,7 +109,7 @@ function play(context: AudioContext, url: string): void {
   source.buffer = buffer;
   source.playbackRate.value = 1 + (hash01(plays * 2) - 0.5) * 2 * JITTER.rate;
   const gain = context.createGain();
-  gain.gain.value = VOLUME * 10 ** (((hash01(plays * 2 + 1) - 0.5) * 2 * JITTER.db) / 20);
+  gain.gain.value = volume * 10 ** (((hash01(plays * 2 + 1) - 0.5) * 2 * JITTER.db) / 20);
   source.connect(gain).connect(context.destination);
   source.onended = () => gain.disconnect();
   source.start();

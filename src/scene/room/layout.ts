@@ -313,10 +313,17 @@ export function zoomView(stop: Stop, hfovDeg: number = STANDARD_HFOV): RoomView 
  * 8 cm out from the desk's middle, close enough under the screen that a
  * seated reader sees both their hands and the whole screen at once.
  * `KEYBOARD` is where it stands: the middle of its case, on the desk's top
- * (`y`). Its size is the HHKB's (`room/keyboard.ts`).
+ * (`y`). Its size is the HHKB's (`room/keyboard.ts`). `MOUSE` likewise:
+ * where the mouse rests, the middle of its outline on the desk's top — it
+ * slides from there (`MOUSE_TRAVEL`, `room/mouse.ts`), and the right hand
+ * goes with it.
  */
 export const KEYBOARD = { x: 0, z: 0.08, y: 0.775 } as const;
-export const MOUSE = { x: 0.36, z: 0.1, y: 0.79 } as const;
+export const MOUSE = { x: 0.36, z: 0.1, y: 0.775 } as const;
+/** The mug's coaster on the desk, right of the mouse (the mouse's travel keeps clear of it). */
+export const MUG = { x: 0.55, z: 0.2, radius: 0.052 } as const;
+/** The mat under the keyboard and the mouse: its middle and size. */
+export const DESK_MAT = { x: 0.1, z: 0.09, width: 0.8, depth: 0.3 } as const;
 export const HAND_Y = 0.82;
 /**
  * Where the seated hands rest, in the desk's frame: the left on the near

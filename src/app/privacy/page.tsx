@@ -145,7 +145,7 @@ export default function PrivacyPage() {
             </p>
             <p className="mt-3">
               <span className="font-semibold">使用している素材:</span>{" "}
-              トップページの部屋にあるキーボードの打鍵音は、Makoto Hiramatsu「
+              トップページの部屋にあるキーボードの打鍵音とマウスのクリック音は、Makoto Hiramatsu「
               <a
                 href="https://makotohiramatsu.itch.io/press-click-free"
                 target="_blank"
@@ -163,7 +163,7 @@ export default function PrivacyPage() {
               >
                 CC BY 4.0
               </a>
-              のもとで使用しています。当サイトで、1打ずつの切り出し・音量の調整・MP3 への変換を行っています。
+              のもとで使用しています。当サイトで、1打ずつ（押す音と離す音）の切り出し・音量の調整・MP3 への変換を行っています。
             </p>
           </section>
 

@@ -3,12 +3,12 @@
 import { useEffect, useMemo, type ReactNode } from "react";
 import * as THREE from "three";
 import { RoundedBox } from "@react-three/drei";
-import { MONITOR_BEZEL, MONITOR_Y, MOUSE, PIECES } from "../room/layout";
+import { DESK_MAT, MONITOR_BEZEL, MONITOR_Y, MUG, PIECES } from "../room/layout";
 
 /**
  * The PC's desk and everything on it, built from rounded forms rather than
  * bare boxes: a steel-edged top on a drawer unit either side, three monitors
- * on stands, a mouse on a desk mat (the keyboard is `HhkbKeyboard`), an arm lamp, a mug and a pen pot. **Step 1 of the PC's build-up
+ * on stands, a desk mat (the keyboard is `HhkbKeyboard`, the mouse `ExgMouse`), an arm lamp, a mug and a pen pot. **Step 1 of the PC's build-up
  * (form): materials are plain colours — the wear and printed labels come in
  * the next step.**
  *
@@ -201,17 +201,15 @@ export function DeskMonitor({ m, children }: { m: DeskMaterials; children?: Reac
   );
 }
 
-/** The mouse, its mat under the keyboard and mouse, and nothing else that moves. */
-export function DeskMouse({ m }: { m: DeskMaterials }) {
+/** The mat under the keyboard and the mouse (`DESK_MAT`). */
+export function DeskMat({ m }: { m: DeskMaterials }) {
   return (
-    <>
-      <Slab size={[0.8, 0.003, 0.3]} at={[0.1, SURFACE_Y + 0.0015 - 0.0, 0.09]} material={m.mat} radius={0.0012} />
-      <Slab size={[0.06, 0.03, 0.1]} at={[MOUSE.x, MOUSE.y, MOUSE.z]} material={m.plastic} radius={0.013} />
-      <Plain size={[0.0015, 0.0012, 0.04]} at={[MOUSE.x, MOUSE.y + 0.0156, MOUSE.z - 0.025]} material={m.dark} />
-      <mesh position={[MOUSE.x, MOUSE.y + 0.0158, MOUSE.z - 0.022]} rotation={[0, 0, Math.PI / 2]} material={m.steel}>
-        <cylinderGeometry args={[0.0055, 0.0055, 0.008, 12]} />
-      </mesh>
-    </>
+    <Slab
+      size={[DESK_MAT.width, 0.003, DESK_MAT.depth]}
+      at={[DESK_MAT.x, SURFACE_Y + 0.0015, DESK_MAT.z]}
+      material={m.mat}
+      radius={0.0012}
+    />
   );
 }
 
@@ -266,10 +264,10 @@ export function DeskSmalls({ m }: { m: DeskMaterials }) {
   );
   return (
     <>
-      <mesh position={[0.55, SURFACE_Y + 0.002, 0.2]} material={m.dark}>
-        <cylinderGeometry args={[0.052, 0.052, 0.004, 28]} />
+      <mesh position={[MUG.x, SURFACE_Y + 0.002, MUG.z]} material={m.dark}>
+        <cylinderGeometry args={[MUG.radius, MUG.radius, 0.004, 28]} />
       </mesh>
-      <group position={[0.55, SURFACE_Y + 0.004, 0.2]}>
+      <group position={[MUG.x, SURFACE_Y + 0.004, MUG.z]}>
         <mesh geometry={mug} material={m.ceramic} />
         <mesh position={[0, 0.088, 0]} rotation={[-Math.PI / 2, 0, 0]} material={m.coffee}>
           <circleGeometry args={[0.036, 24]} />

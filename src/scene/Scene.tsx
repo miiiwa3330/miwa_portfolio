@@ -266,6 +266,9 @@ function useViewInput(
 
     const onPointerMove = (e: PointerEvent) => {
       if (locked()) return;
+      // A gesture an object in the room took (a key held down, the mouse slid
+      // on the desk) is that object's: it does not turn the view as well.
+      if (pointerClaim.isClaimed(e.pointerId)) return;
       if (captured()) {
         // The same turn on the held angles and their targets: the aim moves
         // with the hand, and a wheel's glide still under way carries on.

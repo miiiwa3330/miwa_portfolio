@@ -81,6 +81,7 @@
 - **座っているあいだは canvas がポインタを通し、後ろの PC の画面が受ける**
 - **PC はカードを持たない。** 正面のあいだはカード・点線・レールを出さず、カードの送りは PC を飛ばす
 - 左のモニターは動画（今は手続きのループ）、右のモニターは天井近くの監視カメラの映像（下の「自分自身」）
+- **机のキーボードとマウスは本物のように動く**（2026-10-22）。キーボードは HHKB Professional2（ロゴは「Miiiwa Professional3」）、マウスは ELECOM EX-G の S サイズ（ロゴは「Miiiwa」）。どちらも押すと沈んで録音の音が鳴る（Press & Click FREE、CC BY 4.0）。マウスは部品ごとに本当に割ってある（上の殻・本体・サイドボタン・DPI ボタン、幅0.6mm の割れ目）。**マウスは机の上を滑り、PC の画面のカーソルと一対一に対応する**: 読み手のポインタが PC の画面の上にあるときだけ、机のマウスがその位置へ動き、読み手のクリックとスクロールが机のマウスのボタンとホイールを動かす。机のマウスを長押しして滑らせると、画面に描いたカーソル（`hub/desk/ScreenCursor.tsx`）が動く。右手はマウスについて行く。不変条件と経緯は [scene-invariants.md](scene-invariants.md) の「描画」
 
 ### 自己紹介はホログラム
 
@@ -177,7 +178,7 @@
 **`<Canvas>` より上のコンテキストが変わると、three.js のツリー全体が React に再調停される。** R3F 9 の `CanvasImpl` の setup effect には**依存配列が無く**、再レンダーのたびに `configure()` と `root.render(children)` が走る——部屋の家具・体・照明が毎回そこを通る。
 
 - **`React.memo` では止められない。** `its-fine` の `useContextBridge`（R3F がコンテキストをリコンサイラ境界の向こうへ運ぶ仕組み）は `CanvasImpl` のレンダー中に上位の全コンテキストを `use()` で購読するので、props が変わらなくても Canvas は再レンダーする。しかも memo すると今度は `CameraController` が `activeSection` の変化を受け取れなくなる——Bridge は `root.render` 経由でしか新しい値を運ばないため。**打てる手は「Canvas より上のコンテキストが変わる回数を減らす」しかない。**
-- そのため、毎フレームまたは頻繁に変わる値は**購読チャンネル**（プレーンなモジュール＋リスナーの `Set`）で運ぶ。現在3つ: `scene/camera/viewChannel.ts`（カメラの姿勢と画面の大きさ。HTML を3Dに置く層とレンズの描画が読む）、`scene/camera/markerScreen.ts`（マーカーの画面座標）、`state/facingChannel.ts`（正面の停留所）。**照明の状態は Context に置いている**——切り替えは読み手の操作でしか起きず、そのたびの再調停は問題にならない。
+- そのため、毎フレームまたは頻繁に変わる値は**購読チャンネル**（プレーンなモジュール＋リスナーの `Set`）で運ぶ。現在4つ: `scene/camera/viewChannel.ts`（カメラの姿勢と画面の大きさ。HTML を3Dに置く層とレンズの描画が読む）、`scene/camera/markerScreen.ts`（マーカーの画面座標）、`state/facingChannel.ts`（正面の停留所）、`scene/deskPointer.ts`（机のマウスの位置と PC の画面のカーソル。カーソルの絵と座った右手が読む）。**照明の状態は Context に置いている**——切り替えは読み手の操作でしか起きず、そのたびの再調停は問題にならない。
 - **`facing` の読み手は3種類に分かれる**: `SectionCard` は `useSyncExternalStore` で購読（表示するので再レンダーが要る）、`SectionMarkers` は `useFrame` の中で `facingNow()` を読む（描くだけなので再レンダー不要）、`Hub` はハンドラが発火した時点で読む（`cardSection()`）。`AppStateContext` に置いていた頃は1ラップに5回、シーン全体の再調停を起こしていた。
 - `AppStateContext` の value は `useMemo` で包んである。
 

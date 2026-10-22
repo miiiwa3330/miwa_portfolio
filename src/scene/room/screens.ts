@@ -100,3 +100,23 @@ const holo = SUBJECTS.about.local;
 // desk's distance; turn the panel's face to it.
 const holoYaw = Math.atan2(-holo[0], pieceCentreDistance(PIECES.desk) - holo[2]);
 export const HOLOGRAM_PANEL: Panel = piecePanel("desk", [holo[0], holo[1], holo[2]], holoYaw, HOLOGRAM_SIZE, HOLOGRAM_PX);
+
+/**
+ * Where a ray from `origin` along `dir` (world) meets a panel, in the
+ * panel's CSS px from its top left — or null if it misses: parallel, behind
+ * the origin, from behind the panel, or outside its rectangle. The mouse
+ * uses it to put the PC's cursor under the reader's own pointer.
+ */
+export function panelPoint(panel: Panel, origin: Vec3, dir: Vec3): { x: number; y: number } | null {
+  const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const facing = dot(dir, panel.normal);
+  if (facing >= 0) return null;
+  const toCentre: Vec3 = [panel.centre[0] - origin[0], panel.centre[1] - origin[1], panel.centre[2] - origin[2]];
+  const t = dot(toCentre, panel.normal) / facing;
+  if (t <= 0) return null;
+  const hit: Vec3 = [origin[0] + dir[0] * t - panel.centre[0], origin[1] + dir[1] * t - panel.centre[1], origin[2] + dir[2] * t - panel.centre[2]];
+  const across = dot(hit, panel.right) / panel.width + 0.5;
+  const down = 0.5 - dot(hit, panel.up) / panel.height;
+  if (across < 0 || across > 1 || down < 0 || down > 1) return null;
+  return { x: across * panel.pxWidth, y: down * panel.pxHeight };
+}

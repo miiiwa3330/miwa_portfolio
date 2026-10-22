@@ -9,17 +9,17 @@
 | `scene/Scene.tsx` | キャンバスとカメラの制御。**行き先を決める effect はここ1つだけ**（[scene-invariants.md](scene-invariants.md) の「カメラ — 行き先と飛行」）。R3F のポインタイベントの光線もここ（`roomEvents`） |
 | `scene/LensRenderer.tsx` | 描画そのもの（通常の遠近と、魚眼の立方体）。`useFrame` の優先度1で R3F の描画を乗っ取る唯一の場所 |
 | `scene/camera/` | カメラの姿勢・飛行・歩く飛行・キーで歩く・レンズ・画面への射影・HTML を3Dに置く CSS の計算・カメラの値を運ぶチャンネル（`roomCamera` / `walkFlight` / `freeWalk` / `fisheye` / `cssView` / `cameraMotion` / `markerScreen` / `viewChannel`）。three.js を持ち込まない |
-| `scene/room/` | 部屋の配置・巡回・HTML を載せる板・照明の切り替え・人物の寸法・体の関節・歩き・座る度合いと椅子の位置・カーブミラーの位置・歩ける床・キーボード（HHKB の配列・押すキーの対応・形状）の純粋関数（`layout` / `tour` / `screens` / `lighting` / `figure` / `self` / `gait` / `seat` / `mirror` / `floor` / `keyboard` / `keycaps`）。three.js を持ち込まない |
-| `scene/objects/` | シーンに置かれる R3F コンポーネント。`RoomScene.tsx` がその根。机と PC まわりの形は `DeskSet.tsx`（複数を束ねるので named export）、キーボードは `HhkbKeyboard.tsx`。canvas に描くテクスチャ（`roomTextures.ts`・人物の顔の `figureTextures.ts`・キーボードの印字と使い込みの `keyboardLegends.ts`）、キーボードの打鍵音（録音を鳴らす）`keySound.ts` もここ。録音そのものは `public/sounds/keyboard/`（配信する素材。クレジットは同じ場所の `CREDITS.txt` と `/privacy`） |
+| `scene/room/` | 部屋の配置・巡回・HTML を載せる板・照明の切り替え・人物の寸法・体の関節・歩き・座る度合いと椅子の位置・カーブミラーの位置・歩ける床・キーボード（HHKB の配列・押すキーの対応・形状）・マウス（EX-G の形・ボタンの範囲・カーソルとの対応・クリック音の選び方）の純粋関数（`layout` / `tour` / `screens` / `lighting` / `figure` / `self` / `gait` / `seat` / `mirror` / `floor` / `keyboard` / `keycaps` / `mouse`）。three.js を持ち込まない |
+| `scene/objects/` | シーンに置かれる R3F コンポーネント。`RoomScene.tsx` がその根。机と PC まわりの形は `DeskSet.tsx`（複数を束ねるので named export）、キーボードは `HhkbKeyboard.tsx`、マウスは `ExgMouse.tsx`。canvas に描くテクスチャ（`roomTextures.ts`・人物の顔の `figureTextures.ts`・キーボードの印字と使い込みの `keyboardLegends.ts`・マウスのロゴとホイールの溝の `mouseDecal.ts`）、机の音（キーとマウスの録音を鳴らす）`keySound.ts` もここ。録音そのものは `public/sounds/keyboard/` と `public/sounds/mouse/`（配信する素材。クレジットはそれぞれの `CREDITS.txt` と `/privacy`） |
 | `lab/`（`src/lab/`） | 部屋の部品を1つずつ見る開発用のページの中身（`LabView.tsx`）と、見る部品の一覧（`parts.ts`）・カメラの数（`orbit.ts`）。**画面上の役割が「開発の道具」なので `scene/` には入れない。** ページ本体は `app/lab/page.dev.tsx`（理由は下） |
-| `scene/` 直下のその他 | 層をまたぐもの（`sceneClock` / `markerBolt` / `hash` / `direction` / `layers`）と、入力の交通整理（`pointerClaim` / `viewGesture`）だけ。UI の部品かどうかの判定（`isInteractive`）も `pointerClaim` にある（`Scene.tsx` とキーボードの両方が使う）。**迷ったらここではない** |
+| `scene/` 直下のその他 | 層をまたぐもの（`sceneClock` / `markerBolt` / `hash` / `direction` / `layers`）と、入力の交通整理（`pointerClaim` / `viewGesture`）、机のマウスとカーソルと右手のあいだで値を運ぶチャンネル（`deskPointer`。`objects/` と `hub/` の両方が読むのでここ）だけ。UI の部品かどうかの判定（`isInteractive`）も `pointerClaim` にある（`Scene.tsx`・キーボード・マウスが使う）。**迷ったらここではない** |
 
 ハブ（`hub/`）の側で3Dに関わるもの:
 
 | 置き場 | 何が入るか |
 | --- | --- |
 | `hub/room/` | 部屋の中に置く HTML の層（`RoomHtml.tsx`）。中身は持たない |
-| `hub/desk/` | PC の画面の GUI（`DeskScreen.tsx`） |
+| `hub/desk/` | PC の画面の GUI（`DeskScreen.tsx`）と、その上に描く机のマウスのカーソル（`ScreenCursor.tsx`） |
 | `hub/about/` | 自己紹介の文（`aboutCopy.tsx`）、ホログラム（`Hologram.tsx`）、自動再生と読了の判定（`aboutScroll.ts`） |
 
 - **2026-10-01 に部屋の中への移行（[room-migration.md](room-migration.md)）で、`scene/planet/`（球面の幾何）・`scene/voxel/`（ボクセルエンジン）・惑星の部品・`sunLight`・`planetPlacement`・`camera/cameraLayout`・`camera/cameraFlight` を外した。** 部屋の側が借りていたものは移した: `hash01`（`voxel/rng.ts` → `scene/hash.ts`）、`Direction` 型（`planet/geometry.ts` → `scene/direction.ts`）、`Tour` 型（`planet/tour.ts` → `room/tour.ts`）、首振りの減衰とカードの横寄せ（`cameraLayout.ts` → `camera/cameraMotion.ts`）、`MAX_FLIGHT_STEP`（`cameraFlight.ts` → `roomCamera.ts`）。当時のコードは `v1-voxel-planet` のタグで読める

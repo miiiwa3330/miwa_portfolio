@@ -21,6 +21,7 @@ import {
 import { FIGURE, TORSO } from "../room/figure";
 import { bodyNow, viewNow } from "../camera/viewChannel";
 import { seatShare } from "../room/seat";
+import { deskPointerNow } from "../deskPointer";
 import { HEAD_LAYER } from "../layers";
 import { hash01 } from "../hash";
 import { SKIN, makeFaceTexture } from "./figureTextures";
@@ -426,7 +427,7 @@ export default function Self() {
   useFrame(() => {
     const { gait, held } = bodyNow();
     const pose = viewNow().pose;
-    poseFigure(body.current, bodyJoints(pose, gait, seatShare(held)), pose.pitch);
+    poseFigure(body.current, bodyJoints(pose, gait, seatShare(held), deskPointerNow().mouse), pose.pitch);
   });
   return <FigureModel ref={body} />;
 }
