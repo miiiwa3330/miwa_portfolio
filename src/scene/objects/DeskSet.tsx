@@ -3,7 +3,7 @@
 import { useEffect, useMemo, type ReactNode } from "react";
 import * as THREE from "three";
 import { RoundedBox } from "@react-three/drei";
-import { DESK_MAT, MONITOR_ARM, MUG, PIECES, type Monitor } from "../room/layout";
+import { DESK_LAMP_BASE, DESK_MAT, MONITOR_ARM, MUG, PEN_POT, PIECES, type Monitor } from "../room/layout";
 
 /**
  * The PC's desk and everything on it, built from rounded forms rather than
@@ -120,8 +120,8 @@ const MUG_PROFILE: [number, number][] = [
 ];
 const POT_PROFILE: [number, number][] = [
   [0, 0],
-  [0.036, 0],
-  [0.037, 0.11],
+  [PEN_POT.radius - 0.001, 0],
+  [PEN_POT.radius, 0.11],
   [0.034, 0.11],
   [0.033, 0.006],
   [0, 0.006],
@@ -229,9 +229,10 @@ export function DeskMat({ m }: { m: DeskMaterials }) {
  * shade over `bulb` — the point the desk light shines from (`RoomScene`).
  * `on` lights the opening of the shade.
  */
-export function DeskLamp({ m, x, bulb, on }: { m: DeskMaterials; x: number; bulb: Vec3; on: boolean }) {
-  const base: Vec3 = [x, SURFACE_Y + 0.0125, 0.22];
-  const pivot: Vec3 = [x, SURFACE_Y + 0.03, 0.22];
+export function DeskLamp({ m, bulb, on }: { m: DeskMaterials; bulb: Vec3; on: boolean }) {
+  const { x, z } = DESK_LAMP_BASE;
+  const base: Vec3 = [x, SURFACE_Y + 0.0125, z];
+  const pivot: Vec3 = [x, SURFACE_Y + 0.03, z];
   const elbow: Vec3 = [x, 1.14, 0.12];
   const head: Vec3 = [x, 1.285, bulb[2] - 0.0];
   const shadeHeight = 0.085;
@@ -240,7 +241,7 @@ export function DeskLamp({ m, x, bulb, on }: { m: DeskMaterials; x: number; bulb
   return (
     <>
       <mesh position={base} material={m.painted}>
-        <cylinderGeometry args={[0.065, 0.072, 0.025, 28]} />
+        <cylinderGeometry args={[DESK_LAMP_BASE.radius - 0.007, DESK_LAMP_BASE.radius, 0.025, 28]} />
       </mesh>
       <Rod from={pivot} to={elbow} radius={0.007} material={m.steel} />
       <Rod from={elbow} to={head} radius={0.007} material={m.steel} />
@@ -287,7 +288,7 @@ export function DeskSmalls({ m }: { m: DeskMaterials }) {
           <torusGeometry args={[0.024, 0.005, 8, 16, Math.PI]} />
         </mesh>
       </group>
-      <group position={[-0.68, SURFACE_Y, 0.28]}>
+      <group position={[PEN_POT.x, SURFACE_Y, PEN_POT.z]}>
         <mesh geometry={pot} material={m.painted} />
         {pens.map((pen) => (
           <mesh key={pen.color} position={[pen.x, 0.1, pen.z]} rotation={[pen.turn, 0, pen.lean]}>

@@ -2,6 +2,7 @@ import type { Stop } from "@/types";
 import type { Direction } from "../direction";
 import { RECTILINEAR, STEREOGRAPHIC } from "../camera/fisheye";
 import { FIGURE, HIP_OVER_SEAT, PELVIS_BACK, seatedHipsFromEye } from "./figure";
+import { M0110 } from "./macKeyboard";
 
 /**
  * The room the camera stands in: one round room inside a rocket colony, seen
@@ -386,14 +387,34 @@ export const MONITOR_STANDS: { readonly gui: MonitorStand } = {
 };
 
 /**
- * Where the Macintosh will stand on the desk, left of the main monitor
- * (2026-10-22, the user; first planned on the right, then swapped with the
- * video monitor): the middle of its footprint, and its size — the
- * Macintosh 128K's, 9.6 × 13.6 × 10.9 in (W × H × D;
- * `reference/4/マッキントッシュ1〜3` are the machine). Only its place for now.
- * **仮**: the place.
+ * The Macintosh on the desk, left of the main monitor (2026-10-22, the
+ * user; first planned on the right, then swapped with the video monitor):
+ * the middle of its footprint, its turn in towards the chair, and its size —
+ * the Macintosh 128K's, 9.6 × 13.6 × 10.9 in (W × H × D;
+ * `reference/4/マッキントッシュ1〜3` are the machine). **仮**: the place and
+ * the turn.
  */
-export const MAC = { x: -0.53, z: -0.15, width: 0.244, height: 0.345, depth: 0.276 } as const;
+export const MAC = { x: -0.55, z: -0.15, yaw: 0.25, width: 0.244, height: 0.345, depth: 0.276 } as const;
+
+/** A point in the Macintosh's own frame (origin on the desk under its middle, +Z out of its screen), in the desk's frame. */
+export function macToDesk(local: readonly [number, number, number]): [number, number, number] {
+  const c = Math.cos(MAC.yaw);
+  const s = Math.sin(MAC.yaw);
+  return [MAC.x + local[0] * c + local[2] * s, DESK_TOP_Y + local[1], MAC.z - local[0] * s + local[2] * c];
+}
+
+/** How far in front of the Mac's front its keyboard's case starts (**仮**: the cord's slack, as in マッキントッシュ3). */
+const MAC_KEYBOARD_GAP = 0.025;
+
+/** The Mac's keyboard (an M0110, `room/macKeyboard.ts`): straight in front of the Mac, turned as it is. */
+export function macKeyboardPlace(): { x: number; z: number; yaw: number } {
+  const [x, , z] = macToDesk([0, 0, MAC.depth / 2 + MAC_KEYBOARD_GAP + M0110.depth / 2]);
+  return { x, z, yaw: MAC.yaw };
+}
+
+/** The arm lamp's weighted base and the pen pot, on the desk's left (`DeskSet`): their middles and radii. */
+export const DESK_LAMP_BASE = { x: -0.42, z: 0.22, radius: 0.072 } as const;
+export const PEN_POT = { x: -0.68, z: 0.28, radius: 0.037 } as const;
 
 /**
  * The upper monitor's arm (2026-10-22, the user: from the back of the desk's

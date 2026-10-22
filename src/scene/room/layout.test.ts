@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NAV } from "@/hub/nav";
 import { HHKB } from "./keyboard";
+import { M0110 } from "./macKeyboard";
 import {
   EYE_HEIGHT,
   MIN_PIECE_GAP,
@@ -49,6 +50,11 @@ import {
   armJoints,
   MAC,
   MONITOR_ARM,
+  macToDesk,
+  macKeyboardPlace,
+  DESK_LAMP_BASE,
+  PEN_POT,
+  DESK_MAT,
   chairBackZ,
   wallRibAngles,
   floorGridLines,
@@ -410,10 +416,63 @@ describe("the video monitor (P2422H, on end, on a kickstand)", () => {
   });
 });
 
-describe("the Macintosh's place", () => {
-  it("is on the desk's left, clear of the main monitor's frame", () => {
-    expect(MAC.x + MAC.width / 2).toBeLessThan(-MONITORS.gui.bezel.width / 2 - 0.02);
-    expect(MAC.z - MAC.depth / 2).toBeGreaterThan(-PIECES.desk.depth / 2);
+describe("the Macintosh and its keyboard", () => {
+  /** A footprint's corners on the desk: `w` × `d` round a middle, turned by `yaw`. */
+  const footprint = (x: number, z: number, yaw: number, w: number, d: number) =>
+    [-1, 1].flatMap((sx) =>
+      [-1, 1].map((sz) => {
+        const lx = (sx * w) / 2;
+        const lz = (sz * d) / 2;
+        return [x + lx * Math.cos(yaw) + lz * Math.sin(yaw), z - lx * Math.sin(yaw) + lz * Math.cos(yaw)] as const;
+      })
+    );
+  const mac = footprint(MAC.x, MAC.z, MAC.yaw, MAC.width, MAC.depth);
+  const place = macKeyboardPlace();
+  const board = footprint(place.x, place.z, place.yaw, M0110.width, M0110.depth);
+  /** How far a point is outside a circle (negative inside). */
+  const outside = (p: readonly [number, number], c: { x: number; z: number; radius: number }) => Math.hypot(p[0] - c.x, p[1] - c.z) - c.radius;
+  /** The nearest distance from a circle's middle to a convex footprint's edges, less its radius. */
+  const clearance = (corners: (readonly [number, number])[], c: { x: number; z: number; radius: number }) => {
+    const ring = [corners[0], corners[1], corners[3], corners[2]];
+    let best = Infinity;
+    for (let i = 0; i < 4; i++) {
+      const [ax, az] = ring[i];
+      const [bx, bz] = ring[(i + 1) % 4];
+      const t = Math.max(0, Math.min(1, ((c.x - ax) * (bx - ax) + (c.z - az) * (bz - az)) / ((bx - ax) ** 2 + (bz - az) ** 2)));
+      best = Math.min(best, Math.hypot(c.x - (ax + t * (bx - ax)), c.z - (az + t * (bz - az))) - c.radius);
+    }
+    return best;
+  };
+
+  it("stands on the desk's left, clear of the main monitor's frame", () => {
+    for (const [x, z] of mac) {
+      expect(x).toBeLessThan(-MONITORS.gui.bezel.width / 2 - 0.02);
+      expect(z).toBeGreaterThan(-PIECES.desk.depth / 2);
+    }
+  });
+
+  it("turns its screen in towards the chair", () => {
+    const front = macToDesk([0, 0, 1]);
+    expect(front[0]).toBeGreaterThan(MAC.x);
+  });
+
+  it("has its keyboard in front of it, on the desk", () => {
+    for (const [x, z] of board) {
+      expect(z).toBeLessThan(PIECES.desk.depth / 2);
+      expect(x).toBeGreaterThan(-PIECES.desk.width / 2);
+    }
+    const [, , macFront] = macToDesk([0, 0, MAC.depth / 2]);
+    expect(place.z).toBeGreaterThan(macFront);
+  });
+
+  it("crowds the lamp's base and the pen pot without standing on them, and keeps off the desk mat and the HHKB", () => {
+    for (const thing of [DESK_LAMP_BASE, PEN_POT]) {
+      expect(clearance(board, thing)).toBeGreaterThan(0.005);
+      expect(clearance(mac, thing)).toBeGreaterThan(0.005);
+      for (const corner of board) expect(outside(corner, thing)).toBeGreaterThan(0);
+    }
+    for (const [x] of board) expect(x).toBeLessThan(DESK_MAT.x - DESK_MAT.width / 2 - 0.003);
+    for (const [x] of board) expect(x).toBeLessThan(KEYBOARD.x - HHKB.width / 2);
   });
 });
 

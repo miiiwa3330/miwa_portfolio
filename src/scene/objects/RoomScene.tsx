@@ -7,6 +7,7 @@ import {
   BOARD_FRAME,
   MONITORS,
   monitorGlass,
+  DESK_LAMP_BASE,
   PIECES,
   ROOM_RADIUS,
   SUBJECTS,
@@ -44,6 +45,8 @@ import { DeskBody, DeskLamp, DeskMat, DeskMonitor, DeskSmalls, useDeskMaterials 
 import DellMonitor from "./DellMonitor";
 import MonitorArm from "./MonitorArm";
 import Kickstand from "./Kickstand";
+import Macintosh from "./Macintosh";
+import MacKeyboard from "./MacKeyboard";
 import ExgMouse from "./ExgMouse";
 import HhkbKeyboard from "./HhkbKeyboard";
 
@@ -265,7 +268,6 @@ const MONITOR_GLOW: Record<MonitorKey, string> = { video: "#c45ad0", gui: "#1f5f
  * the PC.
  */
 export function Desk({ typing }: { typing?: boolean }) {
-  const pcX = SUBJECTS.desk.local[0];
   const holoX = SUBJECTS.about.local[0];
   // The hologram is projecting the self-introduction while About is focused.
   // Read from the app's state, which changes only when an area is entered or
@@ -312,6 +314,8 @@ export function Desk({ typing }: { typing?: boolean }) {
       })}
       <MonitorArm />
       <Kickstand />
+      <Macintosh />
+      <MacKeyboard />
       {/* The keyboard and the mouse, where a seated reader's hands rest (`Self`). */}
       <DeskMat m={m} />
       <HhkbKeyboard typing={typing ?? seated} />
@@ -336,7 +340,7 @@ export function Desk({ typing }: { typing?: boolean }) {
         />
       </mesh>
       {/* Desk lamp (the "desk light" the lighting requirement switches). */}
-      <DeskLamp m={m} x={pcX - 0.42} bulb={DESK_LAMP_BULB} on={lamp} />
+      <DeskLamp m={m} bulb={DESK_LAMP_BULB} on={lamp} />
       <Chair />
     </Piece>
   );
@@ -761,7 +765,7 @@ export function Workbench({ neon }: { neon: NeonTheme }) {
 }
 
 /** Where the desk lamp's bulb is, in the desk's frame — its light shines from there. */
-const DESK_LAMP_BULB: [number, number, number] = [SUBJECTS.desk.local[0] - 0.42, 1.205, -0.06];
+const DESK_LAMP_BULB: [number, number, number] = [DESK_LAMP_BASE.x, 1.205, -0.06];
 
 /**
  * The switch plate by the door: three buttons, top to bottom the ceiling

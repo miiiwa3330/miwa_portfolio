@@ -3,6 +3,9 @@ import {
   MOUSE,
   MUG,
   MONITORS,
+  MAC,
+  DESK_LAMP_BASE,
+  PEN_POT,
   PIECES,
   SUBJECTS,
   pieceToWorld,
@@ -52,8 +55,7 @@ const DESK = "机と PC";
 const FURNITURE = "家具";
 const ROOM = "部屋";
 const GUI = MONITORS.gui;
-/** The desk's own landmarks, as the room's camera frames them (`SUBJECTS`): the PC's middle and the hologram's. */
-const PC_X = SUBJECTS.desk.local[0];
+/** The hologram's middle, as the room's camera frames it (`SUBJECTS`). */
 const HOLO_X = SUBJECTS.about.local[0];
 
 export const PARTS: readonly LabPart[] = [
@@ -61,11 +63,13 @@ export const PARTS: readonly LabPart[] = [
   onPiece("desk-monitor", "モニター（中央、U3223QE）", DESK, "desk", [GUI.x, GUI.y, GUI.z], [GUI.x + 0.15, GUI.y + 0.1, 1.1]),
   onPiece("desk-video", "モニター（右、縦置き P2422H）", DESK, "desk", [MONITORS.video.x, MONITORS.video.y, MONITORS.video.z], [MONITORS.video.x - 0.25, MONITORS.video.y + 0.05, 0.9]),
   onPiece("desk-arm", "モニター（上）とアーム", DESK, "desk", [0.35, 1.3, -0.25], [0.45, 1.45, 1.6]),
+  onPiece("desk-mac", "Macintosh", DESK, "desk", [MAC.x, 0.95, MAC.z], [MAC.x + 0.25, 1.1, 0.55]),
+  onPiece("desk-mac-keyboard", "Mac のキーボード（M0110）", DESK, "desk", [MAC.x + 0.06, 0.8, 0.07], [MAC.x + 0.12, 1.02, 0.42]),
   onPiece("desk-keyboard", "キーボード（HHKB）", DESK, "desk", [KEYBOARD.x, KEYBOARD.y + 0.02, KEYBOARD.z], [KEYBOARD.x, KEYBOARD.y + 0.3, KEYBOARD.z + 0.32]),
   onPiece("desk-mouse", "マウス（EX-G）", DESK, "desk", [MOUSE.x, MOUSE.y + 0.025, MOUSE.z], [MOUSE.x - 0.12, MOUSE.y + 0.16, MOUSE.z + 0.2]),
-  onPiece("desk-lamp", "アームランプ", DESK, "desk", [PC_X - 0.42, 1.05, 0.1], [PC_X + 0.35, 1.25, 1.0]),
+  onPiece("desk-lamp", "アームランプ", DESK, "desk", [DESK_LAMP_BASE.x, 1.05, 0.1], [DESK_LAMP_BASE.x + 0.77, 1.25, 1.0]),
   onPiece("desk-mug", "マグ", DESK, "desk", [MUG.x, 0.83, MUG.z], [MUG.x, 1.0, MUG.z + 0.5]),
-  onPiece("desk-pens", "ペン立て", DESK, "desk", [-0.68, 0.83, 0.28], [-0.68, 1.0, 0.75]),
+  onPiece("desk-pens", "ペン立て", DESK, "desk", [PEN_POT.x, 0.83, PEN_POT.z], [PEN_POT.x, 1.0, PEN_POT.z + 0.47]),
   onPiece("desk-drawers", "引き出し", DESK, "desk", [0.8, 0.4, 0.375], [0.8, 0.55, 1.2]),
   onPiece("desk-under", "机の下（箱とケース）", DESK, "desk", [0.41, 0.2, -0.15], [0.41, 0.45, 1.1]),
   onPiece("hologram", "ホログラムの装置", DESK, "desk", [HOLO_X, 0.9, 0.0], [HOLO_X, 1.15, 0.9]),

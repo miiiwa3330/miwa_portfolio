@@ -1,6 +1,32 @@
 import { CAP, capFoot, capTop, capTopHeight, plateToBoard, roundedRectOutline, type Key } from "./keyboard";
 
 /**
+ * What shapes a board's caps: each key's foot and top, the height of a point
+ * on its top over the plate, the plate's frame to the board's, and how round
+ * the corners are. The HHKB's (`HHKB_CAPS`) is the default; the Macintosh's
+ * keyboard has its own (`room/macKeyboard.ts`).
+ */
+export type CapShape = {
+  capFoot: (key: Key) => { width: number; depth: number };
+  capTop: (key: Key) => { width: number; depth: number; dz: number };
+  capTopHeight: (key: Key, u: number, v: number) => number;
+  toBoard: (p: readonly [number, number, number]) => [number, number, number];
+  footRadius: number;
+  topRadius: number;
+  topRound: number;
+};
+
+export const HHKB_CAPS: CapShape = {
+  capFoot,
+  capTop,
+  capTopHeight,
+  toBoard: plateToBoard,
+  footRadius: CAP.footRadius,
+  topRadius: CAP.topRadius,
+  topRound: CAP.topRound,
+};
+
+/**
  * Every key cap of the keyboard as one mesh, so the whole board is one draw
  * call: positions in the keyboard's frame (`room/keyboard.ts`), texture
  * coordinates into the legend atlas, and for each vertex the key it belongs
@@ -29,12 +55,12 @@ export type LegendAtlas = { width: number; height: number; cells: AtlasCell[] };
  * of the key's top, so the text is not stretched on the cap; cells are packed
  * in shelves left to right.
  */
-export function legendAtlas(keys: readonly Key[]): LegendAtlas {
+export function legendAtlas(keys: readonly Key[], shape: CapShape = HHKB_CAPS): LegendAtlas {
   const cells: AtlasCell[] = [];
   let x = ATLAS_PAD;
   let y = 0;
   for (const key of keys) {
-    const top = capTop(key);
+    const top = shape.capTop(key);
     const width = Math.round((LEGEND_CELL * top.width) / top.depth);
     if (x + width + ATLAS_PAD > ATLAS_WIDTH) {
       x = ATLAS_PAD;
@@ -87,7 +113,7 @@ export function capRing(x: number, z: number, width: number, depth: number, radi
   return ring.map((p) => ({ x: x + p.x, z: z + p.z }));
 }
 
-export function keycapMesh(keys: readonly Key[], atlas: LegendAtlas): KeycapMesh {
+export function keycapMesh(keys: readonly Key[], atlas: LegendAtlas, shape: CapShape = HHKB_CAPS): KeycapMesh {
   const positions: number[] = [];
   const uvs: number[] = [];
   const owner: number[] = [];
@@ -96,8 +122,8 @@ export function keycapMesh(keys: readonly Key[], atlas: LegendAtlas): KeycapMesh
 
   for (const key of keys) {
     const cell = atlas.cells[key.index];
-    const foot = capFoot(key);
-    const top = capTop(key);
+    const foot = shape.capFoot(key);
+    const top = shape.capTop(key);
     const topZ = key.z + top.dz;
     const along = Math.max(2, Math.round(key.units * 3));
     const across = 2;
@@ -109,7 +135,7 @@ export function keycapMesh(keys: readonly Key[], atlas: LegendAtlas): KeycapMesh
     const ringAt = (points: { x: number; z: number }[], height: (u: number, v: number) => number): number[] =>
       points.map(({ x, z }) => {
         const [u, v] = uv(x, z);
-        const p = plateToBoard([x, height(u, v), z]);
+        const p = shape.toBoard([x, height(u, v), z]);
         positions.push(p[0], p[1], p[2]);
         // The texture follows the top; the sides take the colour at the top's edge, which is unprinted.
         uvs.push((cell.left + (u + 0.5) * cell.width) / atlas.width, 1 - (cell.top + (v + 0.5) * cell.height) / atlas.height);
@@ -117,12 +143,12 @@ export function keycapMesh(keys: readonly Key[], atlas: LegendAtlas): KeycapMesh
         mods.push(key.mod ? 1 : 0);
         return positions.length / 3 - 1;
       });
-    const surface = (u: number, v: number) => capTopHeight(key, u, v);
-    const r = CAP.topRadius;
-    const f = CAP.topRound;
+    const surface = (u: number, v: number) => shape.capTopHeight(key, u, v);
+    const r = shape.topRadius;
+    const f = shape.topRound;
     const rings = [
       // The foot, on the plate.
-      ringAt(capRing(key.x, key.z, foot.width, foot.depth, CAP.footRadius, along, across), () => 0),
+      ringAt(capRing(key.x, key.z, foot.width, foot.depth, shape.footRadius, along, across), () => 0),
       // The top's edge, just under the round onto the top.
       ringAt(capRing(key.x, topZ, top.width, top.depth, r, along, across), (u, v) => surface(u, v) - f),
       // The top itself, the round's width in, and two rings further in for the dish.
