@@ -471,6 +471,16 @@ describe("the Macintosh and its keyboard", () => {
     for (const [x] of board) expect(x).toBeLessThan(KEYBOARD.x - HHKB.width / 2);
   });
 
+  it("keeps the screen's recess on the front plate, above the base, and the keyboard's jack on the base", () => {
+    const { recess, plinth, plate, jack } = MAC_CASE;
+    const recessBottom = MAC.height - recess.top - recess.height;
+    expect(recessBottom).toBeGreaterThan(plinth.height + plate.edge);
+    expect(MAC.height - recess.top).toBeLessThan(MAC.height - plate.edge);
+    expect(jack.y + 0.005).toBeLessThan(plinth.height);
+    expect(jack.y - 0.005).toBeGreaterThan(0);
+    expect(Math.abs(jack.x) + 0.004).toBeLessThan(MAC.width / 2 - plate.proud);
+  });
+
   it("carries the pen pot on its left rail", () => {
     const [x, y, z] = PEN_POT.local;
     const { rail, plate } = MAC_CASE;

@@ -409,15 +409,22 @@ export function macToDesk(local: readonly [number, number, number]): [number, nu
  * cursor read them too). Measured in マッキントッシュ2.webp at 3.5 px to the
  * millimetre across the front: the screen's recess starts 19 mm under the
  * top and is 212 × 172 mm, the glass in it 196 × 152 mm. The picture is
- * 512 × 342 px at the 128K's 72 dpi (180.6 × 120.7 mm). **仮**: the front
- * plate's thickness, how far it stands proud of the case and its rounded
- * edge; the recess's depth and how far its inner edge sits up; the rails on
- * the top.
+ * 512 × 342 px at the 128K's 72 dpi (180.6 × 120.7 mm). The front plate
+ * stops short of the desk: under it the case's base (`plinth`) is set back
+ * — 45 mm tall, read off マッキントッシュ4.png and 6.png (the plate is
+ * 635 px of the Mac's 730 there, 0.47 mm to the px); its top edge is rounded
+ * over about 12 mm (the plate's top band in 4.png). **仮**: the front
+ * plate's thickness, how far it stands proud of the case; how far the base
+ * is set back; the recess's depth and how far its inner edge sits up; the
+ * tube's bulge; the rails on the top.
  */
 export const MAC_CASE = {
-  plate: { thickness: 0.03, proud: 0.004, edge: 0.008, corner: 0.014 },
+  plate: { thickness: 0.03, proud: 0.004, edge: 0.012, corner: 0.016 },
+  plinth: { height: 0.045, setBack: 0.012 },
+  /** The keyboard's jack on the base, right of middle (4.png, 6.png): its middle's x and height. */
+  jack: { x: 0.075, y: 0.022 },
   recess: { width: 0.212, height: 0.172, corner: 0.016, top: 0.019, depth: 0.028, lift: 0.004 },
-  glass: { width: 0.196, height: 0.152, corner: 0.012 },
+  glass: { width: 0.196, height: 0.152, corner: 0.012, bulge: 0.005 },
   picture: { width: 0.1806, height: 0.1207, px: { width: 512, height: 342 } },
   /** The two rails along the back of the top, their tops level with the front plate's. */
   rail: { width: 0.085, height: 0.012, front: 0.05 },

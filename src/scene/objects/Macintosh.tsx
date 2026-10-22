@@ -8,33 +8,43 @@ import { macPointer } from "../deskPointer";
 import { roundedRectOutline } from "../room/keyboard";
 
 /**
- * The Macintosh: a 128K (2026-10-22, the user; `reference/4/マッキントッシュ1〜3`),
+ * The Macintosh: a 128K (2026-10-22, the user; `reference/4/マッキントッシュ1〜6`),
  * 24.4 × 34.5 × 27.6 cm (`MAC`). Read off the photos:
  *
  * - **The front** is a separate plate, a little proud of the case's sides,
- *   its edge rounded. The screen sits at the bottom of a deep recess with
- *   sloping walls, the bottom wall the widest (the tube looks up a little).
- *   Under it, right of middle, the floppy slot in a recessed strip with a
- *   wider notch at its right end and a pin hole; at the bottom left, a small
- *   badge — rainbow stripes, as the maker's, but an "M" for Miiiwa in place
- *   of the maker's apple (as the keyboard's "Miiiwa Professional3").
+ *   its edge rounded broadly. The screen sits at the bottom of a deep recess
+ *   with sloping walls, the bottom wall the widest (the tube looks up a
+ *   little); the tube's glass bulges. Under it, right of middle, the floppy
+ *   slot in a recessed strip with a wider notch at its right end and a pin
+ *   hole; at the bottom left, a small badge — rainbow stripes, as the
+ *   maker's, but an "M" for Miiiwa in place of the maker's apple (as the
+ *   keyboard's "Miiiwa Professional3").
+ * - **The base** under the plate, set back (4.png, 6.png): a sunk mark at
+ *   its left where the maker's apple is pressed in; at its right the
+ *   keyboard's jack beside a small label, and a row of little slots left of
+ *   them.
  * - **The top**: two raised rails along the back, left and right, and the
  *   carrying handle sunk between them.
- * - **The sides**: seven slots along the bottom, near the front.
+ * - **The sides**, low down: on the left six long slots the depth of the
+ *   case, and the programmer's switch near the front (4.png); on the right
+ *   seven rows of seven short slots (6.png).
  *
  * Measured in マッキントッシュ2.webp, at 3.5 px to the millimetre across the
  * front (the recess, the glass and the picture are `MAC_CASE`): the slot is
  * 90 mm long, 58 mm right of the middle and
  * 233 mm under the top; the badge is 17 mm, 81 mm left of the middle and
- * 269 mm under the top. Colours are the photo's medians (sRGB): the case
- * `#bcae7f`, the glass `#304248`. The screen shows a 512 × 342 one-bit picture
+ * 269 mm under the top. Colours are the photos' medians (sRGB): the case
+ * `#ccc3ac`, the mean of 4.png's front (`#d9d3bf`), 5.png's (`#d0c4af`) and
+ * 6.png's (`#bcb297`) — less yellow than マッキントッシュ2's `#bcae7f`, which
+ * was the first value; the glass `#304248`. The picture is a cool white, as
+ * the lit screens in 5.png and 6.png. The screen shows a 512 × 342 one-bit picture
  * at the 128K's 72 dpi (180.6 × 120.7 mm) — a desktop, until the games come —
  * and the mouse's arrow over it, where the Mac's mouse puts it (`macPointer`;
  * hidden while the reader's own pointer is on the screen, as the PC's is).
  *
- * **Step 1 (form).** **仮**: how far the front stands proud, the edge's
- * radius, the recess's depth and how far its inner edge sits up, the rails'
- * and the handle's sizes, the slots' spacing.
+ * **仮**: how far the front stands proud, the recess's depth and how far its
+ * inner edge sits up, the tube's bulge, the rails' and the handle's sizes,
+ * the slots' spacing, the base's marks.
  *
  * Drawn in the desk's frame, at `MAC` (origin on the desk under its middle,
  * +Z out of the screen).
@@ -42,7 +52,34 @@ import { roundedRectOutline } from "../room/keyboard";
 
 const { width: W, height: H, depth: D } = MAC;
 const FRONT = D / 2;
-const { plate: PLATE, recess: RECESS, glass: GLASS, picture: PICTURE, rail: RAIL } = MAC_CASE;
+const { plate: PLATE, plinth: PLINTH, recess: RECESS, glass: GLASS, picture: PICTURE, rail: RAIL } = MAC_CASE;
+/** The front plate's height and middle: from the base up to the top. */
+const PLATE_H = H - PLINTH.height;
+const PLATE_Y = PLINTH.height + PLATE_H / 2;
+/** The base's front, set back under the plate. */
+const PLINTH_FRONT = FRONT - PLINTH.setBack;
+/** The keyboard's jack on the base (`MAC_CASE.jack`). */
+const JACK = MAC_CASE.jack;
+
+/**
+ * How far the tube's glass stands out of its plane at a point of it (x, y
+ * from the glass's middle): most in the middle, nothing at its edges, where
+ * the recess's walls meet it.
+ */
+function bulge(x: number, y: number): number {
+  const u = Math.min(1, Math.abs(x) / (GLASS.width / 2));
+  const v = Math.min(1, Math.abs(y) / (GLASS.height / 2));
+  return GLASS.bulge * (1 - u * u) * (1 - v * v);
+}
+
+/** A plane `w` × `h` of `nx` × `ny` cells, pushed out by the tube's bulge (and `lift` more), centred on the glass. */
+function bulged(w: number, h: number, nx: number, ny: number, lift: number): THREE.PlaneGeometry {
+  const geometry = new THREE.PlaneGeometry(w, h, nx, ny);
+  const position = geometry.attributes.position;
+  for (let i = 0; i < position.count; i++) position.setZ(i, bulge(position.getX(i), position.getY(i)) + lift);
+  geometry.computeVertexNormals();
+  return geometry;
+}
 const SLOT = { length: 0.09, x: 0.058, down: 0.233 } as const;
 const BADGE = { size: 0.017, x: -0.081, down: 0.269 } as const;
 /** The case's top, under the front plate's (which stands proud of it all round). */
@@ -50,7 +87,7 @@ const BODY_TOP = H - 2 * PLATE.proud;
 /** The case's rounded edges, front and back. */
 const BODY_ROUND = 0.006;
 
-const COLOURS = { case: "#bcae7f", shade: "#9f915f", glass: "#304248", slot: "#1c2619", ink: "#0b0d0b", phosphor: "#e6ece3" } as const;
+const COLOURS = { case: "#ccc3ac", shade: "#a99f86", sunk: "#b7ae96", glass: "#304248", slot: "#1c2619", ink: "#0b0d0b", phosphor: "#e6ece3", tint: "#cfe2e8", label: "#8f8a7c" } as const;
 
 type Ring = { x: number; y: number; nx: number; ny: number }[];
 
@@ -253,8 +290,8 @@ function makeBadge(): THREE.CanvasTexture {
 
 export default function Macintosh() {
   const parts = useMemo(() => {
-    const plateRing = ring(W, H, PLATE.corner, 0, H / 2);
-    const plateFace = ring(W - 2 * PLATE.edge, H - 2 * PLATE.edge, PLATE.corner - PLATE.edge, 0, H / 2);
+    const plateRing = ring(W, PLATE_H, PLATE.corner, 0, PLATE_Y);
+    const plateFace = ring(W - 2 * PLATE.edge, PLATE_H - 2 * PLATE.edge, PLATE.corner - PLATE.edge, 0, PLATE_Y);
     const recessY = H - RECESS.top - RECESS.height / 2;
     const recessRing = ring(RECESS.width, RECESS.height, RECESS.corner, 0, recessY);
     const glassRing = ring(GLASS.width, GLASS.height, GLASS.corner, 0, recessY + RECESS.lift);
@@ -271,10 +308,14 @@ export default function Macintosh() {
     path(ring(W - 2 * PLATE.proud - 2 * b, BODY_TOP - 2 * b, PLATE.corner - PLATE.proud - b, 0, BODY_TOP / 2), body);
     const bodyGeometry = new THREE.ExtrudeGeometry(body, { depth: D - PLATE.thickness - 2 * b, bevelEnabled: true, bevelThickness: b, bevelSize: b, bevelSegments: 4, curveSegments: 8 });
     bodyGeometry.translate(0, 0, -D / 2 + b);
-    const glass = new THREE.Shape();
-    path(glassRing, glass);
-    const glassGeometry = new THREE.ShapeGeometry(glass, 8);
-    glassGeometry.translate(0, 0, FRONT - RECESS.depth);
+    // The glass, bulged; its square corners stay behind the recess's walls.
+    const glassGeometry = bulged(GLASS.width, GLASS.height, 24, 18, 0);
+    glassGeometry.translate(0, recessY + RECESS.lift, FRONT - RECESS.depth);
+    // The picture on it, following the bulge.
+    const pictureGeometry = bulged(PICTURE.width, PICTURE.height, 32, 22, 0.0006);
+    // The base, under the plate and set back from it.
+    const plinth = new THREE.BoxGeometry(W - 2 * PLATE.proud, PLINTH.height, PLINTH_FRONT - back + 0.01);
+    plinth.translate(0, PLINTH.height / 2, (PLINTH_FRONT + back - 0.01) / 2);
     return {
       // The plate's side wall, from its back to where the edge starts to round.
       plateSide: loft(plateRing, back, plateRing, FRONT - PLATE.edge),
@@ -282,6 +323,8 @@ export default function Macintosh() {
       face: faceGeometry,
       recess: loft(recessRing, FRONT, glassRing, FRONT - RECESS.depth),
       glass: glassGeometry,
+      picture: pictureGeometry,
+      plinth,
       body: bodyGeometry,
     };
   }, []);
@@ -293,8 +336,10 @@ export default function Macintosh() {
       shade: new THREE.MeshStandardMaterial({ color: COLOURS.shade, roughness: 0.7, metalness: 0 }),
       glass: new THREE.MeshStandardMaterial({ color: COLOURS.glass, roughness: 0.12, metalness: 0.1 }),
       slot: new THREE.MeshStandardMaterial({ color: COLOURS.slot, roughness: 0.8, metalness: 0 }),
-      screen: new THREE.MeshBasicMaterial({ map: textures.desktop, color: "#cfd6cc", toneMapped: false }),
-      arrow: new THREE.MeshBasicMaterial({ map: textures.arrow, color: "#cfd6cc", transparent: true, toneMapped: false }),
+      screen: new THREE.MeshBasicMaterial({ map: textures.desktop, color: COLOURS.tint, toneMapped: false }),
+      arrow: new THREE.MeshBasicMaterial({ map: textures.arrow, color: COLOURS.tint, transparent: true, toneMapped: false }),
+      sunk: new THREE.MeshStandardMaterial({ color: COLOURS.sunk, roughness: 0.7, metalness: 0 }),
+      label: new THREE.MeshStandardMaterial({ color: COLOURS.label, roughness: 0.5, metalness: 0.1 }),
       badge: new THREE.MeshStandardMaterial({ map: textures.badge, roughness: 0.35, metalness: 0.2 }),
       plate: new THREE.MeshStandardMaterial({ color: "#c9cbcc", roughness: 0.35, metalness: 0.2 }),
     }),
@@ -318,11 +363,9 @@ export default function Macintosh() {
       macPointer.on(({ cursor, overScreen }) => {
         const mesh = arrow.current;
         if (!mesh) return;
-        mesh.position.set(
-          (cursor.x / PICTURE.px.width - 0.5) * PICTURE.width + arrowSize / 2,
-          picture[1] + (0.5 - cursor.y / PICTURE.px.height) * PICTURE.height - arrowSize / 2,
-          picture[2] + 0.0003
-        );
+        const x = (cursor.x / PICTURE.px.width - 0.5) * PICTURE.width + arrowSize / 2;
+        const y = (0.5 - cursor.y / PICTURE.px.height) * PICTURE.height - arrowSize / 2;
+        mesh.position.set(x, picture[1] + y, picture[2] + bulge(x, y) + 0.0003);
         mesh.visible = !overScreen;
       }),
     [picture, arrowSize]
@@ -331,7 +374,11 @@ export default function Macintosh() {
   const at = macToDesk([0, 0, 0]);
   const slotY = H - SLOT.down;
   const badgeY = H - BADGE.down;
-  const sideSlots = Array.from({ length: 7 }, (_, i) => 0.016 + i * 0.0062);
+  const side = W / 2 - PLATE.proud;
+  // The left side's six long slots, the right side's seven rows of seven short ones.
+  const leftSlots = Array.from({ length: 6 }, (_, i) => 0.026 + i * 0.0095);
+  const rightRows = Array.from({ length: 7 }, (_, i) => 0.018 + i * 0.0052);
+  const rightColumns = Array.from({ length: 7 }, (_, i) => FRONT - PLATE.thickness - 0.035 - i * 0.03);
 
   return (
     <group position={at} rotation={[0, MAC.yaw, 0]}>
@@ -341,8 +388,21 @@ export default function Macintosh() {
       <mesh geometry={parts.face} material={materials.case} />
       <mesh geometry={parts.recess} material={materials.case} />
       <mesh geometry={parts.glass} material={materials.glass} />
-      <mesh position={picture} material={materials.screen}>
-        <planeGeometry args={[PICTURE.width, PICTURE.height]} />
+      <mesh geometry={parts.picture} position={picture} material={materials.screen} />
+
+      {/* The base: the sunk mark at its left, the row of little slots, the label and the keyboard's jack at its right. */}
+      <mesh geometry={parts.plinth} material={materials.case} />
+      <RoundedBox args={[0.016, 0.016, 0.001]} radius={0.003} smoothness={2} position={[-0.08, 0.024, PLINTH_FRONT + 0.0002]} material={materials.sunk} />
+      {Array.from({ length: 6 }, (_, i) => (
+        <mesh key={i} position={[0.022 + i * 0.0045, 0.034, PLINTH_FRONT + 0.0003]} material={materials.slot}>
+          <planeGeometry args={[0.0022, 0.0035]} />
+        </mesh>
+      ))}
+      <mesh position={[JACK.x - 0.017, JACK.y, PLINTH_FRONT + 0.0004]} material={materials.label}>
+        <planeGeometry args={[0.02, 0.011]} />
+      </mesh>
+      <mesh position={[JACK.x, JACK.y, PLINTH_FRONT + 0.0004]} material={materials.slot}>
+        <planeGeometry args={[0.008, 0.01]} />
       </mesh>
       <mesh ref={arrow} material={materials.arrow} raycast={() => null}>
         <planeGeometry args={[arrowSize, arrowSize]} />
@@ -383,11 +443,18 @@ export default function Macintosh() {
         <planeGeometry args={[W - 2 * RAIL.width - 2 * PLATE.proud - 0.01, 0.09]} />
       </mesh>
 
-      {/* The side slots, low and near the front. */}
-      {[-1, 1].map((side) =>
-        sideSlots.map((y) => (
-          <mesh key={`${side}${y}`} position={[side * (W / 2 - PLATE.proud + 0.0004), y, FRONT - PLATE.thickness - 0.05]} rotation={[0, (side * Math.PI) / 2, 0]} material={materials.slot}>
-            <planeGeometry args={[0.07, 0.0022]} />
+      {/* The left side: six long slots, and the programmer's switch near the front. */}
+      {leftSlots.map((y) => (
+        <mesh key={`l${y}`} position={[-side - 0.0004, y, FRONT - PLATE.thickness - 0.12]} rotation={[0, -Math.PI / 2, 0]} material={materials.slot}>
+          <planeGeometry args={[0.2, 0.0024]} />
+        </mesh>
+      ))}
+      <RoundedBox args={[0.004, 0.012, 0.026]} radius={0.0012} smoothness={2} position={[-side - 0.0015, 0.048, FRONT - PLATE.thickness - 0.012]} material={materials.case} />
+      {/* The right side: seven rows of seven short slots. */}
+      {rightRows.map((y) =>
+        rightColumns.map((z) => (
+          <mesh key={`r${y}${z}`} position={[side + 0.0004, y, z]} rotation={[0, Math.PI / 2, 0]} material={materials.slot}>
+            <planeGeometry args={[0.024, 0.0022]} />
           </mesh>
         ))
       )}

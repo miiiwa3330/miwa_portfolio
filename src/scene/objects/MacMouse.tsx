@@ -8,6 +8,8 @@ import { M0100, M0100_BUTTON, onMacButton } from "../room/macMouse";
 import { MAC_SCREEN } from "../room/screens";
 import { MAC_MAPPING, macPointer } from "../deskPointer";
 import { useDeskMouse, type MousePart } from "./useDeskMouse";
+import { shapeOf, slab } from "./caseShapes";
+import { roundedRectOutline } from "../room/keyboard";
 
 /**
  * The Macintosh's mouse, an M0100 (`room/macMouse.ts`): a beige box with
@@ -21,11 +23,12 @@ import { useDeskMouse, type MousePart } from "./useDeskMouse";
  * place is the cursor's on the Mac's screen (`macPointer`, drawn by
  * `Macintosh`). The click is the EX-G's recording for now (**仮**).
  *
- * Colours: the case is the Mac's (`#bcae7f`); the button a grayer beige read
- * off マッキントッシュ1.png (**仮**, a small photo).
+ * Colours: the case is the Mac's (`#ccc3ac`); the button `#bbab93`, the
+ * median of マッキントッシュ4.png's. The body is two shells, the line between
+ * them low round its sides (4.png, 6.png).
  */
 
-const COLOURS = { case: "#bcae7f", button: "#a79f86", gap: "#3a3628", cord: "#b3a576" } as const;
+const COLOURS = { case: "#ccc3ac", button: "#bbab93", gap: "#3a3628", line: "#8f8770", cord: "#c2b99f" } as const;
 /** The body's height under the button, and how round its edges are (**仮**). */
 const BODY = { height: M0100.height - 0.004, radius: 0.009 } as const;
 /** Where the cord meets the Mac: its back, right of the middle, low (the mouse port; **仮**). */
@@ -41,10 +44,19 @@ export default function MacMouse({ typing }: { typing: boolean }) {
       case: new THREE.MeshStandardMaterial({ color: COLOURS.case, roughness: 0.6, metalness: 0 }),
       button: new THREE.MeshStandardMaterial({ color: COLOURS.button, roughness: 0.55, metalness: 0 }),
       gap: new THREE.MeshStandardMaterial({ color: COLOURS.gap, roughness: 0.9, metalness: 0 }),
+      line: new THREE.MeshStandardMaterial({ color: COLOURS.line, roughness: 0.8, metalness: 0 }),
       cord: new THREE.MeshStandardMaterial({ color: COLOURS.cord, roughness: 0.5, metalness: 0 }),
     }),
     []
   );
+
+  // The line between the shells: a band a hair proud of the body's walls, round its rounded corners.
+  const line = useMemo(() => {
+    const proud = 0.0003;
+    const band = shapeOf(roundedRectOutline(M0100.width + 2 * proud, M0100.length + 2 * proud, BODY.radius + proud, 6));
+    band.holes.push(new THREE.Path(roundedRectOutline(M0100.width, M0100.length, BODY.radius, 6).map((p) => new THREE.Vector2(p.x, -p.z))));
+    return slab(band, () => 0.0065, () => 0.0077);
+  }, []);
 
   // The cord, in the mouse's own frame: out of its front, across the desk and up the Mac's back.
   const cord = useMemo(() => {
@@ -64,8 +76,9 @@ export default function MacMouse({ typing }: { typing: boolean }) {
     () => () => {
       Object.values(materials).forEach((m) => m.dispose());
       cord.dispose();
+      line.dispose();
     },
-    [materials, cord]
+    [materials, cord, line]
   );
 
   const bind = useDeskMouse({
@@ -87,6 +100,8 @@ export default function MacMouse({ typing }: { typing: boolean }) {
   return (
     <group ref={group} position={[MAC_MOUSE.x, MAC_MOUSE.y, MAC_MOUSE.z]} {...bind}>
       <RoundedBox ref={body} args={[M0100.width, BODY.height, M0100.length]} radius={BODY.radius} smoothness={4} position={[0, BODY.height / 2, 0]} material={materials.case} />
+      {/* The line between the two shells, low round the sides. */}
+      <mesh geometry={line} material={materials.line} raycast={() => null} />
       {/* The button, sunk in its gap. */}
       <mesh position={[0, BODY.height + 0.0002, M0100_BUTTON.z]} rotation={[-Math.PI / 2, 0, 0]} material={materials.gap} raycast={() => null}>
         <planeGeometry args={[M0100_BUTTON.width + 0.002, M0100_BUTTON.length + 0.002]} />

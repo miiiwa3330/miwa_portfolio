@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { DESK_TOP_Y, MAC, macKeyboardPlace, macToDesk } from "../room/layout";
+import { DESK_TOP_Y, MAC, MAC_CASE, macKeyboardPlace, macToDesk } from "../room/layout";
 import { keySample, roundedRectOutline } from "../room/keyboard";
 import { keycapMesh, legendAtlas } from "../room/keycaps";
 import { M0110, M0110_TILT_DEG, MAC_CAPS, MAC_KEY_COUNT, MAC_PRESS_DIRECTION, macKeyForCode, macKeyboardKeys, macPlaneHeightAt } from "../room/macKeyboard";
@@ -26,20 +26,29 @@ import { pressableCaps, useKeyPresses } from "./useKeyPresses";
  * F-keys; the reader's Control is its ⌘. The sound is the HHKB's recording
  * for now (the M0110's switches are louder; **仮**).
  *
- * Colours are `reference/4/マッキントッシュ2.webp`'s medians (sRGB): the caps'
- * tops `#a4a294`, the space bar `#c1ad73`, the lip `#bea87b`.
+ * Colours are the photos' medians (sRGB), averaged over マッキントッシュ2,
+ * 4 and 5: the caps' tops `#9d988a`, the space bar `#b6a689`; the case is
+ * the Mac's `#ccc3ac`. The case is two shells, the parting line round its
+ * sides (4.png, 5.png); the first version drew it on the lip's top, misread
+ * from 2.webp's view from above.
  */
 
-const COLOURS = { cap: "#a4a294", space: "#c1ad73", case: "#bea87b", well: "#8a7f5d", groove: "#8f835c" } as const;
+const COLOURS = { cap: "#9d988a", space: "#b6a689", case: "#ccc3ac", well: "#8f8770", groove: "#7d7562" } as const;
 /** The rim stands this far over the plate, the well's floor this far under it; the case's top edge and corners are this round (**仮**). */
 const RIM = 0.003;
 const FLOOR = -0.002;
 const EDGE = 0.002;
 const CORNER = 0.007;
-/** The groove along the lip, this far in from the front edge (**仮**, from the photo's line). */
-const GROOVE_IN = 0.008;
+/** The parting line between the case's two shells, round its sides: its height over the desk and its width (**仮**). */
+const PARTING = { y: 0.0075, width: 0.0012 } as const;
 /** The cord: where it leaves the keyboard (its frame) and enters the Mac (the Mac's frame), and the coil's radius, pitch and wire (**仮**). */
-const CORD = { from: [-0.05, 0.012, -M0110.depth / 2] as const, to: [0.08, 0.015, MAC.depth / 2] as const, radius: 0.0045, pitch: 0.0042, wire: 0.0013 };
+const CORD = {
+  from: [-0.05, 0.012, -M0110.depth / 2] as const,
+  to: [MAC_CASE.jack.x, MAC_CASE.jack.y, MAC.depth / 2 - MAC_CASE.plinth.setBack] as const,
+  radius: 0.0045,
+  pitch: 0.0042,
+  wire: 0.0013,
+};
 
 const KEYS = macKeyboardKeys();
 const keysFor = (code: string): number[] => {
@@ -76,7 +85,12 @@ function useCase() {
     rim.holes.push(new THREE.Path(well.map((p) => new THREE.Vector2(p.x, -p.z))));
     const skirt = shapeOf(outer);
     skirt.holes.push(new THREE.Path(inner.map((p) => new THREE.Vector2(p.x, -p.z))));
+    // The parting line: a dark band a hair proud of the case's walls.
+    const proud = 0.0003;
+    const parting = shapeOf(roundedRectOutline(M0110.width + 2 * proud, M0110.depth + 2 * proud, CORNER + proud, 6));
+    parting.holes.push(new THREE.Path(outer.map((p) => new THREE.Vector2(p.x, -p.z))));
     return {
+      parting: slab(parting, () => PARTING.y, () => PARTING.y + PARTING.width),
       floor: slab(shapeOf(well), () => 0, floor),
       rim: slab(rim, () => 0, top),
       skirt: slab(skirt, () => 0, (z) => top(z) - EDGE),
@@ -169,8 +183,8 @@ export default function MacKeyboard({ typing }: { typing: boolean }) {
   );
 
   const place = macKeyboardPlace();
-  // The lip: in front of the well, on the tilted top. The groove runs along it; the name sits at its left.
-  const lipZ = (M0110.depth / 2 - GROOVE_IN + (-M0110.depth / 2 + M0110.block.back + M0110.block.depth)) / 2;
+  // The lip: in front of the well, on the tilted top. The name sits at its left.
+  const lipZ = (M0110.depth / 2 + (-M0110.depth / 2 + M0110.block.back + M0110.block.depth)) / 2;
   const onLip = (x: number, z: number, lift: number): [number, number, number] => [x, macPlaneHeightAt(z, RIM) + lift, z];
 
   return (
@@ -180,9 +194,7 @@ export default function MacKeyboard({ typing }: { typing: boolean }) {
         <mesh geometry={shell.skirt} material={materials.case} />
         <mesh geometry={shell.round} material={materials.case} />
         <mesh geometry={shell.floor} material={materials.well} />
-        <mesh position={onLip(0, M0110.depth / 2 - GROOVE_IN, 0.0002)} rotation={[TILT - Math.PI / 2, 0, 0]} material={materials.groove}>
-          <planeGeometry args={[M0110.width - 2 * CORNER, 0.0012]} />
-        </mesh>
+        <mesh geometry={shell.parting} material={materials.groove} />
         <mesh position={onLip(-M0110.block.width / 2 + 0.03, lipZ, 0.0002)} rotation={[TILT - Math.PI / 2, 0, 0]}>
           <planeGeometry args={[0.032, 0.008]} />
           <meshStandardMaterial map={lip} transparent depthWrite={false} roughness={0.62} />
