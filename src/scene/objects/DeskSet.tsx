@@ -288,8 +288,8 @@ export function DeskSmalls({ m }: { m: DeskMaterials }) {
           <torusGeometry args={[0.024, 0.005, 8, 16, Math.PI]} />
         </mesh>
       </group>
-      {/* The pen pot on the Mac's left rail. */}
-      <group position={macToDesk(PEN_POT.local)} rotation={[0, MAC.yaw, 0]}>
+      {/* The pen pot on the Mac's top, left of its handle, standing on the top's slope. */}
+      <group position={macToDesk(PEN_POT.local)} rotation={[-PEN_POT.tilt, MAC.yaw, 0, "YXZ"]}>
         <mesh geometry={pot} material={m.painted} />
         {pens.map((pen) => (
           <mesh key={pen.color} position={[pen.x, 0.1, pen.z]} rotation={[pen.turn, 0, pen.lean]}>

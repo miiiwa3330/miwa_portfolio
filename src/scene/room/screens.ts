@@ -1,7 +1,6 @@
+import { MAC_CASE, MAC_PROFILE, macPictureCentre } from "./macCase";
 import {
   MAC,
-  MAC_CASE,
-  macPictureCentre,
   macToDesk,
   MONITORS,
   PIECES,
@@ -40,14 +39,17 @@ export type Panel = {
 
 /**
  * A panel standing in a piece's frame at `local`, turned `yaw` radians about
- * its own vertical — the same turn a three.js group's `rotation.y` gives it.
+ * its own vertical — the same turn a three.js group's `rotation.y` gives it —
+ * and leaning back `lean` radians, its top away from its face (a group
+ * turned `−lean` about X inside that one; the Mac's front leans).
  */
 export function piecePanel(
   piece: PieceKey,
   local: Vec3,
   yaw: number,
   size: { width: number; height: number },
-  px: { width: number; height: number }
+  px: { width: number; height: number },
+  lean = 0
 ): Panel {
   const [fx, fz] = horizontalAt(PIECES[piece].angle);
   // The piece's own axes in the world: +X to the right seen from the room's
@@ -56,11 +58,14 @@ export function piecePanel(
   const z: Vec3 = [-fx, 0, -fz];
   const c = Math.cos(yaw);
   const s = Math.sin(yaw);
+  const facing: Vec3 = [s * x[0] + c * z[0], 0, s * x[2] + c * z[2]];
+  const cl = Math.cos(lean);
+  const sl = Math.sin(lean);
   return {
     centre: pieceToWorld(PIECES[piece], local),
     right: [c * x[0] - s * z[0], 0, c * x[2] - s * z[2]],
-    up: [0, 1, 0],
-    normal: [s * x[0] + c * z[0], 0, s * x[2] + c * z[2]],
+    up: lean ? [-sl * facing[0], cl, -sl * facing[2]] : [0, 1, 0],
+    normal: [cl * facing[0], sl, cl * facing[2]],
     width: size.width,
     height: size.height,
     pxWidth: px.width,
@@ -89,16 +94,17 @@ export const DESK_SCREEN: Panel = piecePanel("desk", gui.centre, gui.yaw, { widt
 
 /**
  * The Macintosh's picture (`MAC_CASE.picture`), as a panel: not HTML yet — it
- * is drawn in WebGL — but the same rectangle, so the reader's pointer can be
- * found on it (`panelPoint`) the way it is on the PC's, and the Mac's mouse
- * follow it there.
+ * is drawn in WebGL — but the same rectangle, leaning back with the Mac's
+ * front, so the reader's pointer can be found on it (`panelPoint`) the way
+ * it is on the PC's, and the Mac's mouse follow it there.
  */
 export const MAC_SCREEN: Panel = piecePanel(
   "desk",
   macToDesk(macPictureCentre()),
   MAC.yaw,
   { width: MAC_CASE.picture.width, height: MAC_CASE.picture.height },
-  MAC_CASE.picture.px
+  MAC_CASE.picture.px,
+  MAC_PROFILE.lean
 );
 
 /**

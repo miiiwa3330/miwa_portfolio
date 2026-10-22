@@ -3,6 +3,7 @@ import { NAV } from "@/hub/nav";
 import { HHKB } from "./keyboard";
 import { M0110 } from "./macKeyboard";
 import { M0100, M0100_TRAVEL } from "./macMouse";
+import { MAC_PROFILE, MAC_TOP } from "./macCase";
 import {
   EYE_HEIGHT,
   MIN_PIECE_GAP,
@@ -55,7 +56,6 @@ import {
   macKeyboardPlace,
   PEN_POT,
   DESK_MAT,
-  MAC_CASE,
   MAC_MOUSE,
   lampJoints,
   chairBackZ,
@@ -471,27 +471,19 @@ describe("the Macintosh and its keyboard", () => {
     for (const [x] of board) expect(x).toBeLessThan(KEYBOARD.x - HHKB.width / 2);
   });
 
-  it("keeps the screen's recess on the front plate, above the base, and the keyboard's jack on the base", () => {
-    const { recess, plinth, plate, jack } = MAC_CASE;
-    const recessBottom = MAC.height - recess.top - recess.height;
-    expect(recessBottom).toBeGreaterThan(plinth.height + plate.edge);
-    expect(MAC.height - recess.top).toBeLessThan(MAC.height - plate.edge);
-    expect(jack.y + 0.005).toBeLessThan(plinth.height);
-    expect(jack.y - 0.005).toBeGreaterThan(0);
-    expect(Math.abs(jack.x) + 0.004).toBeLessThan(MAC.width / 2 - plate.proud);
-  });
-
-  it("carries the pen pot on its left rail", () => {
+  it("carries the pen pot on its top's left half, clear of the handle's notch and on the top's slope", () => {
     const [x, y, z] = PEN_POT.local;
-    const { rail, plate } = MAC_CASE;
-    const railLeft = -MAC.width / 2 + plate.proud;
-    const railBack = -MAC.depth / 2;
-    const railFront = MAC.depth / 2 - plate.thickness - rail.front;
-    expect(x - PEN_POT.radius).toBeGreaterThanOrEqual(railLeft);
-    expect(x + PEN_POT.radius).toBeLessThanOrEqual(railLeft + rail.width);
-    expect(z - PEN_POT.radius).toBeGreaterThanOrEqual(railBack);
-    expect(z + PEN_POT.radius).toBeLessThanOrEqual(railFront);
-    expect(y).toBe(MAC.height);
+    // Inside the left half, between the case's side and the notch.
+    expect(x - PEN_POT.radius).toBeGreaterThanOrEqual(-MAC.width / 2);
+    expect(x + PEN_POT.radius).toBeLessThanOrEqual(-MAC_TOP.notch.width / 2);
+    // On the top, between its back corner and the front plate.
+    expect(z - PEN_POT.radius).toBeGreaterThanOrEqual(MAC_PROFILE.topBack[0]);
+    expect(z + PEN_POT.radius).toBeLessThanOrEqual(MAC_PROFILE.topSeam[0]);
+    // Standing on it: below the top's highest point, and tilted as it rises to the front.
+    expect(y).toBeGreaterThan(0.33);
+    expect(y).toBeLessThan(MAC.height);
+    expect(PEN_POT.tilt).toBeGreaterThan(0.07);
+    expect(PEN_POT.tilt).toBeLessThan(0.085);
   });
 
   it("has its mouse slide clear of both keyboards, round where it rests", () => {

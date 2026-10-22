@@ -3,6 +3,7 @@ import type { Direction } from "../direction";
 import { RECTILINEAR, STEREOGRAPHIC } from "../camera/fisheye";
 import { FIGURE, HIP_OVER_SEAT, PELVIS_BACK, seatedHipsFromEye } from "./figure";
 import { M0110 } from "./macKeyboard";
+import { MAC_HALF_WIDTH, MAC_NOTCH_HALF, MAC_SIZE, MAC_TOP_SLOPE, macTopAt } from "./macCase";
 
 /**
  * The room the camera stands in: one round room inside a rocket colony, seen
@@ -390,11 +391,10 @@ export const MONITOR_STANDS: { readonly gui: MonitorStand } = {
  * The Macintosh on the desk, left of the main monitor (2026-10-22, the
  * user; first planned on the right, then swapped with the video monitor):
  * the middle of its footprint, its turn in towards the chair, and its size —
- * the Macintosh 128K's, 9.6 × 13.6 × 10.9 in (W × H × D;
- * `reference/4/マッキントッシュ1〜3` are the machine). **仮**: the place and
- * the turn.
+ * the Macintosh 128K's (`MAC_SIZE`; its shape is `room/macCase.ts`).
+ * **仮**: the place and the turn.
  */
-export const MAC = { x: -0.55, z: -0.15, yaw: 0.25, width: 0.244, height: 0.345, depth: 0.276 } as const;
+export const MAC = { x: -0.55, z: -0.15, yaw: 0.25, ...MAC_SIZE } as const;
 
 /** A point in the Macintosh's own frame (origin on the desk under its middle, +Z out of its screen), in the desk's frame. */
 export function macToDesk(local: readonly [number, number, number]): [number, number, number] {
@@ -404,46 +404,17 @@ export function macToDesk(local: readonly [number, number, number]): [number, nu
 }
 
 /**
- * The Mac's case and front, in its own frame (`objects/Macintosh.tsx` draws
- * them; the screen's HTML panel, the pen pot on its top and the mouse's
- * cursor read them too). Measured in マッキントッシュ2.webp at 3.5 px to the
- * millimetre across the front: the screen's recess starts 19 mm under the
- * top and is 212 × 172 mm, the glass in it 196 × 152 mm. The picture is
- * 512 × 342 px at the 128K's 72 dpi (180.6 × 120.7 mm). The front plate
- * stops short of the desk: under it the case's base (`plinth`) is set back
- * — 45 mm tall, read off マッキントッシュ4.png and 6.png (the plate is
- * 635 px of the Mac's 730 there, 0.47 mm to the px); its top edge is rounded
- * over about 12 mm (the plate's top band in 4.png). **仮**: the front
- * plate's thickness, how far it stands proud of the case; how far the base
- * is set back; the recess's depth and how far its inner edge sits up; the
- * tube's bulge; the rails on the top.
+ * The pen pot (`DeskSet`), on the Mac's top (2026-10-22, the user: 「ペン立て
+ * はマッキントッシュの上に」): on the left half, beside the handle's notch, over
+ * its vents. Its middle in the Mac's frame, standing on the top; its radius;
+ * and its tilt — it stands on the top, which rises 4.4° to the front.
  */
-export const MAC_CASE = {
-  plate: { thickness: 0.03, proud: 0.004, edge: 0.012, corner: 0.016 },
-  plinth: { height: 0.045, setBack: 0.012 },
-  /** The keyboard's jack on the base, right of middle (4.png, 6.png): its middle's x and height. */
-  jack: { x: 0.075, y: 0.022 },
-  recess: { width: 0.212, height: 0.172, corner: 0.016, top: 0.019, depth: 0.028, lift: 0.004 },
-  glass: { width: 0.196, height: 0.152, corner: 0.012, bulge: 0.005 },
-  picture: { width: 0.1806, height: 0.1207, px: { width: 512, height: 342 } },
-  /** The two rails along the back of the top, their tops level with the front plate's. */
-  rail: { width: 0.085, height: 0.012, front: 0.05 },
-} as const;
-
-/** The middle of the Mac's picture, in its own frame: centred in the glass, on its face. */
-export function macPictureCentre(): [number, number, number] {
-  const { recess } = MAC_CASE;
-  return [0, MAC.height - recess.top - recess.height / 2 + recess.lift, MAC.depth / 2 - recess.depth + 0.0006];
-}
-
-/**
- * The pen pot (`DeskSet`), on the Mac's left rail (2026-10-22, the user: 「ペン立て
- * はマッキントッシュの上に」): its middle in the Mac's frame, standing on the
- * rail's top, and its radius.
- */
+const POT_RADIUS = 0.037;
+const POT_Z = -0.045;
 export const PEN_POT = {
-  local: [-(MAC.width / 2 - MAC_CASE.plate.proud - MAC_CASE.rail.width / 2), MAC.height, -0.045] as [number, number, number],
-  radius: 0.037,
+  local: [-(MAC_HALF_WIDTH + MAC_NOTCH_HALF) / 2, macTopAt(POT_Z), POT_Z] as [number, number, number],
+  radius: POT_RADIUS,
+  tilt: MAC_TOP_SLOPE,
 } as const;
 
 /** How far in front of the Mac's front its keyboard's case starts (**仮**: the cord's slack, as in マッキントッシュ3). */

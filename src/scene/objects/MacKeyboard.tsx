@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { DESK_TOP_Y, MAC, MAC_CASE, macKeyboardPlace, macToDesk } from "../room/layout";
+import { DESK_TOP_Y, macKeyboardPlace, macToDesk } from "../room/layout";
+import { MAC_CASE, MAC_COLOURS, MAC_PROFILE } from "../room/macCase";
 import { keySample, roundedRectOutline } from "../room/keyboard";
 import { keycapMesh, legendAtlas } from "../room/keycaps";
 import { M0110, M0110_TILT_DEG, MAC_CAPS, MAC_KEY_COUNT, MAC_PRESS_DIRECTION, macKeyForCode, macKeyboardKeys, macPlaneHeightAt } from "../room/macKeyboard";
@@ -26,14 +27,15 @@ import { pressableCaps, useKeyPresses } from "./useKeyPresses";
  * F-keys; the reader's Control is its ⌘. The sound is the HHKB's recording
  * for now (the M0110's switches are louder; **仮**).
  *
- * Colours are the photos' medians (sRGB), averaged over マッキントッシュ2,
- * 4 and 5: the caps' tops `#9d988a`, the space bar `#b6a689`; the case is
- * the Mac's `#ccc3ac`. The case is two shells, the parting line round its
+ * Colours are `MAC_COLOURS` (photo 7's medians, sRGB; the first values,
+ * from マッキントッシュ2, 4 and 5, were too white): the caps `#8b744e`, the
+ * space bar `#d6c197`, the case the Mac's plastic, the coiled cord
+ * `#6d5436`. The case is two shells, the parting line round its
  * sides (4.png, 5.png); the first version drew it on the lip's top, misread
  * from 2.webp's view from above.
  */
 
-const COLOURS = { cap: "#9d988a", space: "#b6a689", case: "#ccc3ac", well: "#8f8770", groove: "#7d7562" } as const;
+const COLOURS = { cap: MAC_COLOURS.cap, space: MAC_COLOURS.space, case: MAC_COLOURS.plastic, well: MAC_COLOURS.well, groove: MAC_COLOURS.groove } as const;
 /** The rim stands this far over the plate, the well's floor this far under it; the case's top edge and corners are this round (**仮**). */
 const RIM = 0.003;
 const FLOOR = -0.002;
@@ -44,7 +46,7 @@ const PARTING = { y: 0.0075, width: 0.0012 } as const;
 /** The cord: where it leaves the keyboard (its frame) and enters the Mac (the Mac's frame), and the coil's radius, pitch and wire (**仮**). */
 const CORD = {
   from: [-0.05, 0.012, -M0110.depth / 2] as const,
-  to: [MAC_CASE.jack.x, MAC_CASE.jack.y, MAC.depth / 2 - MAC_CASE.plinth.setBack] as const,
+  to: [MAC_CASE.jack.x, MAC_CASE.jack.y, MAC_PROFILE.plinthFront] as const,
   radius: 0.0045,
   pitch: 0.0042,
   wire: 0.0013,
@@ -171,7 +173,7 @@ export default function MacKeyboard({ typing }: { typing: boolean }) {
       case: new THREE.MeshStandardMaterial({ color: COLOURS.case, roughness: 0.62, metalness: 0 }),
       well: new THREE.MeshStandardMaterial({ color: COLOURS.well, roughness: 0.75, metalness: 0 }),
       groove: new THREE.MeshStandardMaterial({ color: COLOURS.groove, roughness: 0.7, metalness: 0 }),
-      cord: new THREE.MeshStandardMaterial({ color: COLOURS.case, roughness: 0.55, metalness: 0 }),
+      cord: new THREE.MeshStandardMaterial({ color: MAC_COLOURS.coil, roughness: 0.55, metalness: 0 }),
     }),
     [legends, press]
   );
