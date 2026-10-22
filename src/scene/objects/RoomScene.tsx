@@ -43,6 +43,7 @@ import { SecurityCameraBody, SecurityFeed } from "./SecurityCamera";
 import { DeskBody, DeskLamp, DeskMat, DeskMonitor, DeskSmalls, useDeskMaterials } from "./DeskSet";
 import DellMonitor from "./DellMonitor";
 import MonitorArm from "./MonitorArm";
+import Kickstand from "./Kickstand";
 import ExgMouse from "./ExgMouse";
 import HhkbKeyboard from "./HhkbKeyboard";
 
@@ -280,7 +281,7 @@ export function Desk({ typing }: { typing?: boolean }) {
     <Piece name="desk">
       <DeskBody m={m} />
       <DeskSmalls m={m} />
-      {/* Three monitors: the video on end (a P2422H), the PC's own screen (a U3223QE), and the security camera above it on its arm. */}
+      {/* Three monitors: the video on end on a kickstand (a P2422H), the PC's own screen (a U3223QE), and the security camera above it on its arm. */}
       {(Object.keys(MONITORS) as MonitorKey[]).map((key) => {
         const { x, y, z, yaw, pitch, screen } = MONITORS[key];
         const glass = monitorGlass(key);
@@ -310,6 +311,7 @@ export function Desk({ typing }: { typing?: boolean }) {
         );
       })}
       <MonitorArm />
+      <Kickstand />
       {/* The keyboard and the mouse, where a seated reader's hands rest (`Self`). */}
       <DeskMat m={m} />
       <HhkbKeyboard typing={typing ?? seated} />

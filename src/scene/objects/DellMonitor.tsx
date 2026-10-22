@@ -3,13 +3,15 @@
 import { useEffect, useMemo, type ReactNode } from "react";
 import * as THREE from "three";
 import { RoundedBox } from "@react-three/drei";
-import { DESK_TOP_Y, MONITORS, MONITOR_STANDS, monitorFrameMiddle, type StandingMonitor } from "../room/layout";
+import { DELL_HOUSING_DEPTH, DESK_TOP_Y, MONITORS, MONITOR_STANDS, monitorFrameMiddle, type DellMonitorKey } from "../room/layout";
 
 /**
- * The two Dell monitors on their own stands (`MONITORS`, `MONITOR_STANDS`):
- * the main one, a U3223QE, and the left one, a P2422H stood on end. Each is
- * a front frame barely wider than the screen, a back that swells into a
- * housing behind the lower middle, a leaning column and a flat base. The
+ * The two Dell monitors (`MONITORS`): the main one, a U3223QE on its stand
+ * (`MONITOR_STANDS`), and the video one, a P2422H stood on end without its
+ * stand, leaning on a kickstand (`Kickstand`, drawn in the desk's frame).
+ * Each is a front frame barely wider than the screen and a back that swells
+ * into a housing behind the lower middle; the U3223QE's stand is a leaning
+ * column and a flat base. The
  * owner's name is printed on the frame under the screen, where the maker's
  * logo is (as the keyboard's "Miiiwa Professional3" and the mouse's
  * "Miiiwa").
@@ -27,14 +29,14 @@ import { DESK_TOP_Y, MONITORS, MONITOR_STANDS, monitorFrameMiddle, type Standing
  */
 
 /** How each model looks beyond its measured size: its colours, and its housing (outline, corner, middle's height, rolled edge). */
-const LOOKS: Record<StandingMonitor, { shell: string; stand: string; housing: { width: number; height: number; corner: number; y: number; bevel: number } }> = {
+const LOOKS: Record<DellMonitorKey, { shell: string; stand: string; housing: { width: number; height: number; corner: number; y: number; bevel: number } }> = {
   // Platinum silver back and stand.
   gui: { shell: "#b5b8bc", stand: "#a3a7ad", housing: { width: 0.5, height: 0.28, corner: 0.05, y: -0.04, bevel: 0.014 } },
   // All black.
   video: { shell: "#1d1f23", stand: "#25272b", housing: { width: 0.36, height: 0.2, corner: 0.04, y: -0.03, bevel: 0.012 } },
 };
 
-function makeMaterials(which: StandingMonitor) {
+function makeMaterials(which: DellMonitorKey) {
   const look = LOOKS[which];
   return {
     frame: new THREE.MeshStandardMaterial({ color: "#0f1012", roughness: 0.55, metalness: 0.1 }),
@@ -100,9 +102,9 @@ function makeNameTexture(): THREE.CanvasTexture {
   return texture;
 }
 
-export default function DellMonitor({ which, children }: { which: StandingMonitor; children?: ReactNode }) {
+export default function DellMonitor({ which, children }: { which: DellMonitorKey; children?: ReactNode }) {
   const monitor = MONITORS[which];
-  const stand = MONITOR_STANDS[which];
+  const stand = which === "gui" ? MONITOR_STANDS.gui : null;
   const housingLook = LOOKS[which].housing;
   const frame = monitor.bezel;
   // The frame's front and back faces, and its middle's height (it runs further down than up: `chin`).
@@ -112,7 +114,7 @@ export default function DellMonitor({ which, children }: { which: StandingMonito
   // The strip of frame under the screen, where the name and the light are.
   const under = (frame.height - monitor.screen.height + monitor.chin) / 2;
   const underY = -monitor.screen.height / 2 - under / 2;
-  const housingBack = front - stand.housingDepth;
+  const housingBack = front - DELL_HOUSING_DEPTH[which];
   /** The desk's top, in the monitor's frame. */
   const desk = DESK_TOP_Y - monitor.y;
 
@@ -123,6 +125,7 @@ export default function DellMonitor({ which, children }: { which: StandingMonito
     [housingLook, back, housingBack]
   );
   const base = useMemo(() => {
+    if (!stand) return null;
     const { width, thickness, corner, setBack } = stand.base;
     const depth = stand.depth - setBack;
     const geometry = pillow(width, depth, corner, thickness, 0.003);
@@ -135,7 +138,7 @@ export default function DellMonitor({ which, children }: { which: StandingMonito
       Object.values(m).forEach((material) => material.dispose());
       name.dispose();
       housing.dispose();
-      base.geometry.dispose();
+      base?.geometry.dispose();
     },
     [m, name, housing, base]
   );
@@ -144,6 +147,7 @@ export default function DellMonitor({ which, children }: { which: StandingMonito
   // middle of the panel, leaning forward. Its foot is a little in from the
   // base's back edge. The pivot is the frame's middle as the panel is turned.
   const column = useMemo(() => {
+    if (!stand) return null;
     const [mx, my] = monitorFrameMiddle(which);
     const pivotY = mx * Math.sin(monitor.roll) + my * Math.cos(monitor.roll);
     const foot = new THREE.Vector3(0, desk + stand.base.thickness, front - stand.depth + 0.05);
@@ -182,16 +186,20 @@ export default function DellMonitor({ which, children }: { which: StandingMonito
         </mesh>
         {children}
       </group>
-      {/* The stand. */}
-      <RoundedBox
-        args={[stand.column.width, column.length, stand.column.depth]}
-        radius={0.008}
-        smoothness={3}
-        position={column.at}
-        quaternion={column.quaternion}
-        material={m.stand}
-      />
-      <mesh geometry={base.geometry} position={[0, desk, front - stand.base.setBack - base.depth / 2]} material={m.stand} />
+      {stand && column && base && (
+        <>
+          {/* The stand. */}
+          <RoundedBox
+            args={[stand.column.width, column.length, stand.column.depth]}
+            radius={0.008}
+            smoothness={3}
+            position={column.at}
+            quaternion={column.quaternion}
+            material={m.stand}
+          />
+          <mesh geometry={base.geometry} position={[0, desk, front - stand.base.setBack - base.depth / 2]} material={m.stand} />
+        </>
+      )}
     </>
   );
 }

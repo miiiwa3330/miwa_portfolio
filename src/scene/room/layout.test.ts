@@ -43,6 +43,9 @@ import {
   monitorBottomOverDesk,
   monitorFace,
   monitorToDesk,
+  monitorCorners,
+  kickstand,
+  KICKSTAND,
   armJoints,
   MAC,
   MONITOR_ARM,
@@ -336,54 +339,81 @@ describe("the main monitor (U3223QE)", () => {
   });
 });
 
-describe("the monitors on stands", () => {
-  for (const key of ["gui", "video"] as const) {
-    it(`holds the ${key} monitor's middle where its stand reaches, and clear of the desk`, () => {
-      // The stand holds the panel by its middle; upright, that middle is
-      // half the frame's height over its bottom edge, which the stand can
-      // raise from `lowest` by `travel`. Pivoted, the middle stays where it was.
-      const stand = MONITOR_STANDS[key];
-      const half = MONITORS[key].bezel.height / 2;
-      const middle = monitorToDesk(key, monitorFrameMiddle(key))[1] - KEYBOARD.y;
-      expect(middle).toBeGreaterThanOrEqual(stand.lowest + half - 1e-9);
-      expect(middle).toBeLessThanOrEqual(stand.lowest + stand.travel + half + 1e-9);
-      expect(monitorBottomOverDesk(key)).toBeGreaterThan(0.01);
-    });
-  }
+describe("the main monitor's stand", () => {
+  it("holds the panel's middle where the stand reaches", () => {
+    // The stand holds the panel by its middle, half the frame's height over
+    // its bottom edge, which the stand can raise from `lowest` by `travel`.
+    const stand = MONITOR_STANDS.gui;
+    const half = MONITORS.gui.bezel.height / 2;
+    const middle = monitorToDesk("gui", monitorFrameMiddle("gui"))[1] - KEYBOARD.y;
+    expect(middle).toBeGreaterThanOrEqual(stand.lowest + half);
+    expect(middle).toBeLessThanOrEqual(stand.lowest + stand.travel + half);
+  });
 });
 
-describe("the left monitor (P2422H, on end)", () => {
-  const left = MONITORS.video;
-  const corners = () => {
-    const out: [number, number, number][] = [];
-    const [, my] = monitorFrameMiddle("video");
-    for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1]) out.push(monitorToDesk("video", [(x * left.bezel.width) / 2, my + (y * left.bezel.height) / 2, (z * left.bezel.depth) / 2]));
-    return out;
-  };
+describe("the video monitor (P2422H, on end, on a kickstand)", () => {
+  const video = MONITORS.video;
+  const corners = monitorCorners("video");
+  const k = kickstand();
 
   it("is the maker's panel round the maker's screen", () => {
-    const sides = (left.bezel.width - left.screen.width) / 2;
+    const sides = (video.bezel.width - video.screen.width) / 2;
     expect(sides).toBeCloseTo(0.00538, 9);
-    expect(left.bezel.height - left.screen.height - 2 * sides - left.chin).toBeCloseTo(0, 12);
+    expect(video.bezel.height - video.screen.height - 2 * sides - video.chin).toBeCloseTo(0, 12);
   });
 
-  it("stands on end: taller than it is wide, its face still level", () => {
-    const ys = corners().map((c) => c[1]);
-    expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(left.bezel.width, 9);
-    const face = monitorToDesk("video", [0, 0, 1]);
-    expect(face[1]).toBeCloseTo(left.y, 12);
+  it("stands on end, leaning back, its lowest corner on the desk", () => {
+    expect(monitorBottomOverDesk("video")).toBeCloseTo(0, 12);
+    const ys = corners.map((c) => c[1]);
+    // On end: the long side is the tall one, shortened only by the lean.
+    expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(video.bezel.width * 0.9);
+    // Leaning back: its face looks a little up.
+    expect(monitorToDesk("video", [0, 0, 1])[1]).toBeGreaterThan(video.y);
   });
 
-  it("has its thicker strip of frame on the left, away from the main monitor", () => {
+  it("has its thicker strip of frame on the left", () => {
     // Turned a quarter clockwise, the bottom of the frame goes to the left.
     const middle = monitorToDesk("video", monitorFrameMiddle("video"));
     const screen = monitorToDesk("video", [0, 0, 0]);
-    expect(middle[0]).toBeLessThan(screen[0]);
+    const across = [Math.cos(video.yaw), 0, -Math.sin(video.yaw)];
+    expect((middle[0] - screen[0]) * across[0] + (middle[2] - screen[2]) * across[2]).toBeLessThan(0);
   });
 
-  it("stands clear of the main monitor's frame", () => {
-    const mainLeft = -MONITORS.gui.bezel.width / 2;
-    for (const c of corners()) expect(c[0]).toBeLessThan(mainLeft - 0.005);
+  it("is held up by its kickstand: hinged on the back of its housing, standing on the desk behind it", () => {
+    expect(k.foot[1]).toBeCloseTo(KEYBOARD.y, 12);
+    // Behind the panel: the foot is on the far side of the panel's back from its face.
+    const normal = monitorToDesk("video", [0, 0, 1]).map((v, i) => v - [video.x, video.y, video.z][i]);
+    const toFoot = k.foot.map((v, i) => v - k.hinge[i]);
+    expect(toFoot[0] * normal[0] + toFoot[1] * normal[1] + toFoot[2] * normal[2]).toBeLessThan(0);
+    expect(k.hinge[1]).toBeGreaterThan(KEYBOARD.y + 0.1);
+    expect(k.foot[2]).toBeGreaterThan(-PIECES.desk.depth / 2);
+  });
+
+  it("stands clear of the main monitor's frame and the arm's post, in front of the arm", () => {
+    const mainRight = MONITORS.gui.bezel.width / 2;
+    for (const c of corners) expect(c[0]).toBeGreaterThan(mainRight + 0.005);
+    // The kickstand's foot, with its width, keeps off the post.
+    const [px, , pz] = armJoints().clamp;
+    const post = 0.024;
+    const footHalf = KICKSTAND.width / 2 + 0.003;
+    const apartX = Math.abs(k.foot[0] - px) - footHalf - post;
+    const apartZ = Math.abs(k.foot[2] - pz) - 0.008 - post;
+    expect(Math.max(apartX, apartZ)).toBeGreaterThan(0.01);
+    for (const c of corners) expect(c[2]).toBeGreaterThan(pz + post);
+  });
+
+  it("keeps inside the room's wall", () => {
+    for (const c of corners) {
+      const [x, , z] = pieceToWorld(PIECES.desk, c);
+      expect(Math.hypot(x, z)).toBeLessThan(ROOM_RADIUS - 0.05);
+    }
+  });
+});
+
+describe("the Macintosh's place", () => {
+  it("is on the desk's left, clear of the main monitor's frame", () => {
+    expect(MAC.x + MAC.width / 2).toBeLessThan(-MONITORS.gui.bezel.width / 2 - 0.02);
+    expect(MAC.z - MAC.depth / 2).toBeGreaterThan(-PIECES.desk.depth / 2);
   });
 });
 
@@ -394,9 +424,12 @@ describe("the upper monitor and its arm", () => {
   it("turns a monitor's frame yaw first, then pitch, the way its \"YXZ\" group does", () => {
     // The main monitor is neither turned nor tipped: its frame is the desk's, moved.
     expect(monitorToDesk("gui", [0.1, 0.2, 0.3])).toEqual([0.1, MONITORS.gui.y + 0.2, MONITORS.gui.z + 0.3]);
-    // The left one is only turned: its face swings round to the right (+X).
+    // The video one is turned in to the left and leans back: its face swings
+    // round towards −X by the yaw, shortened by the lean.
+    const { x, y, yaw, pitch } = MONITORS.video;
     const out = monitorToDesk("video", [0, 0, 1]);
-    expect(out[0] - MONITORS.video.x).toBeCloseTo(Math.sin(MONITORS.video.yaw), 12);
+    expect(out[0] - x).toBeCloseTo(Math.sin(yaw) * Math.cos(pitch), 12);
+    expect(out[1] - y).toBeCloseTo(-Math.sin(pitch), 12);
     // The upper one tips its face down, towards the seat.
     const face = monitorToDesk("camera", [0, 0, 1]);
     expect(face[1] - upper.y).toBeCloseTo(-Math.sin(upper.pitch), 12);
@@ -418,10 +451,10 @@ describe("the upper monitor and its arm", () => {
     expect(j.wrist[0]).toBeGreaterThan(j.head[0]);
   });
 
-  it("is clamped to the desk's back edge, behind where the Macintosh stands", () => {
-    expect(j.clamp[0]).toBe(MAC.x);
-    expect(j.clamp[2]).toBeLessThan(MAC.z - MAC.depth / 2);
+  it("is clamped to the desk's back edge, on its right", () => {
+    expect(j.clamp[0]).toBeGreaterThan(MONITORS.gui.bezel.width / 2);
     expect(j.clamp[2]).toBeGreaterThan(-PIECES.desk.depth / 2);
+    expect(j.clamp[2]).toBeLessThan(-PIECES.desk.depth / 2 + 0.05);
   });
 
   it("holds the monitor from behind: the head is behind its back plate, the beams behind the head", () => {
