@@ -6,7 +6,7 @@ import { RoundedBox } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { MAC_MOUSE } from "../room/layout";
 import { MAC_COLOURS } from "../room/macCase";
-import { M0100, M0100_BUTTON, M0100_MARK, M0100_SHAPE, M0100_TOP, macMouseCord, onMacButton } from "../room/macMouse";
+import { M0100, M0100_BUTTON, M0100_CORD, M0100_MARK, M0100_SHAPE, M0100_TOP, macMouseCord, onMacButton } from "../room/macMouse";
 import { MAC_SCREEN } from "../room/screens";
 import { MAC_MAPPING, macPointer } from "../deskPointer";
 import { useDeskMouse, type MousePart } from "./useDeskMouse";
@@ -48,13 +48,12 @@ const S = M0100_SHAPE;
 /** The button's opening round it, and the button's own thickness and how far its top sits under the top. */
 const OPENING = { gap: 0.0008, depth: 0.004, corner: 0.0012 } as const;
 const BUTTON = { thickness: 0.003, under: 0.0003 } as const;
-/** The cord: its wire, and how quickly the run along the desk catches up with the mouse (per second). */
-const CORD = { wire: 0.0018, follow: 4 } as const;
-
-/** The cord's tube along `macMouseCord`, the mouse `at` where it has slid to and the cord dragging after it from `trail`. */
+/** The cord's tube along `macMouseCord` (resting on the desk and the mat), the mouse `at` where it has slid to and the cord dragging after it from `trail`. */
 function cordTube(at: readonly [number, number], trail: readonly [number, number]): THREE.TubeGeometry {
-  const path = new THREE.CatmullRomCurve3(macMouseCord(at, trail).map((p) => new THREE.Vector3(...p)));
-  return new THREE.TubeGeometry(path, 96, CORD.wire, 6, false);
+  const points = macMouseCord(at, trail);
+  const path = new THREE.CurvePath<THREE.Vector3>();
+  for (let i = 1; i < points.length; i++) path.add(new THREE.LineCurve3(new THREE.Vector3(...points[i - 1]), new THREE.Vector3(...points[i])));
+  return new THREE.TubeGeometry(path, 4 * (points.length - 1), M0100_CORD.wire, 6, false);
 }
 
 /** An outline (top view) at a height, moved along the mouse by `dz`. */
@@ -156,7 +155,7 @@ export default function MacMouse({ typing }: { typing: boolean }) {
     if (!g) return;
     const m = motion.current;
     const at: [number, number] = [g.position.x - MAC_MOUSE.x, g.position.z - MAC_MOUSE.z];
-    const settle = 1 - Math.exp(-delta * CORD.follow);
+    const settle = 1 - Math.exp(-delta * M0100_CORD.follow);
     const trail: [number, number] = [m.trail[0] + (at[0] - m.trail[0]) * settle, m.trail[1] + (at[1] - m.trail[1]) * settle];
     const moved = Math.hypot(at[0] - m.at[0], at[1] - m.at[1]) > 1e-6 || Math.hypot(trail[0] - m.trail[0], trail[1] - m.trail[1]) > 1e-6;
     if (!moved) return;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { M0100, M0100_BUTTON, M0100_MARK, M0100_SHAPE, M0100_TOP, M0100_TRAVEL, macMouseCord, onMacButton } from "./macMouse";
-import { DESK_TOP_Y, MAC, MAC_MOUSE, macToDesk } from "./layout";
+import { M0100, M0100_BUTTON, M0100_CORD, M0100_MARK, M0100_SHAPE, M0100_TOP, M0100_TRAVEL, macMouseCord, macMouseCordGuide, onMacButton } from "./macMouse";
+import { DESK_MAT, DESK_TOP_Y, MAC, MAC_MOUSE, macToDesk } from "./layout";
 import { MAC_BACK } from "./macCase";
 
 const S = M0100_SHAPE;
@@ -70,17 +70,37 @@ describe("the M0100's cord", () => {
   it("leaves the mouse's front wherever the mouse has slid to, and ends in the Mac's mouse port", () => {
     for (const at of corners) {
       const cord = macMouseCord(at, at);
+      expect(cord[0][1]).toBeCloseTo(MAC_MOUSE.y + 0.012, 12);
       expect(cord[0][0]).toBeCloseTo(MAC_MOUSE.x + at[0], 12);
       expect(cord[0][2]).toBeCloseTo(MAC_MOUSE.z + at[1] - M0100.length / 2, 12);
       expect(cord[cord.length - 1]).toEqual(port);
     }
   });
 
-  it("runs along the desk, never under it, and drags its middle after the mouse", () => {
-    const still = macMouseCord([0, 0], [0, 0]);
-    const dragged = macMouseCord(corners[1], corners[1]);
-    const lagging = macMouseCord(corners[1], [0, 0]);
-    for (const p of [...still, ...dragged]) expect(p[1]).toBeGreaterThan(DESK_TOP_Y);
+  it("rests on the desk and on the mat, never sinking into either, wherever the mouse is", () => {
+    const onMat = (x: number, z: number) => Math.abs(x - DESK_MAT.x) <= DESK_MAT.width / 2 && Math.abs(z - DESK_MAT.z) <= DESK_MAT.depth / 2;
+    let matPoints = 0;
+    let deskPoints = 0;
+    for (const at of [[0, 0] as [number, number], ...corners])
+      for (const trail of [[0, 0] as [number, number], at]) {
+        for (const [x, y, z] of macMouseCord(at, trail)) {
+          const under = DESK_TOP_Y + (onMat(x, z) ? DESK_MAT.thickness : 0);
+          expect(y - M0100_CORD.wire).toBeGreaterThanOrEqual(under - 1e-12);
+          if (onMat(x, z)) matPoints++;
+          else deskPoints++;
+        }
+      }
+    // It does cross both, and lies on them rather than floating over them.
+    expect(matPoints).toBeGreaterThan(0);
+    expect(deskPoints).toBeGreaterThan(0);
+    const lying = macMouseCord([0, 0], [0, 0]).filter(([x, y, z]) => Math.abs(y - M0100_CORD.wire - DESK_TOP_Y - (onMat(x, z) ? DESK_MAT.thickness : 0)) < 1e-9);
+    expect(lying.length).toBeGreaterThan(10);
+  });
+
+  it("drags its middle after the mouse, and keeps its end in the port", () => {
+    const still = macMouseCordGuide([0, 0], [0, 0]);
+    const dragged = macMouseCordGuide(corners[1], corners[1]);
+    const lagging = macMouseCordGuide(corners[1], [0, 0]);
     // The middle follows the mouse, by less than the mouse moved; while it lags, it stays where it was.
     const middle = 2;
     expect(dragged[middle][0] - still[middle][0]).toBeGreaterThan(0);

@@ -1,4 +1,4 @@
-import { MAC, MAC_MOUSE, macToDesk } from "./layout";
+import { MAC, MAC_MOUSE, deskSurfaceAt, macToDesk } from "./layout";
 import { MAC_BACK } from "./macCase";
 
 /**
@@ -92,27 +92,70 @@ export function onMacButton(x: number, z: number): boolean {
  */
 export const M0100_TRAVEL = { width: 0.06, depth: (0.06 * 342) / 512 } as const;
 
+/** The cord: its wire's radius, and how quickly its run along the desk catches up with the mouse (per second). */
+export const M0100_CORD = { wire: 0.0018, follow: 4 } as const;
+
 /**
- * The cord, in the desk's frame (2026-10-23, the user: 「動的なケーブルにし
- * て」): out of the mouse's front wherever it has slid to (`at`, from where
- * it rests), forward along the desk, round behind the Mac's keyboard and up
- * into the Mac's mouse port (the first on its back, `MAC_BACK.ports`). The
- * stretch out of the mouse moves with it; the run along the desk follows
- * `trail` (where the mouse was a moment ago, so the cord drags after it);
- * the end at the port stays put. Points for a smooth curve through them.
+ * The points the cord goes through, in the desk's frame (2026-10-23, the
+ * user: 「動的なケーブルにして」): out of the mouse's front wherever it has
+ * slid to (`at`, from where it rests), forward onto the desk, round behind
+ * the Mac's keyboard and up into the Mac's mouse port (the first on its
+ * back, `MAC_BACK.ports`). The stretch out of the mouse moves with it; the
+ * run along the desk follows `trail` (where the mouse was a moment ago, so
+ * the cord drags after it); the end at the port stays put. Where the cord
+ * lies, the points are at the desk's top: `macMouseCord` lifts it onto
+ * whatever is under it.
  */
-export function macMouseCord(at: readonly [number, number], trail: readonly [number, number]): [number, number, number][] {
+export function macMouseCordGuide(at: readonly [number, number], trail: readonly [number, number]): [number, number, number][] {
   const port = macToDesk([MAC_BACK.ports.at[0], MAC_BACK.ports.y, -MAC.depth / 2]);
   const x = MAC_MOUSE.x + at[0];
   const z = MAC_MOUSE.z + at[1];
   const y = MAC_MOUSE.y;
   return [
     [x, y + 0.012, z - M0100.length / 2],
-    [x, y + 0.003, z - M0100.length / 2 - 0.04],
+    [x, y, z - M0100.length / 2 - 0.04],
     // On the desk behind the Mac's keyboard, dragged half as far as the mouse went.
-    [MAC_MOUSE.x - 0.02 + trail[0] / 2, y + 0.003, MAC_MOUSE.z - 0.25 + trail[1] / 2],
-    [port[0] + 0.05, y + 0.003, port[2] - 0.05],
+    [MAC_MOUSE.x - 0.02 + trail[0] / 2, y, MAC_MOUSE.z - 0.25 + trail[1] / 2],
+    [port[0] + 0.05, y, port[2] - 0.05],
     [port[0], port[1], port[2] - 0.02],
     port,
   ];
+}
+
+/** A point `t` (0–1) between p1 and p2 of a centripetal Catmull–Rom spline through p0…p3. */
+function catmullRom(p0: readonly number[], p1: readonly number[], p2: readonly number[], p3: readonly number[], t: number): [number, number, number] {
+  const knot = (a: readonly number[], b: readonly number[]) => Math.max(1e-6, Math.sqrt(Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2])));
+  const t1 = knot(p0, p1);
+  const t2 = t1 + knot(p1, p2);
+  const t3 = t2 + knot(p2, p3);
+  const u = t1 + (t2 - t1) * t;
+  const lerp = (a: readonly number[], b: readonly number[], ta: number, tb: number) => a.map((v, k) => (v * (tb - u) + b[k] * (u - ta)) / (tb - ta));
+  const a1 = lerp(p0, p1, 0, t1);
+  const a2 = lerp(p1, p2, t1, t2);
+  const a3 = lerp(p2, p3, t2, t3);
+  const b1 = lerp(a1, a2, 0, t2);
+  const b2 = lerp(a2, a3, t1, t3);
+  return lerp(b1, b2, t1, t2) as [number, number, number];
+}
+
+/**
+ * The cord as drawn: a smooth curve through `macMouseCordGuide`, `steps`
+ * points to each stretch, each lifted so the wire rests on what is under it
+ * — the desk's top, or the mat where it crosses the mat (the mouse rests on
+ * the mat; the curve between the guide's points would otherwise dip into
+ * them).
+ */
+export function macMouseCord(at: readonly [number, number], trail: readonly [number, number], steps = 16): [number, number, number][] {
+  const guide = macMouseCordGuide(at, trail);
+  const n = guide.length;
+  const ends = [
+    guide[0].map((v, k) => 2 * v - guide[1][k]),
+    guide[n - 1].map((v, k) => 2 * v - guide[n - 2][k]),
+  ];
+  const point = (i: number) => (i < 0 ? ends[0] : i >= n ? ends[1] : guide[i]);
+  const path: [number, number, number][] = [];
+  for (let i = 0; i < n - 1; i++)
+    for (let k = 0; k < steps; k++) path.push(catmullRom(point(i - 1), point(i), point(i + 1), point(i + 2), k / steps));
+  path.push([...guide[n - 1]]);
+  return path.map(([x, y, z]) => [x, Math.max(y, deskSurfaceAt(x, z) + M0100_CORD.wire), z]);
 }

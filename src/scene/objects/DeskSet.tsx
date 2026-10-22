@@ -216,8 +216,8 @@ export function DeskMonitor({ m, monitor, children }: { m: DeskMaterials; monito
 export function DeskMat({ m }: { m: DeskMaterials }) {
   return (
     <Slab
-      size={[DESK_MAT.width, 0.003, DESK_MAT.depth]}
-      at={[DESK_MAT.x, SURFACE_Y + 0.0015, DESK_MAT.z]}
+      size={[DESK_MAT.width, DESK_MAT.thickness, DESK_MAT.depth]}
+      at={[DESK_MAT.x, SURFACE_Y + DESK_MAT.thickness / 2, DESK_MAT.z]}
       material={m.mat}
       radius={0.0012}
     />

@@ -654,8 +654,14 @@ export const KEYBOARD = { x: 0, z: 0.08, y: DESK_TOP_Y } as const;
 export const MOUSE = { x: 0.36, z: 0.1, y: DESK_TOP_Y } as const;
 /** The mug's coaster on the desk, right of the mouse (the mouse's travel keeps clear of it). */
 export const MUG = { x: 0.55, z: 0.2, radius: 0.052 } as const;
-/** The mat under the keyboard and the mouse: its middle and size. */
-export const DESK_MAT = { x: 0.1, z: 0.09, width: 0.8, depth: 0.3 } as const;
+/** The mat under the keyboard and the mouse: its middle, size and thickness. */
+export const DESK_MAT = { x: 0.1, z: 0.09, width: 0.8, depth: 0.3, thickness: 0.003 } as const;
+
+/** How high the desk's surface is at a point (desk frame): its top, or the mat's where the mat lies. */
+export function deskSurfaceAt(x: number, z: number): number {
+  const onMat = Math.abs(x - DESK_MAT.x) <= DESK_MAT.width / 2 && Math.abs(z - DESK_MAT.z) <= DESK_MAT.depth / 2;
+  return DESK_TOP_Y + (onMat ? DESK_MAT.thickness : 0);
+}
 export const HAND_Y = 0.82;
 /**
  * Where the seated hands rest, in the desk's frame: the left on the near
