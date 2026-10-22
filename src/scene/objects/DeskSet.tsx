@@ -3,7 +3,7 @@
 import { useEffect, useMemo, type ReactNode } from "react";
 import * as THREE from "three";
 import { RoundedBox } from "@react-three/drei";
-import { DESK_MAT, MONITOR_BEZEL, MONITOR_Y, MUG, PIECES } from "../room/layout";
+import { DESK_MAT, MUG, PIECES, type Monitor } from "../room/layout";
 
 /**
  * The PC's desk and everything on it, built from rounded forms rather than
@@ -14,7 +14,7 @@ import { DESK_MAT, MONITOR_BEZEL, MONITOR_Y, MUG, PIECES } from "../room/layout"
  *
  * Everything is in the desk's own frame (`Piece` in `RoomScene`), and what
  * other code leans on does not move: the monitors' screen faces
- * (`MONITOR_FACE_Z`, where the PC's HTML is laid), the keyboard's and mouse's
+ * (`monitorFace`, where the PC's HTML is laid), the keyboard's and mouse's
  * place and height (where the seated hands rest, `DESK_HANDS`), and the
  * lamp's bulb (where the desk light is).
  */
@@ -177,12 +177,12 @@ export function DeskBody({ m }: { m: DeskMaterials }) {
 /**
  * A monitor on its stand: a thin front frame (the screen's glass is laid on
  * it by the caller, as `children`), a rear housing, a neck and a base. The
- * frame is `MONITOR_BEZEL` exactly — the glass and the PC's HTML are placed
- * from that.
+ * frame is the monitor's `bezel` exactly — the glass and the PC's HTML are
+ * placed from that.
  */
-export function DeskMonitor({ m, children }: { m: DeskMaterials; children?: ReactNode }) {
-  const { width, height, depth } = MONITOR_BEZEL;
-  const deskLevel = SURFACE_Y - MONITOR_Y;
+export function DeskMonitor({ m, monitor, children }: { m: DeskMaterials; monitor: Monitor; children?: ReactNode }) {
+  const { width, height, depth } = monitor.bezel;
+  const deskLevel = SURFACE_Y - monitor.y;
   // The neck runs from the base's top up into the housing.
   const neckBottom = deskLevel + 0.012;
   const neckTop = -0.12;

@@ -6,9 +6,7 @@ import * as THREE from "three";
 import {
   BOARD_FRAME,
   MONITORS,
-  MONITOR_GLASS,
-  MONITOR_SCREEN,
-  MONITOR_Y,
+  monitorGlass,
   PIECES,
   ROOM_RADIUS,
   SUBJECTS,
@@ -227,6 +225,8 @@ function ScreenHole({ panel }: { panel: Panel }) {
  * so the pause button stops it like everything else that moves by itself.
  */
 function VideoFeed() {
+  const { screen } = MONITORS.video;
+  const glass = monitorGlass("video");
   const video = useMemo(() => makeVideo(), []);
   useEffect(() => () => video.texture.dispose(), [video]);
   const last = useRef(-1);
@@ -237,8 +237,8 @@ function VideoFeed() {
     video.draw(t);
   });
   return (
-    <mesh position={[0, 0, MONITOR_GLASS.z + MONITOR_GLASS.thickness / 2 + 0.0002]}>
-      <planeGeometry args={[MONITOR_SCREEN.width, MONITOR_SCREEN.height]} />
+    <mesh position={[0, 0, glass.z + glass.thickness / 2 + 0.0002]}>
+      <planeGeometry args={[screen.width, screen.height]} />
       <meshBasicMaterial map={video.texture} />
     </mesh>
   );
@@ -271,13 +271,14 @@ export function Desk({ typing }: { typing?: boolean }) {
       <DeskSmalls m={m} />
       {/* Three monitors: video, the PC's own screen, the security camera. */}
       {(Object.keys(MONITORS) as MonitorKey[]).map((key) => {
-        const { x, z, yaw } = MONITORS[key];
+        const { x, y, z, yaw, screen } = MONITORS[key];
+        const glass = monitorGlass(key);
         return (
-          <group key={key} position={[x, MONITOR_Y, z]} rotation={[0, yaw, 0]}>
-            <DeskMonitor m={m}>
+          <group key={key} position={[x, y, z]} rotation={[0, yaw, 0]}>
+            <DeskMonitor m={m} monitor={MONITORS[key]}>
               <Box
-                size={[MONITOR_SCREEN.width, MONITOR_SCREEN.height, MONITOR_GLASS.thickness]}
-                at={[0, 0, MONITOR_GLASS.z]}
+                size={[screen.width, screen.height, glass.thickness]}
+                at={[0, 0, glass.z]}
                 color="#000000"
                 glow={MONITOR_GLOW[key]}
                 glowStrength={1.2}

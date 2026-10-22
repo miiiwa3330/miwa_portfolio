@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DESK_SCREEN, DESK_SCREEN_PX, HOLOGRAM_PANEL, piecePanel } from "./screens";
-import { STANDARD_HFOV, ZOOM_FILL, zoomView, MONITOR_BEZEL, MONITOR_FACE_Z, MONITOR_GLASS, MONITOR_SCREEN, monitorFace, subjectPoint } from "./layout";
+import { STANDARD_HFOV, ZOOM_FILL, zoomView, MONITORS, monitorFace, monitorFaceZ, monitorGlass, subjectPoint } from "./layout";
 
 const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
@@ -23,14 +23,15 @@ describe("the PC's screen", () => {
   });
 
   it("lies on the lit glass, just in front of it — not behind the bezel, nor floating off it", () => {
-    const glassFront = MONITOR_GLASS.z + MONITOR_GLASS.thickness / 2;
-    expect(glassFront).toBeGreaterThan(MONITOR_BEZEL.depth / 2);
-    expect(MONITOR_FACE_Z).toBeGreaterThan(glassFront);
-    expect(MONITOR_FACE_Z - glassFront).toBeLessThan(0.002);
+    const glass = monitorGlass("gui");
+    const glassFront = glass.z + glass.thickness / 2;
+    expect(glassFront).toBeGreaterThan(MONITORS.gui.bezel.depth / 2);
+    expect(monitorFaceZ("gui")).toBeGreaterThan(glassFront);
+    expect(monitorFaceZ("gui") - glassFront).toBeLessThan(0.002);
   });
 
   it("is the screen's own size and shape, so the HTML fills it without stretching", () => {
-    expect(DESK_SCREEN.width).toBe(MONITOR_SCREEN.width);
+    expect(DESK_SCREEN.width).toBe(MONITORS.gui.screen.width);
     expect(DESK_SCREEN.width / DESK_SCREEN.height).toBeCloseTo(DESK_SCREEN_PX.width / DESK_SCREEN_PX.height, 2);
   });
 });
@@ -40,7 +41,7 @@ describe("piecePanel", () => {
     // The left monitor is turned +0.35 rad: its face swings round to the right,
     // in towards the chair, as `RoomScene` draws it.
     const left = monitorFace("video");
-    const panel = piecePanel("desk", left.centre, left.yaw, MONITOR_SCREEN, DESK_SCREEN_PX);
+    const panel = piecePanel("desk", left.centre, left.yaw, MONITORS.video.screen, DESK_SCREEN_PX);
     expect(panel.normal[0]).toBeCloseTo(Math.sin(left.yaw), 9);
     expect(panel.normal[2]).toBeCloseTo(Math.cos(left.yaw), 9);
     // Still at right angles to its own right-hand edge.

@@ -35,8 +35,7 @@ import {
   zoomView,
   CHAIR_BACK_HEIGHT,
   HANDHELD_STANDARD_HFOV as PHONE_HFOV,
-  MONITOR_SCREEN,
-  MONITOR_Y,
+  MONITORS,
   chairBackZ,
   wallRibAngles,
   floorGridLines,
@@ -204,7 +203,7 @@ describe("zoomView", () => {
     const halfV = Math.atan(Math.tan((STANDARD_HFOV / 2) * DEG) / (16 / 9)) / DEG;
     const desk = pieceCentreDistance(PIECES.desk);
     const angle = (y: number, away: number) => Math.atan2(y - SEATED_EYE_HEIGHT, away) / DEG - view.pitch;
-    const screenTop = angle(MONITOR_Y + MONITOR_SCREEN.height / 2, subjectDistance("desk") - view.forward);
+    const screenTop = angle(MONITORS.gui.y + MONITORS.gui.screen.height / 2, subjectDistance("desk") - view.forward);
     // The nearer hand, the one lowest in the frame.
     const hands = angle(HAND_Y, desk - Math.max(DESK_HANDS[0][2], DESK_HANDS[1][2]) - view.forward);
     expect(screenTop).toBeLessThan(halfV - 1);
@@ -295,7 +294,7 @@ describe("the chair", () => {
   it("stays below the line of sight from the middle of the room to the bottom of the PC's screen", () => {
     // Step 2's trap: a 1.19 m back blacked out the lower half of the screen at home.
     const screenDistance = subjectDistance("desk");
-    const screenBottom = MONITOR_Y - MONITOR_SCREEN.height / 2;
+    const screenBottom = MONITORS.gui.y - MONITORS.gui.screen.height / 2;
     const sightAtChair = EYE_HEIGHT + ((screenBottom - EYE_HEIGHT) * backFromCentre) / screenDistance;
     expect(CHAIR_BACK_HEIGHT).toBeLessThan(sightAtChair);
   });

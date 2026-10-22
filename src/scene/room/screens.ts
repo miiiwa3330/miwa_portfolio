@@ -1,5 +1,5 @@
 import {
-  MONITOR_SCREEN,
+  MONITORS,
   PIECES,
   SUBJECTS,
   horizontalAt,
@@ -74,7 +74,7 @@ export function piecePanel(
 export const DESK_SCREEN_PX = { width: 1240, height: 760 } as const;
 
 const gui = monitorFace("gui");
-export const DESK_SCREEN: Panel = piecePanel("desk", gui.centre, gui.yaw, MONITOR_SCREEN, DESK_SCREEN_PX);
+export const DESK_SCREEN: Panel = piecePanel("desk", gui.centre, gui.yaw, MONITORS.gui.screen, DESK_SCREEN_PX);
 
 /**
  * The hologram's text, standing in the air over the device on the desk and

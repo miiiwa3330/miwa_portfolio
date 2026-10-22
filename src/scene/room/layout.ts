@@ -180,31 +180,63 @@ export type Subject = {
  * and the right shows the security camera (docs/room-migration.md). The side
  * ones are turned in towards the chair and stand a little forward.
  *
+ * Each has its own size: `x`, `y`, `z` are the middle of its screen (the
+ * frame's front, not the housing behind it), `yaw` its turn about +Y, and the
+ * frame may run further below the screen than above it (`chin`), the way a
+ * real monitor's does.
+ *
  * Both the monitors' meshes (`RoomScene`) and the HTML laid on the middle
  * screen (`room/screens.ts`) read these, so the two cannot drift apart.
  */
 export type MonitorKey = "video" | "gui" | "camera";
-export const MONITOR_Y = 1.08;
-export const MONITOR_BEZEL = { width: 0.66, height: 0.42, depth: 0.04 } as const;
-export const MONITOR_SCREEN = { width: 0.62, height: 0.38 } as const;
-/** The lit glass in front of the bezel: its centre's depth in the monitor's frame, and its thickness. */
-export const MONITOR_GLASS = { z: MONITOR_BEZEL.depth / 2 + 0.002, thickness: 0.005 } as const;
-/**
- * The screen's surface — where HTML is laid on it (`room/screens.ts`): half a
- * millimetre proud of the glass, so the cut-out that shows the HTML through
- * (`ScreenHole`) wins the depth test against the glass behind it.
- */
-export const MONITOR_FACE_Z = MONITOR_GLASS.z + MONITOR_GLASS.thickness / 2 + 0.0005;
-export const MONITORS: Record<MonitorKey, { x: number; z: number; yaw: number }> = {
-  video: { x: -0.7, z: -0.066, yaw: 0.35 },
-  gui: { x: 0, z: -0.15, yaw: 0 },
-  camera: { x: 0.7, z: -0.066, yaw: -0.35 },
+export type Monitor = {
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+  /** The front frame: its outside size and its depth. */
+  bezel: { width: number; height: number; depth: number };
+  /** The lit area inside it. */
+  screen: { width: number; height: number };
+  /** How much more frame there is under the screen than over it. */
+  chin: number;
 };
+
+/** The monitors the desk was first built with, all one size. */
+const PLAIN_MONITOR = {
+  y: 1.08,
+  bezel: { width: 0.66, height: 0.42, depth: 0.04 },
+  screen: { width: 0.62, height: 0.38 },
+  chin: 0,
+} as const;
+
+export const MONITORS: Record<MonitorKey, Monitor> = {
+  video: { ...PLAIN_MONITOR, x: -0.7, z: -0.066, yaw: 0.35 },
+  gui: { ...PLAIN_MONITOR, x: 0, z: -0.15, yaw: 0 },
+  camera: { ...PLAIN_MONITOR, x: 0.7, z: -0.066, yaw: -0.35 },
+};
+
+/** The lit glass in front of a monitor's frame: its centre's depth in the monitor's frame, and its thickness. */
+export function monitorGlass(key: MonitorKey): { z: number; thickness: number } {
+  return { z: MONITORS[key].bezel.depth / 2 + 0.002, thickness: 0.005 };
+}
+
+/**
+ * The screen's surface, in the monitor's frame — where HTML is laid on it
+ * (`room/screens.ts`): half a millimetre proud of the glass, so the cut-out
+ * that shows the HTML through (`ScreenHole`) wins the depth test against the
+ * glass behind it.
+ */
+export function monitorFaceZ(key: MonitorKey): number {
+  const glass = monitorGlass(key);
+  return glass.z + glass.thickness / 2 + 0.0005;
+}
 
 /** A monitor's screen surface in the desk's frame: its centre, and how far it is turned about +Y (radians). */
 export function monitorFace(key: MonitorKey): { centre: [number, number, number]; yaw: number } {
-  const { x, z, yaw } = MONITORS[key];
-  return { centre: [x + Math.sin(yaw) * MONITOR_FACE_Z, MONITOR_Y, z + Math.cos(yaw) * MONITOR_FACE_Z], yaw };
+  const { x, y, z, yaw } = MONITORS[key];
+  const face = monitorFaceZ(key);
+  return { centre: [x + Math.sin(yaw) * face, y, z + Math.cos(yaw) * face], yaw };
 }
 
 export const SUBJECTS: Record<Stop, Subject> = {
@@ -345,7 +377,7 @@ export const DESK_HANDS: readonly [readonly [number, number, number], readonly [
  */
 export function seatedPitch(forward: number): number {
   const desk = pieceCentreDistance(PIECES.desk);
-  const top = MONITOR_Y + MONITOR_SCREEN.height / 2;
+  const top = MONITORS.gui.y + MONITORS.gui.screen.height / 2;
   const screenAway = desk - monitorFace("gui").centre[2] - forward;
   const handsAway = desk - Math.max(DESK_HANDS[0][2], DESK_HANDS[1][2]) - forward;
   const up = Math.atan2(top - SEATED_EYE_HEIGHT, screenAway);

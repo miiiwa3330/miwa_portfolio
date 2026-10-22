@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { MONITOR_GLASS, MONITOR_SCREEN, ROOM_RADIUS, WALL_HEIGHT, horizontalAt } from "../room/layout";
+import { MONITORS, ROOM_RADIUS, WALL_HEIGHT, horizontalAt, monitorGlass } from "../room/layout";
 import { HEAD_LAYER } from "../layers";
 
 /**
@@ -25,7 +25,9 @@ import { HEAD_LAYER } from "../layers";
 
 /** **Provisional (仮).** */
 const FEED_INTERVAL = 0.1;
-const FEED_PX = { width: 320, height: Math.round((320 * MONITOR_SCREEN.height) / MONITOR_SCREEN.width) };
+const SCREEN = MONITORS.camera.screen;
+const GLASS = monitorGlass("camera");
+const FEED_PX = { width: 320, height: Math.round((320 * SCREEN.height) / SCREEN.width) };
 /** Where the camera hangs: high on the wall to the desk's right, looking down at the middle of the room. */
 const MOUNT_YAW = 40;
 // Inside the ring of pipes under the ceiling (`RoomScene`'s `Shell`): mounted
@@ -75,7 +77,7 @@ export function SecurityFeed() {
     []
   );
   const camera = useMemo(() => {
-    const c = new THREE.PerspectiveCamera(70, MONITOR_SCREEN.width / MONITOR_SCREEN.height, 0.05, 20);
+    const c = new THREE.PerspectiveCamera(70, SCREEN.width / SCREEN.height, 0.05, 20);
     c.position.set(...securityCameraMount());
     c.lookAt(...LOOK_AT);
     c.updateMatrixWorld();
@@ -99,8 +101,8 @@ export function SecurityFeed() {
   });
 
   return (
-    <mesh ref={screen} position={[0, 0, MONITOR_GLASS.z + MONITOR_GLASS.thickness / 2 + 0.0002]}>
-      <planeGeometry args={[MONITOR_SCREEN.width, MONITOR_SCREEN.height]} />
+    <mesh ref={screen} position={[0, 0, GLASS.z + GLASS.thickness / 2 + 0.0002]}>
+      <planeGeometry args={[SCREEN.width, SCREEN.height]} />
       {/* A slight green cast, the way a cheap security feed looks. */}
       <meshBasicMaterial map={target.texture} color="#cfe8d4" />
     </mesh>
