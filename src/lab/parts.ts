@@ -59,6 +59,7 @@ const HOLO_X = SUBJECTS.about.local[0];
 export const PARTS: readonly LabPart[] = [
   onPiece("desk", "机の全体", DESK, "desk", [0, 0.95, 0], [0, 1.25, 2.6]),
   onPiece("desk-monitor", "モニター（中央、U3223QE）", DESK, "desk", [GUI.x, GUI.y, GUI.z], [GUI.x + 0.15, GUI.y + 0.1, 1.1]),
+  onPiece("desk-video", "モニター（左、縦置き P2422H）", DESK, "desk", [MONITORS.video.x, MONITORS.video.y, MONITORS.video.z], [MONITORS.video.x + 0.2, MONITORS.video.y + 0.05, 0.9]),
   onPiece("desk-arm", "モニター（上）とアーム", DESK, "desk", [0.35, 1.3, -0.25], [0.45, 1.45, 1.6]),
   onPiece("desk-keyboard", "キーボード（HHKB）", DESK, "desk", [KEYBOARD.x, KEYBOARD.y + 0.02, KEYBOARD.z], [KEYBOARD.x, KEYBOARD.y + 0.3, KEYBOARD.z + 0.32]),
   onPiece("desk-mouse", "マウス（EX-G）", DESK, "desk", [MOUSE.x, MOUSE.y + 0.025, MOUSE.z], [MOUSE.x - 0.12, MOUSE.y + 0.16, MOUSE.z + 0.2]),

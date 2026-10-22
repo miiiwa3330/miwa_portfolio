@@ -41,7 +41,7 @@ import CurveMirror from "./CurveMirror";
 import HologramSelf from "./HologramSelf";
 import { SecurityCameraBody, SecurityFeed } from "./SecurityCamera";
 import { DeskBody, DeskLamp, DeskMat, DeskMonitor, DeskSmalls, useDeskMaterials } from "./DeskSet";
-import MainMonitor from "./MainMonitor";
+import DellMonitor from "./DellMonitor";
 import MonitorArm from "./MonitorArm";
 import ExgMouse from "./ExgMouse";
 import HhkbKeyboard from "./HhkbKeyboard";
@@ -225,11 +225,20 @@ function ScreenHole({ panel }: { panel: Panel }) {
  * The left monitor's video — a procedural loop until there is footage
  * (`makeVideo`). Repainted about fifteen times a second on the room's clock,
  * so the pause button stops it like everything else that moves by itself.
+ *
+ * Drawn in the panel's own frame, which the monitor's `roll` has stood on
+ * end: the picture is turned back by the same amount, so it plays upright,
+ * as a portrait picture on a monitor pivoted to portrait does.
  */
+const VIDEO_PX_PER_METRE = 600;
 function VideoFeed() {
-  const { screen } = MONITORS.video;
+  const { screen, roll } = MONITORS.video;
   const glass = monitorGlass("video");
-  const video = useMemo(() => makeVideo(), []);
+  // A quarter turn swaps which of the screen's sides is across the picture.
+  const quarter = Math.abs(Math.sin(roll)) > 0.5;
+  const across = quarter ? screen.height : screen.width;
+  const up = quarter ? screen.width : screen.height;
+  const video = useMemo(() => makeVideo(Math.round(across * VIDEO_PX_PER_METRE), Math.round(up * VIDEO_PX_PER_METRE)), [across, up]);
   useEffect(() => () => video.texture.dispose(), [video]);
   const last = useRef(-1);
   useFrame((state) => {
@@ -239,8 +248,8 @@ function VideoFeed() {
     video.draw(t);
   });
   return (
-    <mesh position={[0, 0, glass.z + glass.thickness / 2 + 0.0002]}>
-      <planeGeometry args={[screen.width, screen.height]} />
+    <mesh position={[0, 0, glass.z + glass.thickness / 2 + 0.0002]} rotation={[0, 0, -roll]}>
+      <planeGeometry args={[across, up]} />
       <meshBasicMaterial map={video.texture} />
     </mesh>
   );
@@ -271,7 +280,7 @@ export function Desk({ typing }: { typing?: boolean }) {
     <Piece name="desk">
       <DeskBody m={m} />
       <DeskSmalls m={m} />
-      {/* Three monitors: video, the PC's own screen (the U3223QE), and the security camera above it on its arm. */}
+      {/* Three monitors: the video on end (a P2422H), the PC's own screen (a U3223QE), and the security camera above it on its arm. */}
       {(Object.keys(MONITORS) as MonitorKey[]).map((key) => {
         const { x, y, z, yaw, pitch, screen } = MONITORS[key];
         const glass = monitorGlass(key);
@@ -290,8 +299,8 @@ export function Desk({ typing }: { typing?: boolean }) {
         );
         return (
           <group key={key} position={[x, y, z]} rotation={[pitch, yaw, 0, "YXZ"]}>
-            {key === "gui" ? (
-              <MainMonitor>{lit}</MainMonitor>
+            {key === "gui" || key === "video" ? (
+              <DellMonitor which={key}>{lit}</DellMonitor>
             ) : (
               <DeskMonitor m={m} monitor={MONITORS[key]}>
                 {lit}

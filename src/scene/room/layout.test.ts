@@ -37,7 +37,8 @@ import {
   CHAIR_BACK_HEIGHT,
   HANDHELD_STANDARD_HFOV as PHONE_HFOV,
   MONITORS,
-  MAIN_STAND,
+  MONITOR_STANDS,
+  monitorFrameMiddle,
   KEYBOARD,
   monitorBottomOverDesk,
   monitorFace,
@@ -326,18 +327,63 @@ describe("the main monitor (U3223QE)", () => {
     expect(over + main.chin).toBeCloseTo(0.41 - 0.3922 - 0.00765, 9);
   });
 
-  it("stands at a height its stand can reach", () => {
-    const bottom = monitorBottomOverDesk("gui");
-    expect(bottom).toBeGreaterThanOrEqual(MAIN_STAND.lowest);
-    expect(bottom).toBeLessThanOrEqual(MAIN_STAND.lowest + MAIN_STAND.travel);
-  });
-
   it("has its base on the desk, behind the keyboard", () => {
     const front = main.z + main.bezel.depth / 2;
-    const baseBack = front - MAIN_STAND.depth;
-    const baseFront = front - MAIN_STAND.base.setBack;
+    const baseBack = front - MONITOR_STANDS.gui.depth;
+    const baseFront = front - MONITOR_STANDS.gui.base.setBack;
     expect(baseBack).toBeGreaterThan(-PIECES.desk.depth / 2);
     expect(baseFront).toBeLessThan(KEYBOARD.z - HHKB.depth / 2);
+  });
+});
+
+describe("the monitors on stands", () => {
+  for (const key of ["gui", "video"] as const) {
+    it(`holds the ${key} monitor's middle where its stand reaches, and clear of the desk`, () => {
+      // The stand holds the panel by its middle; upright, that middle is
+      // half the frame's height over its bottom edge, which the stand can
+      // raise from `lowest` by `travel`. Pivoted, the middle stays where it was.
+      const stand = MONITOR_STANDS[key];
+      const half = MONITORS[key].bezel.height / 2;
+      const middle = monitorToDesk(key, monitorFrameMiddle(key))[1] - KEYBOARD.y;
+      expect(middle).toBeGreaterThanOrEqual(stand.lowest + half - 1e-9);
+      expect(middle).toBeLessThanOrEqual(stand.lowest + stand.travel + half + 1e-9);
+      expect(monitorBottomOverDesk(key)).toBeGreaterThan(0.01);
+    });
+  }
+});
+
+describe("the left monitor (P2422H, on end)", () => {
+  const left = MONITORS.video;
+  const corners = () => {
+    const out: [number, number, number][] = [];
+    const [, my] = monitorFrameMiddle("video");
+    for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1]) out.push(monitorToDesk("video", [(x * left.bezel.width) / 2, my + (y * left.bezel.height) / 2, (z * left.bezel.depth) / 2]));
+    return out;
+  };
+
+  it("is the maker's panel round the maker's screen", () => {
+    const sides = (left.bezel.width - left.screen.width) / 2;
+    expect(sides).toBeCloseTo(0.00538, 9);
+    expect(left.bezel.height - left.screen.height - 2 * sides - left.chin).toBeCloseTo(0, 12);
+  });
+
+  it("stands on end: taller than it is wide, its face still level", () => {
+    const ys = corners().map((c) => c[1]);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(left.bezel.width, 9);
+    const face = monitorToDesk("video", [0, 0, 1]);
+    expect(face[1]).toBeCloseTo(left.y, 12);
+  });
+
+  it("has its thicker strip of frame on the left, away from the main monitor", () => {
+    // Turned a quarter clockwise, the bottom of the frame goes to the left.
+    const middle = monitorToDesk("video", monitorFrameMiddle("video"));
+    const screen = monitorToDesk("video", [0, 0, 0]);
+    expect(middle[0]).toBeLessThan(screen[0]);
+  });
+
+  it("stands clear of the main monitor's frame", () => {
+    const mainLeft = -MONITORS.gui.bezel.width / 2;
+    for (const c of corners()) expect(c[0]).toBeLessThan(mainLeft - 0.005);
   });
 });
 
