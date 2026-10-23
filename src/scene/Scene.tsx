@@ -32,7 +32,8 @@ import {
 } from "./camera/roomCamera";
 import { publishBody, publishView, viewNow } from "./camera/viewChannel";
 import { chainMoves, planRoomMove, seatedMove } from "./camera/walkFlight";
-import { deskViewPose, deskViewSeconds, deskViewToward, feedSwipe, type DeskView, type SwipeLatch } from "./room/deskViews";
+import { MAC_ZOOM_SECONDS, deskViewPose, deskViewSeconds, deskViewToward, feedSwipe, macGamePose, type DeskView, type SwipeLatch } from "./room/deskViews";
+import { macPlaying, onMacOpen } from "./mac/macSession";
 import { deskViewNow, onDeskView, setDeskView } from "./deskView";
 import { macPointer, pcPointer } from "./deskPointer";
 import { STANDING, advanceGait, stepBob } from "./room/gait";
@@ -720,6 +721,8 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
       if (e.ctrlKey || isInteractive(e.target) || pcPointer.now().overScreen || macPointer.now().overScreen) return;
       // Ours, horizontal ones included: left alone, they page the browser back.
       e.preventDefault();
+      // A game open on the Mac holds the view on its screen, till it is closed (Esc, its close box).
+      if (macPlaying()) return;
       const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
       const fed = feedSwipe(latch, e.deltaX * unit, e.deltaY * unit, e.timeStamp);
       latch = fed.latch;
@@ -729,18 +732,30 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     window.addEventListener("wheel", onWheel, { passive: false });
     return () => window.removeEventListener("wheel", onWheel);
   }, [activeSection, pageOpen]);
-  useEffect(
-    () =>
-      onDeskView((view) => {
-        const from = viewFromRef.current;
-        viewFromRef.current = view;
-        if (sectionRef.current !== "desk") return;
-        const to: RoomPose = { ...deskViewPose(view), ...zoomFraming("desk", handheld) };
-        flightRef.current = beginRoomFlight(seatedMove(poseRef.current, to, deskViewSeconds(from, view)), null);
-        deskTurnRef.current = true;
-      }),
-    [handheld]
-  );
+  useEffect(() => {
+    /** Where a view holds the camera: the Mac's zoomed to its screen while a game is open on it (`macGamePose`). */
+    const held = (view: DeskView): RoomPose =>
+      view === "mac" && macPlaying() ? { ...zoomFraming("desk", handheld), ...macGamePose() } : { ...deskViewPose(view), ...zoomFraming("desk", handheld) };
+    const fly = (to: RoomPose, seconds: number) => {
+      flightRef.current = beginRoomFlight(seatedMove(poseRef.current, to, seconds), null);
+      deskTurnRef.current = true;
+    };
+    const offView = onDeskView((view) => {
+      const from = viewFromRef.current;
+      viewFromRef.current = view;
+      if (sectionRef.current !== "desk") return;
+      fly(held(view), deskViewSeconds(from, view));
+    });
+    // A game opening or closing zooms in or out — from the Mac's seat; opened from elsewhere, the turn to the Mac that follows takes it there.
+    const offGame = onMacOpen(() => {
+      if (sectionRef.current !== "desk" || deskViewNow() !== "mac") return;
+      fly(held("mac"), MAC_ZOOM_SECONDS);
+    });
+    return () => {
+      offView();
+      offGame();
+    };
+  }, [handheld]);
 
   /** Where the keys have walked the reader, and their jump: the free view's place on the floor. */
   const walkRef = useRef<FreeWalk>(AT_CENTRE);

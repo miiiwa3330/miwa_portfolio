@@ -23,6 +23,8 @@ export type DeskPointer = {
   overScreen: boolean;
   /** The mouse is in the reader's hand, sliding: the drawn cursor moves with it, and stands in for the real one too. */
   holding: boolean;
+  /** A button of the mouse is down, however it was pressed: the machine hears a click at the cursor as it goes down (the Mac's desktop, `mac/finder.ts`). */
+  pressed: boolean;
 };
 
 /**
@@ -45,7 +47,7 @@ export type PointerChannel = {
 };
 
 function pointerChannel(mapping: TravelMapping): PointerChannel {
-  const current: DeskPointer = { mouse: [0, 0], cursor: mapping.cursorFromMouse([0, 0]), overScreen: false, holding: false };
+  const current: DeskPointer = { mouse: [0, 0], cursor: mapping.cursorFromMouse([0, 0]), overScreen: false, holding: false, pressed: false };
   const listeners = new Set<(pointer: Readonly<DeskPointer>) => void>();
   return {
     now: () => current,
@@ -56,13 +58,15 @@ function pointerChannel(mapping: TravelMapping): PointerChannel {
         current.cursor.x === next.cursor.x &&
         current.cursor.y === next.cursor.y &&
         current.overScreen === next.overScreen &&
-        current.holding === next.holding
+        current.holding === next.holding &&
+        current.pressed === next.pressed
       )
         return;
       current.mouse = [next.mouse[0], next.mouse[1]];
       current.cursor = { ...next.cursor };
       current.overScreen = next.overScreen;
       current.holding = next.holding;
+      current.pressed = next.pressed;
       for (const listener of listeners) listener(current);
     },
     on: (listener) => {

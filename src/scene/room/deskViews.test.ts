@@ -7,6 +7,7 @@ import {
   deskViewPose,
   deskViewToward,
   feedSwipe,
+  macGamePose,
   macHands,
   macSeatLocal,
   macSeatedPitch,
@@ -19,7 +20,7 @@ import { MAC, PIECES, STANDARD_HFOV, macToDesk, monitorFace, pieceToWorld, viewD
 import { MAC_CASE, macFace, macPictureCentre } from "./macCase";
 import { chairPlacement, seatFacing, seatOnLine, seatShare } from "./seat";
 import { bodyJoints, deskHands } from "./self";
-import { floorSpot, placeCamera, poseFromView, type RoomPose } from "../camera/roomCamera";
+import { floorSpot, placeCamera, poseFromView, toCameraSpace, verticalFov, type RoomPose } from "../camera/roomCamera";
 import { seatedMove } from "../camera/walkFlight";
 
 const DEG = Math.PI / 180;
@@ -174,6 +175,51 @@ describe("rolling over to the Mac", () => {
       const ahead = [Math.sin(facing), -Math.cos(facing)];
       expect(behind[0] * ahead[1] - behind[1] * ahead[0]).toBeCloseTo(0, 9);
       expect(behind[0] * ahead[0] + behind[1] * ahead[1]).toBeLessThan(0);
+    }
+  });
+});
+
+describe("a game open on the Mac", () => {
+  const game: RoomPose = { ...framing, ...macGamePose() };
+  const { picture, recess } = MAC_CASE;
+  const down = recess.top + recess.height / 2 - recess.lift;
+  const out = -recess.depth + 0.0006;
+  const edge = (across: number) => world(macToDesk(macFace(across, down, out)));
+
+  it("zooms to the Mac's picture: its middle straight ahead, 7 tenths of the frame's width", () => {
+    expect(offAxis(game, world(macToDesk(macPictureCentre())))).toBeLessThan(0.01);
+    const [left, right] = [edge(-picture.width / 2), edge(picture.width / 2)].map((p) => toCameraSpace(game, p));
+    const half = Math.tan((game.hfov * DEG) / 2);
+    expect((right[0] / -right[2] - left[0] / -left[2]) / (2 * half)).toBeCloseTo(0.7, 3);
+    // From the 16% the Mac's view gives it.
+    expect(game.hfov).toBeLessThan(STANDARD_HFOV / 3);
+  });
+
+  it("keeps the whole picture in a 16:9 frame, and up to a 2:1 one", () => {
+    for (const aspect of [16 / 9, 2]) {
+      const half = Math.tan((verticalFov(game.hfov, aspect) * DEG) / 2);
+      for (const d of [recess.top + recess.height / 2 - recess.lift - picture.height / 2, recess.top + recess.height / 2 - recess.lift + picture.height / 2]) {
+        const p = toCameraSpace(game, world(macToDesk(macFace(0, d, out))));
+        expect(Math.abs(p[1] / -p[2])).toBeLessThan(half);
+      }
+    }
+  });
+
+  it("only narrows the view: the eye, the chair, the body and the hands stay where they are at the Mac's seat", () => {
+    const at = pose("mac");
+    const zoom = seatedMove(at, game, 1);
+    const rest = bodyJoints(at);
+    for (const t of [0.25, 0.5, 0.75, 1]) {
+      const p = zoom.at(t);
+      const [x, z] = floorSpot(p);
+      const [sx, sz] = seatWorld(macSeatLocal());
+      expect(Math.hypot(x - sx, z - sz)).toBeLessThan(1e-9);
+      expect(p.yaw).toBeCloseTo(at.yaw, 9);
+      expect(seatOnLine(p)).toBeCloseTo(1, 9);
+      expect(chairPlacement(p).yaw).toBeCloseTo(chairPlacement(at).yaw, 9);
+      const j = bodyJoints(p);
+      expect(j.yaw).toBeCloseTo(rest.yaw, 9);
+      for (let i = 0; i < 2; i++) for (let k = 0; k < 3; k++) expect(j.hands[i][k]).toBeCloseTo(rest.hands[i][k], 6);
     }
   });
 });

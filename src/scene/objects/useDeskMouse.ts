@@ -368,7 +368,7 @@ export function useDeskMouse(spec: DeskMouseSpec) {
     group.current?.position.set(rest.x + at[0], rest.y, rest.z + at[1]);
     // On the screen, the cursor is the reader's pointer itself: the mouse eases after it (`FOLLOW_RATE`), and a drawn cursor standing in for the real one cannot lag.
     const cursor = overScreen.current && spot.current ? mapping.clampCursor(spot.current) : mapping.cursorFromMouse(at);
-    channel.publish({ mouse: at, cursor, overScreen: overScreen.current, holding: !!grip.current?.hold });
+    channel.publish({ mouse: at, cursor, overScreen: overScreen.current, holding: !!grip.current?.hold, pressed: down.size > 0 });
     latest.current.onPress(depth);
   });
 

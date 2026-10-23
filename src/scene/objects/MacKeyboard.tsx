@@ -10,6 +10,8 @@ import { M0110, M0110_TILT_DEG, MAC_CAPS, MAC_KEY_COUNT, MAC_PRESS_DIRECTION, ma
 import { fillet, shapeOf, slab } from "./caseShapes";
 import { makeMacLegendTexture, makeMacLipTexture } from "./macKeyboardLegends";
 import { pressableCaps, useKeyPresses } from "./useKeyPresses";
+import { gameCode } from "../mac/finder";
+import { macPlaying } from "../mac/macSession";
 
 /**
  * The Macintosh's keyboard, an M0110 (`room/macKeyboard.ts`), in front of the
@@ -53,8 +55,9 @@ const CORD = {
 };
 
 const KEYS = macKeyboardKeys();
+/** While a game is open on the Mac, the reader's arrows stand for W A S D (`gameCode`): those go down. */
 const keysFor = (code: string): number[] => {
-  const key = macKeyForCode(code);
+  const key = macKeyForCode(gameCode(code, macPlaying()));
   return key === undefined ? [] : [key];
 };
 const sampleOf = (key: number, strike: number) => keySample(KEYS[key], strike);

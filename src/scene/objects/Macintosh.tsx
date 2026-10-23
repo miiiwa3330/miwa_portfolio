@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { RoundedBox } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
 import { MAC, macToDesk } from "../room/layout";
 import {
   MAC_BACK,
@@ -21,6 +22,11 @@ import {
   profileRing,
 } from "../room/macCase";
 import { cursorShown, macPointer } from "../deskPointer";
+import { useDeskFocus } from "../deskFocus";
+import { onDeskView, setDeskView } from "../deskView";
+import { isGameKey, macAdvance, macClose, macKey, macPress } from "../mac/finder";
+import { macNow, macPlaying, onMac, setMac } from "../mac/macSession";
+import { macScreen } from "./macScreen";
 import { roundedRectOutline } from "../room/keyboard";
 import { profilePrism, shapeOf, sideRibbon } from "./caseShapes";
 
@@ -60,8 +66,9 @@ import { profilePrism, shapeOf, sideRibbon } from "./caseShapes";
  * `MAC_COLOURS` (photo 7's yellowed beige, shared with the keyboard and the
  * mouse); the glass `#304248`. The picture is
  * a cool white, as the lit screens in 5.png and 6.png. The screen shows a
- * 512 × 342 one-bit picture at the 128K's 72 dpi (180.6 × 120.7 mm) — a
- * desktop, until the games come — and the mouse's arrow over it, where the
+ * 512 × 342 one-bit picture at the 128K's 72 dpi (180.6 × 120.7 mm) — what
+ * the Mac runs (`mac/finder.ts`, drawn by `macScreen`): its desktop, and the
+ * game opened from it — and the mouse's arrow over it, where the
  * Mac's mouse puts it (`macPointer`), shown while the Mac is in use — the
  * reader's pointer on its screen (then right under it), or its mouse in
  * their hand — standing in for the real cursor, which is hidden then, as on
@@ -205,82 +212,6 @@ function band(width: number, length: number, corner: number, inset: number): THR
   return new THREE.ShapeGeometry(shape, 6);
 }
 
-/**
- * The screen's picture: a one-bit desktop at the 128K's 512 × 342 — a grey
- * dither, a menu bar, a disk, and a window of the games to come (step 8 puts
- * real ones here). No maker's marks: a diamond where the maker's apple menu is.
- */
-function makeDesktop(): THREE.CanvasTexture {
-  const { width: w, height: h } = PICTURE.px;
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d")!;
-  const white = COLOURS.phosphor;
-  const black = COLOURS.ink;
-  ctx.fillStyle = white;
-  ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = black;
-  for (let y = 20; y < h; y++) for (let x = (y & 1); x < w; x += 2) ctx.fillRect(x, y, 1, 1);
-  // The menu bar.
-  ctx.fillStyle = white;
-  ctx.fillRect(0, 0, w, 19);
-  ctx.fillStyle = black;
-  ctx.fillRect(0, 19, w, 1);
-  ctx.font = "bold 12px Chicago, Geneva, Helvetica, Arial, sans-serif";
-  ctx.textBaseline = "middle";
-  ctx.fillText("◆", 12, 10);
-  ["File", "Edit", "View", "Games"].reduce((x, label) => {
-    ctx.fillText(label, x, 10);
-    return x + ctx.measureText(label).width + 18;
-  }, 34);
-  // A disk at the top right.
-  const icon = (x: number, y: number, label: string) => {
-    ctx.fillStyle = white;
-    ctx.fillRect(x, y, 32, 26);
-    ctx.fillStyle = black;
-    ctx.strokeStyle = black;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x + 0.5, y + 0.5, 31, 25);
-    ctx.fillRect(x + 6, y + 18, 20, 2);
-    ctx.font = "10px Geneva, Helvetica, Arial, sans-serif";
-    const tw = ctx.measureText(label).width;
-    ctx.fillStyle = white;
-    ctx.fillRect(x + 16 - tw / 2 - 2, y + 30, tw + 4, 12);
-    ctx.fillStyle = black;
-    ctx.fillText(label, x + 16 - tw / 2, y + 36);
-  };
-  icon(462, 34, "Miiiwa");
-  // A window: a striped title bar and three icons.
-  const win = { x: 70, y: 52, w: 340, h: 200 };
-  ctx.fillStyle = white;
-  ctx.fillRect(win.x, win.y, win.w, win.h);
-  ctx.fillStyle = black;
-  ctx.fillRect(win.x + 2, win.y + win.h, win.w, 2);
-  ctx.fillRect(win.x + win.w, win.y + 2, 2, win.h);
-  ctx.strokeStyle = black;
-  ctx.strokeRect(win.x + 0.5, win.y + 0.5, win.w - 1, win.h - 1);
-  for (let y = win.y + 4; y < win.y + 17; y += 2) ctx.fillRect(win.x + 2, y, win.w - 4, 1);
-  ctx.fillStyle = white;
-  ctx.font = "bold 12px Chicago, Geneva, Helvetica, Arial, sans-serif";
-  const title = "Games";
-  const tw = ctx.measureText(title).width;
-  ctx.fillRect(win.x + win.w / 2 - tw / 2 - 6, win.y + 2, tw + 12, 15);
-  ctx.fillStyle = black;
-  ctx.fillText(title, win.x + win.w / 2 - tw / 2, win.y + 10);
-  ctx.fillRect(win.x, win.y + 19, win.w, 1);
-  ["Snake", "Breakout", "Mines"].forEach((label, i) => icon(win.x + 40 + i * 100, win.y + 60, label));
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  // Sharp pixels up close; from further off, mipmaps average the one-pixel
-  // dither to gray — without them it beat against the screen's pixels into
-  // diagonal stripes.
-  texture.magFilter = THREE.NearestFilter;
-  texture.minFilter = THREE.LinearMipmapLinearFilter;
-  texture.anisotropy = 4;
-  return texture;
-}
-
 /** The mouse's arrow, 16 px square as the 128K draws it: black with a white edge, on a clear canvas. */
 const ARROW_PX = 16;
 const ARROW_SIZE = (ARROW_PX * PICTURE.width) / PICTURE.px.width;
@@ -400,7 +331,7 @@ const CHAMFER = (() => {
   return { z: BACK + dz / 2, y: P.chamferFoot + dy / 2, turn: Math.atan2(-dz, -dy) };
 })();
 
-export default function Macintosh() {
+export default function Macintosh({ seated }: { seated: boolean }) {
   const parts = useMemo(() => {
     // The case: two halves either side of the handle's notch, and the middle with the notch cut from it.
     const full = profileRing(macBodyOutline(false));
@@ -452,7 +383,8 @@ export default function Macintosh() {
     };
   }, []);
 
-  const textures = useMemo(() => ({ desktop: makeDesktop(), badge: makeBadge(), arrow: makeArrow(), nameplate: makeNameplate(), label: makeLabel() }), []);
+  const screen = useMemo(() => macScreen(), []);
+  const textures = useMemo(() => ({ desktop: screen.texture, badge: makeBadge(), arrow: makeArrow(), nameplate: makeNameplate(), label: makeLabel() }), [screen]);
   const materials = useMemo(
     () => ({
       case: new THREE.MeshStandardMaterial({ color: COLOURS.case, roughness: 0.62, metalness: 0, side: THREE.DoubleSide }),
@@ -501,6 +433,62 @@ export default function Macintosh() {
       }),
     [picture, arrowSize]
   );
+
+  // What the Mac runs (`mac/finder.ts`): drawn whenever what it shows changes — not at every frame a game's clock moves.
+  useEffect(() => {
+    let shown: ReturnType<typeof macNow> | null = null;
+    return onMac((state) => {
+      if (shown && shown.open === state.open && shown.selected === state.selected && shown.snake === state.snake && shown.best === state.best) return;
+      shown = state;
+      screen.paint(state);
+    });
+  }, [screen]);
+  useEffect(() => screen.paint(macNow()), [screen]);
+
+  // A click is the mouse's button going down, at the cursor — however it was
+  // pressed: the reader's button on the screen, or the M0100's own. Opening a
+  // game turns to the Mac (and so zooms to its screen, `Scene`).
+  const seatedRef = useRef(seated);
+  useEffect(() => {
+    seatedRef.current = seated;
+  }, [seated]);
+  useEffect(() => {
+    let was = macPointer.now().pressed;
+    return macPointer.on((pointer) => {
+      const down = pointer.pressed && !was;
+      was = pointer.pressed;
+      if (!down) return;
+      const before = macNow();
+      setMac(macPress(before, pointer.cursor, performance.now(), seatedRef.current, Math.random));
+      if (!before.open && macPlaying()) setDeskView("mac");
+    });
+  }, []);
+  // Turned away from the Mac (getting up turns back to the PC): the game closes.
+  useEffect(
+    () =>
+      onDeskView((view) => {
+        if (view !== "mac") setMac(macClose(macNow()));
+      }),
+    []
+  );
+
+  // The reader's keys, while they type on the Mac and a game is open: the
+  // game's keys are its alone (an arrow or Space would scroll the page).
+  const typing = useDeskFocus() === "mac" && seated;
+  useEffect(() => {
+    if (!typing) return;
+    const down = (e: KeyboardEvent) => {
+      if (!macPlaying() || e.ctrlKey || e.metaKey || e.altKey || !isGameKey(e.code)) return;
+      e.preventDefault();
+      if (!e.repeat) setMac(macKey(macNow(), e.code, Math.random));
+    };
+    window.addEventListener("keydown", down);
+    return () => window.removeEventListener("keydown", down);
+  }, [typing]);
+  // A game's clock: real time, as the keys go (a paused room still plays).
+  useFrame((_, delta) => {
+    if (macPlaying()) setMac(macAdvance(macNow(), delta, Math.random));
+  });
 
   const at = macToDesk([0, 0, 0]);
   const side = W / 2;

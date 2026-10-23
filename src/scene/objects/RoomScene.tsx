@@ -320,7 +320,7 @@ export function Desk({ typing }: { typing?: boolean }) {
       })}
       <MonitorArm />
       <Kickstand />
-      <Macintosh />
+      <Macintosh seated={typing ?? seated} />
       <MacKeyboard typing={typing ?? seated} />
       <MacMouse typing={typing ?? seated} />
       {/* The keyboard and the mouse, where a seated reader's hands rest (`Self`). */}

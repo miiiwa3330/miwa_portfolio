@@ -12,7 +12,8 @@ import {
   zoomView,
   type MonitorKey,
 } from "./layout";
-import { MAC_CASE, macFace } from "./macCase";
+import { MAC_CASE, macFace, macPictureCentre } from "./macCase";
+import { headLean } from "../camera/roomCamera";
 
 /**
  * Where the reader looks while sitting at the desk (2026-10-23, the user):
@@ -159,6 +160,41 @@ export function deskViewPose(view: DeskView): DeskViewPose {
     view === "mac" ? { yaw: MAC_SEAT_YAW, pitch: macSeatedPitch() } : aim(seat, seated.eyeHeight, desk(monitorFace(view as MonitorKey).centre));
   // The eye over the seat: `floorSpot` puts it `forward` out along the yaw.
   return { x: seat[0] - Math.sin(yaw) * forward, z: seat[1] + Math.cos(yaw) * forward, yaw, pitch, forward, eyeHeight: seated.eyeHeight };
+}
+
+/**
+ * **仮.** How much of the frame's width the Mac's picture takes while a game
+ * is open on it — the 7 in 10 every zoom gives its subject (`zoomView`) —
+ * and how long the zoom in and out takes.
+ */
+export const MAC_GAME_SHARE = 0.7;
+export const MAC_ZOOM_SECONDS = 0.6;
+
+/**
+ * The view while a game is open on the Mac (2026-10-23, the user: 「ゲームを始め
+ * たら、Mac の画面へズーム」「画角だけ狭める」): from the Mac's seat, the chair
+ * and the body where they are, the head turned straight at the picture's
+ * middle and the field of view narrowed till the picture is `MAC_GAME_SHARE`
+ * of the frame's width (from 16%). The eye is the camera's own, which leans
+ * out a little looking down (`headLean`): aimed from it, a few rounds settle
+ * the pitch.
+ */
+export function macGamePose(): DeskViewPose & { hfov: number } {
+  const seat = seatWorld(macSeatLocal());
+  const { forward, eyeHeight } = zoomView("desk");
+  const yaw = MAC_SEAT_YAW;
+  const centre = desk(macToDesk(macPictureCentre()));
+  const out = [Math.sin(yaw), -Math.cos(yaw)];
+  let pitch = macSeatedPitch();
+  let depth = 0;
+  for (let i = 0; i < 4; i++) {
+    const lean = headLean(pitch);
+    const eye: [number, number] = [seat[0] + out[0] * lean, seat[1] + out[1] * lean];
+    pitch = aim(eye, eyeHeight, centre).pitch;
+    depth = Math.hypot(centre[0] - eye[0], centre[1] - eyeHeight, centre[2] - eye[1]);
+  }
+  const hfov = ((2 * Math.atan(MAC_CASE.picture.width / 2 / (MAC_GAME_SHARE * depth))) * 180) / Math.PI;
+  return { x: seat[0] - out[0] * forward, z: seat[1] - out[1] * forward, yaw, pitch, forward, eyeHeight, hfov };
 }
 
 /**
