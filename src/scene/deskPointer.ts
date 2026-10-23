@@ -89,13 +89,27 @@ export const onDeskPointer = pcPointer.on;
 /**
  * Hide the reader's own cursor while either machine's drawn cursor is shown
  * (`cursorShown`), so the drawn one stands in for it (2026-10-23, the user:
- * 「本物のカーソルが画面内に重なったときは画面内のカーソルとして表示」). By an attribute on
- * the root that a rule in `globals.css` reads — over everything, the page's
- * links included, which would otherwise bring back their own hand. Returns
- * the undo.
+ * 「本物のカーソルが画面内に重なったときは画面内のカーソルとして表示」). An
+ * attribute on the root, and a rule that reads it — over everything and
+ * `!important`, since a link's own `cursor: pointer` would bring the real one
+ * back.
+ *
+ * The rule is put in the page from here rather than kept in `globals.css`:
+ * there, the running dev server (Turbopack) went on serving the stylesheet
+ * without it — the attribute was set, and the cursor under it stayed `auto`.
+ * One rule for the page, however many subscribe (it does nothing without the
+ * attribute, so it stays). Returns the undo.
  */
+const HIDE_RULE = "html[data-screen-cursor], html[data-screen-cursor] * { cursor: none !important; }";
+
 export function hideRealCursorOverScreens(): () => void {
   const root = document.documentElement;
+  if (!document.getElementById("screen-cursor-rule")) {
+    const style = document.createElement("style");
+    style.id = "screen-cursor-rule";
+    style.textContent = HIDE_RULE;
+    document.head.appendChild(style);
+  }
   const sync = () => {
     const over = cursorShown(pcPointer.now()) || cursorShown(macPointer.now());
     if (over) root.setAttribute("data-screen-cursor", "");

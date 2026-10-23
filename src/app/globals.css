@@ -50,18 +50,6 @@ body {
 }
 
 /*
- * While the reader's pointer is on one of the desk's screens (the PC's or the
- * Mac's), the cursor drawn on that screen stands in for theirs
- * (`hideRealCursorOverScreens`, src/scene/deskPointer.ts). Over everything
- * and `!important`: a link's own `cursor: pointer` would bring the real one
- * back.
- */
-html[data-screen-cursor],
-html[data-screen-cursor] * {
-  cursor: none !important;
-}
-
-/*
  * The notch, the rounded corners and the home indicator.
  *
  * A wrapper, not extra padding on the element that already has some: padding
