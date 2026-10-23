@@ -44,9 +44,27 @@ describe("the desk's four views", () => {
     expect(deskViewToward("mac", "right")).toBe("pc");
     expect(deskViewToward("video", "left")).toBe("pc");
     expect(deskViewToward("camera", "down")).toBe("pc");
-    // No way on past the ends, nor round the corners.
-    for (const [view, swipe] of [["mac", "left"], ["mac", "up"], ["video", "right"], ["video", "up"], ["camera", "up"], ["camera", "left"]] as const)
+  });
+
+  it("join the upper screen to the left and the right ones as well, both ways", () => {
+    expect(deskViewToward("mac", "up")).toBe("camera");
+    expect(deskViewToward("video", "up")).toBe("camera");
+    expect(deskViewToward("camera", "left")).toBe("mac");
+    expect(deskViewToward("camera", "right")).toBe("video");
+  });
+
+  it("go nowhere past the ends, nor below the side screens", () => {
+    for (const [view, swipe] of [["mac", "left"], ["mac", "down"], ["video", "right"], ["video", "down"], ["camera", "up"]] as const)
       expect(deskViewToward(view, swipe)).toBe(view);
+  });
+
+  it("can always be turned back from: every move has a swipe that returns", () => {
+    const swipes = ["left", "right", "up", "down"] as const;
+    for (const view of DESK_VIEWS)
+      for (const swipe of swipes) {
+        const to = deskViewToward(view, swipe);
+        if (to !== view) expect(swipes.some((back) => deskViewToward(to, back) === view)).toBe(true);
+      }
   });
 
   it("type on the machine whose screen is in front", () => {
@@ -119,6 +137,19 @@ describe("rolling over to the Mac", () => {
     }
     expect(seatOnLine(move.at(0))).toBe(0);
     expect(seatOnLine(move.at(1))).toBeCloseTo(1, 9);
+  });
+
+  it("rolls back from the Mac to the PC's seat while looking up to the upper screen, sat all the way", () => {
+    const up = seatedMove(pose("mac"), pose("camera"), 1);
+    const [ax, az] = seatWorld(macSeatLocal());
+    const [bx, bz] = seatWorld(pcSeatLocal());
+    for (const t of steps) {
+      const p = up.at(t);
+      const [x, z] = floorSpot(p);
+      expect(Math.abs((x - ax) * (bz - az) - (z - az) * (bx - ax)) / Math.hypot(bx - ax, bz - az)).toBeLessThan(1e-9);
+      expect(seatShare(p)).toBe(1);
+    }
+    expect(up.at(1).pitch).toBeGreaterThan(15 * DEG);
   });
 
   it("turns the chair and the body to the Mac, and puts the hands on its keyboard and mouse", () => {

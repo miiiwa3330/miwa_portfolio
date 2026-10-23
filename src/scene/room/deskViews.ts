@@ -32,7 +32,10 @@ import { MAC_CASE, macFace } from "./macCase";
  *
  * The four are a cross, as they stand: the Mac left of the main screen, the
  * video monitor right of it, the camera's above it. A swipe goes to the
- * neighbour that way, if there is one.
+ * neighbour that way, if there is one — and the upper screen is a neighbour
+ * of the left and the right ones too (2026-10-23, the user: 「左ー上、右ー上
+ * 間の視点遷移も」): up from either, and left or right from it. Between the
+ * left and the right there is no way but through the main screen.
  */
 
 export type DeskView = "pc" | "camera" | "video" | "mac";
@@ -42,9 +45,9 @@ export const DESK_VIEWS: readonly DeskView[] = ["pc", "camera", "video", "mac"];
 
 const TOWARD: Record<DeskView, Partial<Record<Swipe, DeskView>>> = {
   pc: { left: "mac", right: "video", up: "camera" },
-  mac: { right: "pc" },
-  video: { left: "pc" },
-  camera: { down: "pc" },
+  mac: { right: "pc", up: "camera" },
+  video: { left: "pc", up: "camera" },
+  camera: { down: "pc", left: "mac", right: "video" },
 };
 
 /** The view a swipe turns to from `view`: its neighbour that way, or itself where there is none. */
