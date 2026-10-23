@@ -166,20 +166,56 @@ export function deskViewPose(view: DeskView): DeskViewPose {
  * fingers go: fingers left, the screen on the left.
  *
  * One swipe is one stream of wheel events, and turns once: the deltas add
- * up until one way passes `SWIPE.threshold` px, then the stream is spent
- * until it falls quiet for `SWIPE.quiet` ms (a trackpad keeps coasting after
- * the fingers lift). **仮**: the threshold.
+ * up until one way passes `SWIPE.threshold` px, then the stream is spent.
+ * A trackpad keeps scrolling after the fingers lift — the momentum, in
+ * deltas that only die away — so a spent stream ends at a pause of
+ * `SWIPE.quiet` ms, **or as soon as the fingers are plainly on it again**:
+ * the deltas turn back (a swipe back the other way), or — once they have
+ * died down to under `SWIPE.faded` of their peak — grow again by
+ * `SWIPE.regrow` (a new swipe the same way; still growing past the
+ * threshold is the same fingers speeding up, and turned twice). Waiting for the pause alone,
+ * a swipe back made before the momentum had died was taken as more of the
+ * swipe before it, and did nothing (2026-10-23, the user). **仮**: the
+ * threshold and the growth.
  */
-export const SWIPE = { threshold: 40, quiet: 220 } as const;
+export const SWIPE = { threshold: 40, quiet: 220, regrow: 1.5, faded: 0.6, least: 4 } as const;
 
-export type SwipeLatch = { x: number; y: number; at: number; spent: boolean };
+export type SwipeLatch = {
+  x: number;
+  y: number;
+  at: number;
+  spent: boolean;
+  /** The last event's delta, to tell momentum (dying away) from fingers (turning back, or growing again). */
+  last: [number, number];
+  /** Since the swipe was spent: the largest delta, and the smallest since it. */
+  peak: number;
+  low: number;
+};
+
+/** Whether a delta, after a spent swipe, is the fingers on the trackpad again rather than its momentum. */
+function fingersAgain(latch: SwipeLatch, dx: number, dy: number): boolean {
+  const now = Math.hypot(dx, dy);
+  if (now < SWIPE.least) return false;
+  const back = dx * latch.last[0] + dy * latch.last[1] < 0;
+  return back || (latch.low < latch.peak * SWIPE.faded && now > latch.low * SWIPE.regrow);
+}
 
 export function feedSwipe(latch: SwipeLatch | null, dx: number, dy: number, time: number): { latch: SwipeLatch; swipe: Swipe | null } {
-  const next: SwipeLatch = !latch || time - latch.at >= SWIPE.quiet ? { x: 0, y: 0, at: time, spent: false } : { ...latch, at: time };
+  const size = Math.hypot(dx, dy);
+  const fresh = !latch || time - latch.at >= SWIPE.quiet || (latch.spent && fingersAgain(latch, dx, dy));
+  // A flicker (under `least`) is not a way the fingers went: the last way stays the momentum's.
+  const last: [number, number] = fresh || size >= SWIPE.least ? [dx, dy] : latch.last;
+  const next: SwipeLatch = fresh ? { x: 0, y: 0, at: time, spent: false, last, peak: 0, low: 0 } : { ...latch, at: time, last };
   next.x += dx;
   next.y += dy;
+  // A flicker (under `least`) is neither: counted as the momentum dying, the next ordinary delta read as fingers growing again.
+  if (next.spent && size >= SWIPE.least) {
+    if (size > next.peak) next.peak = next.low = size;
+    else next.low = Math.min(next.low, size);
+  }
   if (next.spent || Math.max(Math.abs(next.x), Math.abs(next.y)) < SWIPE.threshold) return { latch: next, swipe: null };
   next.spent = true;
+  next.peak = next.low = size;
   const swipe: Swipe = Math.abs(next.x) > Math.abs(next.y) ? (next.x > 0 ? "left" : "right") : next.y > 0 ? "up" : "down";
   return { latch: next, swipe };
 }

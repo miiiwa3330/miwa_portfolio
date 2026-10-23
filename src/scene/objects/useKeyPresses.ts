@@ -8,6 +8,11 @@ import type { KeySample } from "../room/keyboard";
 import { isInteractive, pointerClaim } from "../pointerClaim";
 import { useDeskFocus, type Machine } from "../deskFocus";
 import { playKey, prefetchKeySound, wakeKeySound } from "./keySound";
+import { bodyNow } from "../camera/viewChannel";
+import { withinReach } from "../room/self";
+
+/** Whether a point on the keys (world) is within the reader's reach: the keys are pressed only from there (`withinReach`). */
+const inReach = (point: THREE.Vector3) => withinReach(bodyNow().held, [point.x, point.y, point.z]);
 
 /**
  * Pressing a keyboard's caps, shared by the HHKB (`HhkbKeyboard`) and the
@@ -21,7 +26,10 @@ import { playKey, prefetchKeySound, wakeKeySound } from "./keySound";
  *   pointer, like the light switches, so it does not also grab the mouse).
  *   Sitting at the desk the canvas lets pointers through to the screen
  *   behind it, so this listens on the window and casts its own ray — but not
- *   for a press on the page's own controls (`isInteractive`).
+ *   for a press on the page's own controls (`isInteractive`). Only within
+ *   reach (`withinReach`, 2026-10-23, the user: 「一定距離に近づかないと操作で
+ *   きないように」), sat or standing; from further off a press on them is a
+ *   press on the room.
  * - **With the reader's own keyboard**, while seated and while this is the
  *   machine they type on — the one whose screen they are looking at
  *   (`deskFocus`, `deskView`): every key held down holds down the key in the
@@ -125,7 +133,7 @@ export function useKeyPresses({
       const ndc = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
       raycaster.setFromCamera(ndc, camera);
       const hit = raycaster.intersectObject(caps.current, false)[0];
-      if (!hit) return;
+      if (!hit || !inReach(hit.point)) return;
       wakeKeySound();
       mouseKey.current = keyOf(caps.current, hit.face);
     };
@@ -172,9 +180,10 @@ export function useKeyPresses({
   });
 
   const bind = {
+    // Out of reach, the keys are just part of the room: the press goes on to it (to look round).
     onPointerDown: (e: ThreeEvent<PointerEvent>) => {
       const key = keyOf(caps.current, e.face);
-      if (key < 0) return;
+      if (key < 0 || !inReach(e.point)) return;
       e.stopPropagation();
       pointerClaim.claim(e.pointerId);
       wakeKeySound();
@@ -182,7 +191,7 @@ export function useKeyPresses({
     },
     onPointerOver: (e: ThreeEvent<PointerEvent>) => {
       e.stopPropagation();
-      setHovered(true);
+      setHovered(inReach(e.point));
     },
     onPointerOut: () => setHovered(false),
   };

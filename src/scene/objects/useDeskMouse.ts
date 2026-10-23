@@ -7,7 +7,8 @@ import * as THREE from "three";
 import { GRAB, MOUSE_BUTTONS, buttonsHeld, mouseSample, type MouseButton, type TravelMapping } from "../room/mouse";
 import { panelPoint, type Panel } from "../room/screens";
 import { screenRay } from "../camera/roomCamera";
-import { viewNow } from "../camera/viewChannel";
+import { bodyNow, viewNow } from "../camera/viewChannel";
+import { withinReach } from "../room/self";
 import { isInteractive, pointerClaim } from "../pointerClaim";
 import type { Machine } from "../deskFocus";
 import type { PointerChannel } from "../deskPointer";
@@ -20,15 +21,15 @@ import { playMouse, prefetchKeySound, wakeKeySound } from "./keySound";
  * screen (`TravelMapping`): the two always agree, and `channel` carries both
  * to whatever draws the cursor.
  *
- * - **Linked to the reader's own mouse while they sit at the desk and
- *   their pointer is on the machine's screen**, and only then (2026-10-22
- *   and 10-23, the user): the desk's
+ * - **Linked to the reader's own mouse while the mouse is within their
+ *   reach and their pointer is on the machine's screen**, and only then
+ *   (2026-10-22 and 10-23, the user; `withinReach`, sat or standing): the desk's
  *   mouse goes where the real cursor is, and the drawn cursor stands in for
  *   the real one, right under the pointer (2026-10-23, the user: the real
  *   one is hidden there, `hideRealCursorOverScreens`); the reader's buttons, pressed there, hold down the same buttons
  *   (`MouseEvent.buttons`), and their scrolling there turns a wheel, if the
  *   mouse has one.
- * - **Pressed directly**, with the pointer on the mouse: a button clicks at
+ * - **Pressed directly**, with the pointer on the mouse, within reach: a button clicks at
  *   once and stays down until let go; a wheel clicks and turns with a drag up
  *   or down; held still anywhere else for `GRAB.hold`, the mouse is in the
  *   hand (a held button lets go) and slides under the pointer. In the free
@@ -104,7 +105,6 @@ export function useDeskMouse(spec: DeskMouseSpec) {
   const overScreen = useRef(false);
   /** Where the reader's pointer is on the screen, while it is: the drawn cursor is put right there, not where the sliding mouse has got to. */
   const spot = useRef<{ x: number; y: number } | null>(null);
-  const seated = useRef(spec.seated);
   // The spec's callbacks read the caller's refs; keep the latest without re-binding the listeners.
   const latest = useRef(spec);
   useEffect(() => {
@@ -112,9 +112,6 @@ export function useDeskMouse(spec: DeskMouseSpec) {
   });
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
-  useEffect(() => {
-    seated.current = spec.seated;
-  }, [spec.seated]);
 
   const get = useThree((state) => state.get);
   const raycaster = useMemo(() => new THREE.Raycaster(), []);
@@ -193,6 +190,11 @@ export function useDeskMouse(spec: DeskMouseSpec) {
       return raycaster.intersectObjects(latest.current.pieces(), true)[0] ?? null;
     };
 
+    /** Whether a point (world) is within the reader's reach: the machine is used only from there. */
+    const reach = (point: THREE.Vector3) => withinReach(bodyNow().held, [point.x, point.y, point.z]);
+    /** Whether the mouse itself is within reach. */
+    const mouseInReach = () => !!group.current && reach(group.current.getWorldPosition(point));
+
     /** Where the reader's pointer is on the machine's screen, in its px, if it is on it. */
     const onScreen = (clientX: number, clientY: number) => {
       aim(clientX, clientY);
@@ -200,7 +202,7 @@ export function useDeskMouse(spec: DeskMouseSpec) {
       return panelPoint(latest.current.panel, [o.x, o.y, o.z], [d.x, d.y, d.z]);
     };
 
-    return { begin, end, slide, hitAt, onScreen, sendCursor };
+    return { begin, end, slide, hitAt, onScreen, sendCursor, reach, mouseInReach };
   }, [get, raycaster, group]);
 
   // The gesture that pressed the mouse, wherever it goes next; and otherwise
@@ -228,9 +230,9 @@ export function useDeskMouse(spec: DeskMouseSpec) {
       if (g || e.pointerType !== "mouse") return;
       // A captured mouse has no place on the screen (the browser holds its
       // coordinates where the capture began); and the machine is used only
-      // sitting at it (2026-10-23, the user: 「PC 操作ができるのは、椅子に座って
-      // いる時だけ」) — standing, the pointer over the screen is just looking.
-      if (locked || !seated.current) {
+      // within reach of it (2026-10-23, the user) — from further off, the
+      // pointer over the screen is just looking.
+      if (locked || !api.mouseInReach()) {
         overScreen.current = false;
         spot.current = null;
         if (hovering) {
@@ -284,7 +286,7 @@ export function useDeskMouse(spec: DeskMouseSpec) {
       // Already pressed through the canvas (the lab, where the canvas hears everything).
       if (grip.current) return;
       const hit = isInteractive(e.target) ? null : api.hitAt(e.clientX, e.clientY);
-      if (hit) {
+      if (hit && api.reach(hit.point)) {
         // Not the page's: no text selection starting under the slide.
         e.preventDefault();
         api.begin(e.pointerId, hit.object, hit.point, e.clientX, e.clientY);
@@ -366,19 +368,21 @@ export function useDeskMouse(spec: DeskMouseSpec) {
     group.current?.position.set(rest.x + at[0], rest.y, rest.z + at[1]);
     // On the screen, the cursor is the reader's pointer itself: the mouse eases after it (`FOLLOW_RATE`), and a drawn cursor standing in for the real one cannot lag.
     const cursor = overScreen.current && spot.current ? mapping.clampCursor(spot.current) : mapping.cursorFromMouse(at);
-    channel.publish({ mouse: at, cursor, overScreen: overScreen.current });
+    channel.publish({ mouse: at, cursor, overScreen: overScreen.current, holding: !!grip.current?.hold });
     latest.current.onPress(depth);
   });
 
   const bind = {
+    // Out of reach, the mouse is just part of the room: the press goes on to it (to look round).
     onPointerDown: (e: ThreeEvent<PointerEvent>) => {
+      if (!api.reach(e.point)) return;
       e.stopPropagation();
       pointerClaim.claim(e.pointerId);
       api.begin(e.pointerId, e.object, e.point, e.clientX, e.clientY);
     },
     onPointerOver: (e: ThreeEvent<PointerEvent>) => {
       e.stopPropagation();
-      setHovered(true);
+      setHovered(api.reach(e.point));
     },
     onPointerOut: () => setHovered(false),
   };

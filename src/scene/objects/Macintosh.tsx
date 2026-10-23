@@ -20,7 +20,7 @@ import {
   macPlinthOutline,
   profileRing,
 } from "../room/macCase";
-import { macPointer } from "../deskPointer";
+import { cursorShown, macPointer } from "../deskPointer";
 import { roundedRectOutline } from "../room/keyboard";
 import { profilePrism, shapeOf, sideRibbon } from "./caseShapes";
 
@@ -62,9 +62,10 @@ import { profilePrism, shapeOf, sideRibbon } from "./caseShapes";
  * a cool white, as the lit screens in 5.png and 6.png. The screen shows a
  * 512 × 342 one-bit picture at the 128K's 72 dpi (180.6 × 120.7 mm) — a
  * desktop, until the games come — and the mouse's arrow over it, where the
- * Mac's mouse puts it (`macPointer`) — and while the reader's own pointer
- * is on the screen, right under it, standing in for the real cursor (which
- * is hidden there, as on the PC's).
+ * Mac's mouse puts it (`macPointer`), shown while the Mac is in use — the
+ * reader's pointer on its screen (then right under it), or its mouse in
+ * their hand — standing in for the real cursor, which is hidden then, as on
+ * the PC's (`cursorShown`).
  *
  * **仮**: the recess's depth and how far its inner edge sits up, the tube's
  * bulge, the base's marks, the handle's floor and bar, the back's parts.
@@ -283,8 +284,9 @@ function makeDesktop(): THREE.CanvasTexture {
 /** The mouse's arrow, 16 px square as the 128K draws it: black with a white edge, on a clear canvas. */
 const ARROW_PX = 16;
 const ARROW_SIZE = (ARROW_PX * PICTURE.width) / PICTURE.px.width;
-/** The picture's middle, in the face's frame. */
+/** The picture's middle, in the face's frame; and how far the picture stands off the bulged glass there. */
 const PICTURE_AT: [number, number, number] = [0, GLASS_Y, -RECESS.depth + 0.0006];
+const PICTURE_LIFT = 0.0006;
 function makeArrow(): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width = ARROW_PX;
@@ -445,7 +447,7 @@ export default function Macintosh() {
       face: new THREE.ShapeGeometry(face, 8),
       recess: loft(recessRing, 0, glassRing, -RECESS.depth),
       glass: glassGeometry,
-      picture: bulged(PICTURE.width, PICTURE.height, 32, 22, 0.0006),
+      picture: bulged(PICTURE.width, PICTURE.height, 32, 22, PICTURE_LIFT),
       grille,
     };
   }, []);
@@ -487,12 +489,15 @@ export default function Macintosh() {
   const arrowSize = ARROW_SIZE;
   useEffect(
     () =>
-      macPointer.on(({ cursor }) => {
+      macPointer.on((pointer) => {
         const mesh = arrow.current;
         if (!mesh) return;
+        const { cursor } = pointer;
         const x = (cursor.x / PICTURE.px.width - 0.5) * PICTURE.width + arrowSize / 2;
         const y = (0.5 - cursor.y / PICTURE.px.height) * PICTURE.height - arrowSize / 2;
-        mesh.position.set(x, picture[1] + y, picture[2] + bulge(x, y) + 0.0003);
+        // In front of the picture, which stands its own lift (`PICTURE_LIFT`) off the bulge: at 0.3 mm the arrow was behind it, and never showed.
+        mesh.position.set(x, picture[1] + y, picture[2] + bulge(x, y) + PICTURE_LIFT + 0.0004);
+        mesh.visible = cursorShown(pointer);
       }),
     [picture, arrowSize]
   );

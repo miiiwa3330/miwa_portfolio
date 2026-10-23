@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { hideRealCursorOverScreens, onDeskPointer } from "@/scene/deskPointer";
+import { cursorShown, hideRealCursorOverScreens, onDeskPointer } from "@/scene/deskPointer";
 
 /**
  * The PC's cursor, drawn on its screen where the mouse on the desk puts it
- * (`deskPointer`, `cursorFromMouse`): slide the mouse and it moves. While
- * the reader's own pointer is on the screen it stands in for the real one
- * (2026-10-23, the user), right under the pointer, and the real one is
- * hidden (`hideRealCursorOverScreens`, here for both machines' screens).
+ * (`deskPointer`, `cursorFromMouse`): slide the mouse and it moves. It is
+ * shown only while the PC is in use — the reader's pointer on its screen
+ * (then right under it), or its mouse in their hand — and then it stands in
+ * for the real cursor, which is hidden (`cursorShown`,
+ * `hideRealCursorOverScreens`, here for both machines' screens; 2026-10-23,
+ * the user). Otherwise the real cursor is the only one.
  *
  * With the real cursor hidden, the page can no longer show its own over a
  * link or a text field — so this does: a hand over what can be clicked, a
@@ -50,13 +52,13 @@ export default function ScreenCursor() {
       if (over.current) show(shape.current);
     };
     window.addEventListener("pointermove", move);
-    const off = onDeskPointer(({ cursor: at, overScreen }) => {
+    const off = onDeskPointer((pointer) => {
       const el = cursor.current;
       if (!el) return;
-      over.current = overScreen;
-      el.style.transform = `translate(${at.x}px, ${at.y}px)`;
-      el.style.visibility = "";
-      show(overScreen ? shape.current : "arrow");
+      over.current = pointer.overScreen;
+      el.style.transform = `translate(${pointer.cursor.x}px, ${pointer.cursor.y}px)`;
+      el.style.visibility = cursorShown(pointer) ? "" : "hidden";
+      show(pointer.overScreen ? shape.current : "arrow");
     });
     return () => {
       window.removeEventListener("pointermove", move);

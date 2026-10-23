@@ -94,6 +94,21 @@ const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const mix = (a: Vec3, b: Vec3, t: number): Vec3 => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
 /**
+ * How far over the floor from the body a hand reaches: the arm, and a lean
+ * in over the desk (**仮**, 14 cm). The desk's machines are used only within
+ * it (2026-10-23, the user: 「一定距離に近づかないと操作できないように（手の
+ * 届く範囲）」): sitting at the PC its mouse is 0.73 m away and the HHKB's
+ * far keys 0.74 m; from the room's middle the desk is 2 m off.
+ */
+export const REACH = UPPER_ARM + FOREARM + 0.14;
+
+/** Whether a point in the room (world) is within the reader's reach, standing or sat where the held pose puts them. */
+export function withinReach(pose: Pick<RoomPose, "x" | "z" | "yaw" | "forward">, point: readonly number[]): boolean {
+  const [x, z] = floorSpot(pose);
+  return Math.hypot(point[0] - x, point[2] - z) <= REACH;
+}
+
+/**
  * Where the hands rest at the desk: the left on the keyboard, the right on
  * the mouse — which slides (`mouse`, its offset from rest in the desk's
  * frame, `deskPointer`), and the hand goes with it.

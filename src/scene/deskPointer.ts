@@ -21,7 +21,20 @@ export type DeskPointer = {
   cursor: { x: number; y: number };
   /** The reader's own pointer is on the screen: the drawn cursor is right under it, and stands in for the real one, which is hidden (`hideRealCursorOverScreens`). */
   overScreen: boolean;
+  /** The mouse is in the reader's hand, sliding: the drawn cursor moves with it, and stands in for the real one too. */
+  holding: boolean;
 };
+
+/**
+ * Whether the drawn cursor is shown (2026-10-23, the user: 「画面内のカーソルが表
+ * 示されているときは、本物のカーソルは非表示」): only while the reader is
+ * using the machine — their pointer on its screen, or its mouse in their hand
+ * — and then the real cursor is hidden. Otherwise there is one cursor, the
+ * real one: the drawn one left showing where the mouse stopped made two.
+ */
+export function cursorShown(pointer: Readonly<DeskPointer>): boolean {
+  return pointer.overScreen || pointer.holding;
+}
 
 export type PointerChannel = {
   now: () => Readonly<DeskPointer>;
@@ -32,7 +45,7 @@ export type PointerChannel = {
 };
 
 function pointerChannel(mapping: TravelMapping): PointerChannel {
-  const current: DeskPointer = { mouse: [0, 0], cursor: mapping.cursorFromMouse([0, 0]), overScreen: false };
+  const current: DeskPointer = { mouse: [0, 0], cursor: mapping.cursorFromMouse([0, 0]), overScreen: false, holding: false };
   const listeners = new Set<(pointer: Readonly<DeskPointer>) => void>();
   return {
     now: () => current,
@@ -42,12 +55,14 @@ function pointerChannel(mapping: TravelMapping): PointerChannel {
         current.mouse[1] === next.mouse[1] &&
         current.cursor.x === next.cursor.x &&
         current.cursor.y === next.cursor.y &&
-        current.overScreen === next.overScreen
+        current.overScreen === next.overScreen &&
+        current.holding === next.holding
       )
         return;
       current.mouse = [next.mouse[0], next.mouse[1]];
       current.cursor = { ...next.cursor };
       current.overScreen = next.overScreen;
+      current.holding = next.holding;
       for (const listener of listeners) listener(current);
     },
     on: (listener) => {
@@ -72,9 +87,9 @@ export const publishDeskPointer = pcPointer.publish;
 export const onDeskPointer = pcPointer.on;
 
 /**
- * Hide the reader's own cursor while it is on either machine's screen, so
- * the cursor drawn there stands in for it (2026-10-23, the user: 「本物のカーソ
- * ルが画面内に重なったときは画面内のカーソルとして表示」). By an attribute on
+ * Hide the reader's own cursor while either machine's drawn cursor is shown
+ * (`cursorShown`), so the drawn one stands in for it (2026-10-23, the user:
+ * 「本物のカーソルが画面内に重なったときは画面内のカーソルとして表示」). By an attribute on
  * the root that a rule in `globals.css` reads — over everything, the page's
  * links included, which would otherwise bring back their own hand. Returns
  * the undo.
@@ -82,7 +97,7 @@ export const onDeskPointer = pcPointer.on;
 export function hideRealCursorOverScreens(): () => void {
   const root = document.documentElement;
   const sync = () => {
-    const over = pcPointer.now().overScreen || macPointer.now().overScreen;
+    const over = cursorShown(pcPointer.now()) || cursorShown(macPointer.now());
     if (over) root.setAttribute("data-screen-cursor", "");
     else root.removeAttribute("data-screen-cursor");
   };

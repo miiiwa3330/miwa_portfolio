@@ -189,16 +189,47 @@ describe("a two-finger swipe", () => {
     expect(swipe([[30, -45]]).out).toEqual(["down"]);
   });
 
-  it("turns once a stream, when it has added up, and again only after a pause", () => {
-    const first = swipe([[10, 0], [10, 0], [15, 0], [10, 0], [40, 0], [-80, 0]]);
-    expect(first.out).toEqual([null, null, null, "left", null, null]);
-    // Coasting on within the pause: still the same swipe.
-    const coasting = swipe([[60, 0]], first.latch, 5 * 16 + SWIPE.quiet - 1);
-    expect(coasting.out).toEqual([null]);
-    // After a pause: a new one.
-    const next = swipe([[-60, 0]], coasting.latch, 5 * 16 + 2 * SWIPE.quiet + 10);
-    expect(next.out).toEqual(["right"]);
-    // A nudge is not a swipe.
+  it("turns once a swipe, when it has added up — not again as the fingers speed up, nor for the momentum after", () => {
+    // Fingers, then the trackpad coasting on in deltas that die away.
+    const first = swipe([[10, 0], [10, 0], [15, 0], [10, 0], [40, 0], [30, 0], [20, 0], [12, 0], [8, 0], [5, 0], [3, 0]]);
+    expect(first.out).toEqual([null, null, null, "left", null, null, null, null, null, null, null]);
+    // After a pause, a new one.
+    const next = swipe([[60, 0]], first.latch, 11 * 16 + SWIPE.quiet + 10);
+    expect(next.out).toEqual(["left"]);
+  });
+
+  it("takes a swipe back made before the momentum has died as a swipe of its own", () => {
+    const there = swipe([[30, 0], [30, 0], [25, 0], [18, 0], [12, 0]]);
+    expect(there.out).toEqual([null, "left", null, null, null]);
+    // The fingers come back the other way while it still coasts.
+    const back = swipe([[-6, 0], [-20, 0], [-30, 0]], there.latch, 5 * 16);
+    expect(back.out).toEqual([null, null, "right"]);
+  });
+
+  it("takes the fingers going again the same way, while it still coasts, as a new swipe", () => {
+    const there = swipe([[0, 30], [0, 30], [0, 20], [0, 10], [0, 6]]);
+    expect(there.out).toEqual([null, "up", null, null, null]);
+    const again = swipe([[0, 12], [0, 25], [0, 30]], there.latch, 5 * 16);
+    expect(again.out).toEqual([null, null, "up"]);
+  });
+
+  it("takes a quick swipe back, while the momentum is still strong, at once", () => {
+    const there = swipe([[30, 0], [30, 0], [28, 0]]);
+    expect(swipe([[-45, 0]], there.latch, 3 * 16).out).toEqual(["right"]);
+  });
+
+  it("does not start counting again for a flicker the other way in strong momentum", () => {
+    const there = swipe([[30, 0], [30, 0], [28, 0]]);
+    expect(swipe([[-1, 0], [28, 0], [26, 0]], there.latch, 3 * 16).out).toEqual([null, null, null]);
+  });
+
+  it("is not a swipe for a tremor in the momentum", () => {
+    const there = swipe([[30, 0], [30, 0], [20, 0], [10, 0], [6, 0]]);
+    // Smaller than `least`, either way: still the momentum.
+    expect(swipe([[-3, 0], [3.5, 0]], there.latch, 5 * 16).out).toEqual([null, null]);
+  });
+
+  it("does not turn for a nudge", () => {
     expect(swipe([[SWIPE.threshold - 1, 0]]).out).toEqual([null]);
   });
 });

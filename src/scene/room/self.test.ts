@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { CHAIR_SEAT_TOP, SHOULDER_HALF, TORSO_HALF_WIDTH, HIP_HALF, SEATED_HIPS_Y, SHIN, THIGH, TORSO_DEPTH, bodyJoints, deskHands, seatedShare } from "./self";
+import { CHAIR_SEAT_TOP, REACH, SHOULDER_HALF, TORSO_HALF_WIDTH, HIP_HALF, SEATED_HIPS_Y, SHIN, THIGH, TORSO_DEPTH, bodyJoints, deskHands, seatedShare, withinReach } from "./self";
 import { STANDING, advanceGait, footStep, type Gait } from "./gait";
-import { EYE_HEIGHT, FREE_HFOV, HANDHELD_STANDARD_HFOV, PIECES, STANDARD_HFOV, STOP_KEYS, pieceCentreDistance, standardView, zoomView } from "./layout";
+import { EYE_HEIGHT, FREE_HFOV, HANDHELD_STANDARD_HFOV, KEYBOARD, MAC_MOUSE, MOUSE, PIECES, STANDARD_HFOV, STOP_KEYS, macKeyboardPlace, pieceCentreDistance, pieceToWorld, standardView, zoomView } from "./layout";
+import { HHKB } from "./keyboard";
+import { deskViewPose } from "./deskViews";
 import { CHAIR_SEAT_SPAN, chairPlacement } from "./seat";
 import { placeCamera, poseFromView, projectToScreen, toCameraSpace } from "../camera/roomCamera";
 
@@ -213,5 +215,36 @@ describe("the legs", () => {
     expect(length(j.hands[0], left)).toBeGreaterThan(0.3);
     expect(length(j.hands[1], right)).toBeGreaterThan(0.3);
     for (const hand of j.hands) expect(hand[1]).toBeLessThan(0.8);
+  });
+});
+
+describe("the reader's reach (the desk's machines are used only within it)", () => {
+  const world = (x: number, z: number) => pieceToWorld(PIECES.desk, [x, 0.8, z]);
+  const pcMouse = world(MOUSE.x, MOUSE.z);
+  const macMouse = world(MAC_MOUSE.x, MAC_MOUSE.z);
+  const board = macKeyboardPlace();
+  const framing = { hfov: STANDARD_HFOV, lens: 1, share: 0, lift: 0 };
+  const at = (view: "pc" | "mac") => ({ ...deskViewPose(view), ...framing });
+
+  it("takes in the PC's mouse and the HHKB's farthest keys from the PC's seat, and the Mac's from the Mac's", () => {
+    const seat = at("pc");
+    expect(withinReach(seat, pcMouse)).toBe(true);
+    for (const x of [-HHKB.width / 2, HHKB.width / 2]) expect(withinReach(seat, world(KEYBOARD.x + x, KEYBOARD.z - HHKB.depth / 2))).toBe(true);
+    expect(withinReach(at("mac"), macMouse)).toBe(true);
+    expect(withinReach(at("mac"), world(board.x, board.z))).toBe(true);
+  });
+
+  it("does not reach the desk from the middle of the room, nor from a step back from it", () => {
+    const middle = poseFromView(standardView("desk"), framing);
+    expect(withinReach(middle, pcMouse)).toBe(false);
+    expect(withinReach(middle, world(KEYBOARD.x, KEYBOARD.z))).toBe(false);
+    // Standing half a metre behind the PC's seat: out of reach.
+    const back = { ...at("pc"), forward: at("pc").forward - 0.5 };
+    expect(withinReach(back, pcMouse)).toBe(false);
+  });
+
+  it("is about an arm and a lean: under a metre", () => {
+    expect(REACH).toBeGreaterThan(0.74);
+    expect(REACH).toBeLessThan(1);
   });
 });
