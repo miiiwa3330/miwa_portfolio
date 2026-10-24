@@ -146,3 +146,77 @@ export function bladeAngle(t: number): number {
   const turns = BLADES.apparentRate * t;
   return 2 * Math.PI * (turns - Math.floor(turns));
 }
+
+/**
+ * The self-introduction on the fan (2026-10-25, the user: the PC's
+ * `自己紹介.holo` switches the fan from the clock to it; 「下から上へ流れる
+ * 数行」): the text wrapped to a width inside the circle and rolled up from
+ * below the fan to above it, a line at a time, fading out at the top and
+ * bottom of the circle. In px of the fan's picture, from its middle, +Y
+ * down. **仮**: every size and the rate.
+ */
+export const ABOUT_ROLL = {
+  /** The text's em (px): about ten full-width characters to a line. */
+  em: 38,
+  /** One line to the next, in ems. */
+  leading: 1.45,
+  /** How wide a line may run (px): the circle's chord 0.45 of its radius off the middle. */
+  width: 2 * Math.sqrt(1 - 0.45 ** 2) * (HOLO_FAN.px / 2) * 0.92,
+  /** How fast it rolls, in lines a second: about 6 characters a second. */
+  rate: 0.6,
+  /** How far in from the circle's edge a line has faded out, and over how much it fades (px). */
+  fadeFrom: 0.88 * (HOLO_FAN.px / 2),
+  fadeOver: 46,
+} as const;
+
+/** Characters that may not begin a line: they hang off the end of the line before (ぶら下げ). */
+const NO_LINE_START = "、。，．・：；？！ー」』）】〉》ｰ,.:;?!)]}'\"";
+
+/**
+ * The paragraphs wrapped to `width` by `measure`, with an empty line between
+ * paragraphs. Full-width text breaks between any two characters; Latin text
+ * between words. A closing mark never begins a line: it hangs off the line
+ * before.
+ */
+export function wrapAbout(paragraphs: readonly string[], width: number, measure: (text: string) => number): string[] {
+  const lines: string[] = [];
+  paragraphs.forEach((paragraph, p) => {
+    if (p > 0) lines.push("");
+    // Words of Latin letters stay whole; anything else is a token of its own.
+    const tokens = paragraph.match(/[A-Za-z0-9'’\-]+\s*|\s+|./gu) ?? [];
+    let line = "";
+    for (const token of tokens) {
+      const next = line + token;
+      if (line !== "" && measure(next.trimEnd()) > width && !NO_LINE_START.includes(token[0])) {
+        lines.push(line.trimEnd());
+        line = token.trimStart();
+      } else line = next;
+    }
+    if (line.trim() !== "") lines.push(line.trimEnd());
+  });
+  return lines;
+}
+
+/** One line of the roll in view: which, where its middle is (px from the fan's middle, +Y down), and how bright. */
+export type RolledLine = { index: number; y: number; alpha: number };
+
+/**
+ * The lines in view `t` seconds after the roll began, and whether it is over
+ * (the last line gone off the top). The first line comes in from below the
+ * fan, so the roll starts empty and ends empty.
+ */
+export function rollAbout(lineCount: number, t: number): { lines: RolledLine[]; done: boolean } {
+  const step = ABOUT_ROLL.em * ABOUT_ROLL.leading;
+  const edge = ABOUT_ROLL.fadeFrom + step;
+  // The first line's middle: from just below the faded edge, up at `rate` lines a second.
+  const first = edge - Math.max(0, t) * ABOUT_ROLL.rate * step;
+  const lines: RolledLine[] = [];
+  for (let i = 0; i < lineCount; i++) {
+    const y = first + i * step;
+    if (y > edge) break;
+    if (y < -edge) continue;
+    const alpha = Math.min(1, Math.max(0, (ABOUT_ROLL.fadeFrom - Math.abs(y)) / ABOUT_ROLL.fadeOver));
+    if (alpha > 0) lines.push({ index: i, y, alpha });
+  }
+  return { lines, done: first + (lineCount - 1) * step < -edge };
+}

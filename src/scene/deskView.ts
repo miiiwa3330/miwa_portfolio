@@ -2,7 +2,7 @@ import { deskViewMachine, type DeskView } from "./room/deskViews";
 import { setDeskFocus } from "./deskFocus";
 
 /**
- * Which of the desk's four screens a seated reader is looking at
+ * Which of the desk's screens (and the hologram fan) a seated reader is looking at
  * (`room/deskViews.ts`): the PC's main screen when they sit down, and
  * another when they swipe to it. `Scene` turns the camera to it; the
  * reader's keyboard types on the machine it belongs to (`deskFocus`, the
@@ -19,10 +19,14 @@ export function deskViewNow(): DeskView {
   return current;
 }
 
-/** Look at another screen. A no-op when already there. */
-export function setDeskView(next: DeskView): void {
+/**
+ * Look at another screen. A no-op when already there — unless `again`: the
+ * reader has looked away from it with the mouse (`turnSeatedHead`), and is
+ * turned back to it.
+ */
+export function setDeskView(next: DeskView, again = false): void {
   setDeskFocus(deskViewMachine(next));
-  if (next === current) return;
+  if (next === current && !again) return;
   current = next;
   for (const listener of listeners) listener(next);
 }

@@ -32,7 +32,18 @@ import {
 } from "./camera/roomCamera";
 import { publishBody, publishView, viewNow } from "./camera/viewChannel";
 import { chainMoves, planRoomMove, seatedMove } from "./camera/walkFlight";
-import { MAC_ZOOM_SECONDS, deskViewPose, deskViewSeconds, deskViewToward, feedSwipe, macGamePose, type DeskView, type SwipeLatch } from "./room/deskViews";
+import {
+  MAC_ZOOM_SECONDS,
+  deskViewPose,
+  deskViewSeconds,
+  deskViewToward,
+  feedSwipe,
+  macGamePose,
+  nearestDeskView,
+  turnSeatedHead,
+  type DeskView,
+  type SwipeLatch,
+} from "./room/deskViews";
 import { macPlaying, onMacOpen } from "./mac/macSession";
 import { deskViewNow, onDeskView, setDeskView } from "./deskView";
 import { macPointer, pcPointer } from "./deskPointer";
@@ -704,12 +715,14 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
   useViewInput(canvas, yawRef, pitchRef, yawTargetRef, pitchTargetRef, tourURef, draggingRef, followTourRef, lockedRef, flightRef, setViewZoom);
 
   // Sat at the desk: a two-finger swipe off the screens turns to the next of
-  // its four screens that way (`room/deskViews.ts`). On a screen the swipe is
+  // its screens that way (`room/deskViews.ts`). On a screen the swipe is
   // the screen's own (the PC's page scrolls, the mouse's wheel turns).
   const sectionRef = useRef(activeSection);
   /** The flight under way is a turn between the desk's views (not sitting down or getting up), so another swipe may take over from it. */
   const deskTurnRef = useRef(false);
   const viewFromRef = useRef<DeskView>("pc");
+  /** The seated reader has looked round with the mouse since the last turn to a screen: a swipe goes on from the screen nearest their look. */
+  const lookedAwayRef = useRef(false);
   useEffect(() => {
     sectionRef.current = activeSection;
   }, [activeSection]);
@@ -727,11 +740,48 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
       const fed = feedSwipe(latch, e.deltaX * unit, e.deltaY * unit, e.timeStamp);
       latch = fed.latch;
       if (!fed.swipe || (flightRef.current && !deskTurnRef.current)) return;
-      setDeskView(deskViewToward(deskViewNow(), fed.swipe));
+      if (!lookedAwayRef.current) {
+        setDeskView(deskViewToward(deskViewNow(), fed.swipe, fed.axis ?? undefined));
+        return;
+      }
+      // Looked away with the mouse: on from the screen nearest the look — back to it, where nothing is that way.
+      lookedAwayRef.current = false;
+      const from = nearestDeskView(poseRef.current.yaw, poseRef.current.pitch);
+      setDeskView(deskViewToward(from, fed.swipe, fed.axis ?? undefined), true);
     };
     window.addEventListener("wheel", onWheel, { passive: false });
     return () => window.removeEventListener("wheel", onWheel);
   }, [activeSection, pageOpen]);
+
+  // Sat at the desk: a click on nothing — not a screen, not the page's
+  // controls, not a key or a mouse on the desk — captures the mouse, and the
+  // head turns with it, as when standing (2026-10-25, the user). The reader
+  // stays sat: the eye stays over the seat (`turnSeatedHead`). Esc gives the
+  // cursor back and leaves the view where it was; a swipe turns to a screen
+  // again.
+  useEffect(() => {
+    if (activeSection !== "desk" || pageOpen) return;
+    lookedAwayRef.current = false;
+    const captured = () => document.pointerLockElement === canvas;
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType !== "mouse" || e.button !== 0 || captured()) return;
+      if (isInteractive(e.target) || pcPointer.now().overScreen || macPointer.now().overScreen || pointerClaim.isClaimed(e.pointerId)) return;
+      if (flightRef.current || macPlaying()) return;
+      Promise.resolve(canvas.requestPointerLock?.()).catch(() => {});
+    };
+    const onPointerMove = (e: PointerEvent) => {
+      if (!captured() || flightRef.current || macPlaying()) return;
+      const look = mouseLook(poseRef.current.yaw, poseRef.current.pitch, e.movementX, e.movementY);
+      poseRef.current = turnSeatedHead(poseRef.current, look.yaw, look.pitch);
+      lookedAwayRef.current = true;
+    };
+    window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("pointermove", onPointerMove);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointermove", onPointerMove);
+    };
+  }, [activeSection, pageOpen, canvas]);
   useEffect(() => {
     /** Where a view holds the camera: the Mac's zoomed to its screen while a game is open on it (`macGamePose`). */
     const held = (view: DeskView): RoomPose =>
@@ -743,6 +793,7 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     const offView = onDeskView((view) => {
       const from = viewFromRef.current;
       viewFromRef.current = view;
+      lookedAwayRef.current = false;
       if (sectionRef.current !== "desk") return;
       fly(held(view), deskViewSeconds(from, view));
     });

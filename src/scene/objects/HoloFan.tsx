@@ -4,15 +4,20 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { HOLO_FAN, HOLO_FAN_ARM, holoFanJoints, holoFanPlace } from "../room/layout";
-import { BLADES, PICTURE_RINGS, bladeAngle, clockSway, clockText } from "../room/holoFan";
+import { BLADES, PICTURE_RINGS, bladeAngle, clockSway, clockText, rollAbout } from "../room/holoFan";
 import { sceneClock } from "../sceneClock";
+import { fanShowNow, onFanShow, setFanShow } from "../holoFanShow";
+import { aboutPlainParagraphs } from "@/hub/about/aboutCopy";
+import { useLanguage } from "@/state/LanguageContext";
 import { Ball, Plain, Rod, type DeskMaterials } from "./DeskSet";
 import { makeFanPicture } from "./holoFanPicture";
 
 /**
  * The hologram fan over the video monitor (`HOLO_FAN`, `holoFanPlace`), on
  * its arm from the upper monitor's (`holoFanJoints`), showing the time
- * (`room/holoFan.ts`). Drawn in the desk's frame (`Piece`).
+ * (`room/holoFan.ts`) — or, switched from the PC's `自己紹介.holo`
+ * (`holoFanShow`), the self-introduction rolling up it, after which it
+ * goes back to the time. Drawn in the desk's frame (`Piece`).
  *
  * The blades turn at 800 rpm — 27 sweeps a second for two blades, far more
  * than a frame can show — so they are drawn as they are seen (`BLADES`): a
@@ -151,7 +156,7 @@ function makeFan() {
   };
   return {
     materials,
-    draw: picture.draw,
+    picture,
     /** Moves the bar's shadow, and the picture's fresh light behind it. */
     turn(angle: number) {
       materials.blades.uniforms.uAngle.value = angle;
@@ -171,13 +176,35 @@ export default function HoloFan({ m }: { m: DeskMaterials }) {
   const place = useMemo(() => holoFanPlace(), []);
   const j = useMemo(() => holoFanJoints(), []);
 
+  // The self-introduction, wrapped in the fan's own font, in the reader's language.
+  const { language } = useLanguage();
+  const lines = useMemo(() => fan.picture.wrap(aboutPlainParagraphs(language === "ja")), [fan, language]);
+  /** Showing the self-introduction: whether it is to start on the next frame, and the room's time it started at. */
+  const roll = useRef<{ pending: boolean; start: number } | null>(fanShowNow() === "about" ? { pending: true, start: 0 } : null);
+  useEffect(
+    () =>
+      onFanShow((show) => {
+        roll.current = show === "about" ? { pending: true, start: 0 } : null;
+      }),
+    []
+  );
+
   const last = useRef(-1);
   useFrame((state) => {
     const t = sceneClock.time(state.clock.elapsedTime);
     fan.turn(bladeAngle(t));
+    const rolling = roll.current;
+    if (rolling?.pending) roll.current = { pending: false, start: t };
     if (Math.abs(t - last.current) < 1 / PICTURE_RATE) return;
     last.current = t;
-    fan.draw(clockText(new Date()), clockSway(t));
+    if (roll.current) {
+      const now = rollAbout(lines.length, t - roll.current.start);
+      // Rolled to the end: back to the time.
+      if (now.done) setFanShow("clock");
+      else fan.picture.drawRoll(lines, now.lines);
+      return;
+    }
+    fan.picture.draw(clockText(new Date()), clockSway(t));
   });
 
   const r = HOLO_FAN.sweep / 2;

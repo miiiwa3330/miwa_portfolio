@@ -4,16 +4,18 @@ import {
   MAC_MOUSE,
   PIECES,
   SEATED_EYE_HEIGHT,
+  holoFanPlace,
   macKeyboardPlace,
   macToDesk,
   monitorFace,
   pieceCentreDistance,
   pieceToWorld,
+  viewDirection,
   zoomView,
   type MonitorKey,
 } from "./layout";
 import { MAC_CASE, macFace, macPictureCentre } from "./macCase";
-import { headLean } from "../camera/roomCamera";
+import { floorSpot, headLean } from "../camera/roomCamera";
 
 /**
  * Where the reader looks while sitting at the desk (2026-10-23, the user):
@@ -37,23 +39,73 @@ import { headLean } from "../camera/roomCamera";
  * of the left and the right ones too (2026-10-23, the user: 「左ー上、右ー上
  * 間の視点遷移も」): up from either, and left or right from it. Between the
  * left and the right there is no way but through the main screen.
+ *
+ * **The hologram fan is a fifth** (2026-10-25, the user: 「３Dホログラム
+ * ファンへの視点を追加」「メインモニター・上モニター・縦置きモニター全てから
+ * 移動できるように」). From the seat it is about 30° right and 14° up —
+ * right of the upper screen, over the video one, up and to the right of the
+ * main one — so the moves go the way it is seen (the user's choice over
+ * keeping the upper and the video screens' old moves): right from the upper
+ * screen, up from the video one, and **a diagonal swipe**, up and to the
+ * right, from the main one. The upper and the video screens, which were
+ * right and up of each other, are now diagonal of each other too: down and
+ * to the right from the upper one, up and to the left from the video one.
  */
 
-export type DeskView = "pc" | "camera" | "video" | "mac";
-export type Swipe = "left" | "right" | "up" | "down";
+export type DeskView = "pc" | "camera" | "video" | "mac" | "fan";
+export type Swipe = "left" | "right" | "up" | "down" | "upLeft" | "upRight" | "downLeft" | "downRight";
+/** The four straight ways a swipe can go. */
+export type Axis = "left" | "right" | "up" | "down";
 
-export const DESK_VIEWS: readonly DeskView[] = ["pc", "camera", "video", "mac"];
+export const DESK_VIEWS: readonly DeskView[] = ["pc", "camera", "video", "mac", "fan"];
 
 const TOWARD: Record<DeskView, Partial<Record<Swipe, DeskView>>> = {
-  pc: { left: "mac", right: "video", up: "camera" },
+  pc: { left: "mac", right: "video", up: "camera", upRight: "fan" },
   mac: { right: "pc", up: "camera" },
-  video: { left: "pc", up: "camera" },
-  camera: { down: "pc", left: "mac", right: "video" },
+  video: { left: "pc", up: "fan", upLeft: "camera" },
+  camera: { down: "pc", left: "mac", right: "fan", downRight: "video" },
+  fan: { left: "camera", down: "video", downLeft: "pc" },
 };
 
-/** The view a swipe turns to from `view`: its neighbour that way, or itself where there is none. */
-export function deskViewToward(view: DeskView, swipe: Swipe): DeskView {
-  return TOWARD[view][swipe] ?? view;
+/**
+ * The view a swipe turns to from `view`: its neighbour that way, or itself
+ * where there is none. A diagonal swipe with no neighbour that way is taken
+ * as the straight way it went most (`axis`): a swipe a little off the
+ * straight is still a straight swipe where there is nothing diagonal.
+ */
+export function deskViewToward(view: DeskView, swipe: Swipe, axis?: Axis): DeskView {
+  return TOWARD[view][swipe] ?? (axis ? TOWARD[view][axis] : undefined) ?? view;
+}
+
+/**
+ * The view whose screen is nearest the way a seated reader is looking —
+ * where a swipe goes on from after they have looked round with the mouse
+ * (`turnSeatedHead`).
+ */
+export function nearestDeskView(yaw: number, pitch: number): DeskView {
+  const DEG = Math.PI / 180;
+  const look = viewDirection(yaw / DEG, pitch / DEG);
+  let best: DeskView = "pc";
+  let bestDot = -Infinity;
+  for (const view of DESK_VIEWS) {
+    const pose = deskViewPose(view);
+    const d = viewDirection(pose.yaw / DEG, pose.pitch / DEG);
+    const dot = d[0] * look[0] + d[1] * look[1] + d[2] * look[2];
+    if (dot > bestDot) [best, bestDot] = [view, dot];
+  }
+  return best;
+}
+
+/**
+ * A seated pose with the head turned to `yaw` and `pitch` — looking round
+ * with the mouse while sat (2026-10-25, the user: 「全く何にも関係ないところで、
+ * クリックすると立っている時と同じように自由視点に」; they chose staying sat
+ * over standing up). The eye stays over the seat: the pose's place moves
+ * back along the new way, as `deskViewPose` places every view.
+ */
+export function turnSeatedHead<P extends DeskViewPose>(pose: P, yaw: number, pitch: number): P {
+  const [sx, sz] = floorSpot(pose);
+  return { ...pose, yaw, pitch, x: sx - Math.sin(yaw) * pose.forward, z: sz + Math.cos(yaw) * pose.forward };
 }
 
 /** The machine the reader's keyboard types on in a view: the one they are looking at. */
@@ -66,6 +118,7 @@ export function deskViewMachine(view: DeskView): "pc" | "mac" {
  * or rolling over to the Mac and back.
  */
 export function deskViewSeconds(from: DeskView, to: DeskView): number {
+  // The fan, like the upper and the video screens: a turn of the head.
   return from === "mac" || to === "mac" ? 0.9 : 0.5;
 }
 
@@ -144,7 +197,8 @@ export function macSeatedPitch(): number {
 
 /**
  * A view's held pose. The main screen's is the PC's zoom as it always was;
- * the others look from their seat at their screen's middle (the Mac's as
+ * the others look from their seat at their screen's middle — the fan's, its
+ * middle (the Mac's as
  * `macSeatedPitch`). Every one keeps the PC's step out (`forward`) and moves
  * its place back along the view instead, so the eye stays over its seat
  * whichever way it looks — a flight between two of them can then glide the
@@ -157,7 +211,9 @@ export function deskViewPose(view: DeskView): DeskViewPose {
   if (view === "pc") return { x: 0, z: 0, yaw: seated.yaw * DEG, pitch: seated.pitch * DEG, forward, eyeHeight: seated.eyeHeight };
   const seat = seatWorld(view === "mac" ? macSeatLocal() : pcSeatLocal());
   const { yaw, pitch } =
-    view === "mac" ? { yaw: MAC_SEAT_YAW, pitch: macSeatedPitch() } : aim(seat, seated.eyeHeight, desk(monitorFace(view as MonitorKey).centre));
+    view === "mac"
+      ? { yaw: MAC_SEAT_YAW, pitch: macSeatedPitch() }
+      : aim(seat, seated.eyeHeight, desk(view === "fan" ? holoFanPlace().centre : monitorFace(view as MonitorKey).centre));
   // The eye over the seat: `floorSpot` puts it `forward` out along the yaw.
   return { x: seat[0] - Math.sin(yaw) * forward, z: seat[1] + Math.cos(yaw) * forward, yaw, pitch, forward, eyeHeight: seated.eyeHeight };
 }
@@ -217,7 +273,7 @@ export function macGamePose(): DeskViewPose & { hfov: number } {
  * swipe before it, and did nothing (2026-10-23, the user). **仮**: the
  * threshold and the growth.
  */
-export const SWIPE = { threshold: 40, quiet: 220, regrow: 1.5, faded: 0.6, least: 4 } as const;
+export const SWIPE = { threshold: 40, quiet: 220, regrow: 1.5, faded: 0.6, least: 4, diagonal: Math.tan(Math.PI / 6) } as const;
 
 export type SwipeLatch = {
   x: number;
@@ -239,7 +295,23 @@ function fingersAgain(latch: SwipeLatch, dx: number, dy: number): boolean {
   return back || (latch.low < latch.peak * SWIPE.faded && now > latch.low * SWIPE.regrow);
 }
 
-export function feedSwipe(latch: SwipeLatch | null, dx: number, dy: number, time: number): { latch: SwipeLatch; swipe: Swipe | null } {
+/**
+ * The way a swipe went: one of the four straight ways, or — when the smaller
+ * of its two parts is at least `SWIPE.diagonal` of the larger, within 15° of
+ * the diagonal (**仮**) — one of the four diagonals (2026-10-25, for the
+ * hologram fan up and to the right of the main screen). Also the straight
+ * way it went most, for where a diagonal leads nowhere (`deskViewToward`).
+ */
+export function swipeWay(x: number, y: number): { swipe: Swipe; axis: Axis } {
+  const horizontal = x > 0 ? "left" : "right";
+  const vertical = y > 0 ? "up" : "down";
+  const axis: Axis = Math.abs(x) > Math.abs(y) ? horizontal : vertical;
+  const diagonal = Math.min(Math.abs(x), Math.abs(y)) >= SWIPE.diagonal * Math.max(Math.abs(x), Math.abs(y));
+  if (!diagonal) return { swipe: axis, axis };
+  return { swipe: `${vertical}${horizontal === "left" ? "Left" : "Right"}`, axis };
+}
+
+export function feedSwipe(latch: SwipeLatch | null, dx: number, dy: number, time: number): { latch: SwipeLatch; swipe: Swipe | null; axis: Axis | null } {
   const size = Math.hypot(dx, dy);
   const fresh = !latch || time - latch.at >= SWIPE.quiet || (latch.spent && fingersAgain(latch, dx, dy));
   // A flicker (under `least`) is not a way the fingers went: the last way stays the momentum's.
@@ -252,9 +324,8 @@ export function feedSwipe(latch: SwipeLatch | null, dx: number, dy: number, time
     if (size > next.peak) next.peak = next.low = size;
     else next.low = Math.min(next.low, size);
   }
-  if (next.spent || Math.max(Math.abs(next.x), Math.abs(next.y)) < SWIPE.threshold) return { latch: next, swipe: null };
+  if (next.spent || Math.max(Math.abs(next.x), Math.abs(next.y)) < SWIPE.threshold) return { latch: next, swipe: null, axis: null };
   next.spent = true;
   next.peak = next.low = size;
-  const swipe: Swipe = Math.abs(next.x) > Math.abs(next.y) ? (next.x > 0 ? "left" : "right") : next.y > 0 ? "up" : "down";
-  return { latch: next, swipe };
+  return { latch: next, ...swipeWay(next.x, next.y) };
 }

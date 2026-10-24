@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { HOLO_FAN, STANDARD_HFOV, holoFanPlace, seatedEyeOnDesk } from "./layout";
-import { BLADES, CLOCK, LED_RINGS, PICTURE_RINGS, bladeAngle, clockEmPx, clockGlyphs, clockReach, clockSway, clockText } from "./holoFan";
+import { ABOUT_ROLL, BLADES, CLOCK, LED_RINGS, PICTURE_RINGS, bladeAngle, clockEmPx, rollAbout, wrapAbout, clockGlyphs, clockReach, clockSway, clockText } from "./holoFan";
 
 describe("clockText", () => {
   it("shows 24-hour HH:MM:SS, padded, by the reader's own clock", () => {
@@ -111,5 +111,59 @@ describe("the blades as they are seen", () => {
       expect(bladeAngle(t)).toBeGreaterThanOrEqual(0);
       expect(bladeAngle(t)).toBeLessThan(2 * Math.PI);
     }
+  });
+});
+
+describe("the self-introduction on the fan", () => {
+  /** Every character 10 px wide. */
+  const measure = (text: string) => [...text].length * 10;
+
+  it("wraps full-width text between any two characters, Latin between words, a blank line between paragraphs", () => {
+    expect(wrapAbout(["あいうえおかきくけこさしす", "すせそ"], 50, measure)).toEqual(["あいうえお", "かきくけこ", "さしす", "", "すせそ"]);
+    expect(wrapAbout(["I chase novelty every day"], 120, measure)).toEqual(["I chase", "novelty", "every day"]);
+  });
+
+  it("never begins a line with a closing mark: it hangs off the line before", () => {
+    expect(wrapAbout(["あいうえお。かき」くけ"], 50, measure)).toEqual(["あいうえお。", "かき」くけ"]);
+    expect(wrapAbout(["あいうえお」。かき"], 50, measure)).toEqual(["あいうえお」。", "かき"]);
+  });
+
+  it("keeps every line inside the circle's width", () => {
+    expect(ABOUT_ROLL.width).toBeLessThan(HOLO_FAN.px * 0.9);
+    const lines = wrapAbout(["初めまして、Ｍｉｉｉｗａです。「面白いを最優先！」をモットーに、日々新しい技術に触れています。"], ABOUT_ROLL.width, (t) => [...t].length * ABOUT_ROLL.em);
+    // Hanging marks aside, no line past the width.
+    for (const line of lines) expect([...line.replace(/[、。」！]/g, "")].length * ABOUT_ROLL.em).toBeLessThanOrEqual(ABOUT_ROLL.width);
+  });
+
+  it("rolls up from below the fan to above it: empty at the start and at the end", () => {
+    const count = 30;
+    expect(rollAbout(count, 0).lines).toEqual([]);
+    expect(rollAbout(count, 0).done).toBe(false);
+    const mid = rollAbout(count, 10);
+    expect(mid.lines.length).toBeGreaterThan(3);
+    expect(mid.done).toBe(false);
+    for (const line of mid.lines) {
+      expect(Math.abs(line.y)).toBeLessThan(ABOUT_ROLL.fadeFrom);
+      expect(line.alpha).toBeGreaterThan(0);
+      expect(line.alpha).toBeLessThanOrEqual(1);
+    }
+    // Up, a little later.
+    const later = rollAbout(count, 10.5);
+    const line = mid.lines[1];
+    const same = later.lines.find((l) => l.index === line.index);
+    expect(same && same.y).toBeLessThan(line.y);
+    // Over once the last line has gone off the top: a line a 1/rate seconds, and the circle's height more.
+    const end = (count + (2 * ABOUT_ROLL.fadeFrom) / (ABOUT_ROLL.em * ABOUT_ROLL.leading) + 3) / ABOUT_ROLL.rate;
+    expect(rollAbout(count, end).done).toBe(true);
+    expect(rollAbout(count, end).lines).toEqual([]);
+    expect(rollAbout(count, count / ABOUT_ROLL.rate).done).toBe(false);
+  });
+
+  it("is bright in the middle of the circle and fades out towards its top and bottom", () => {
+    const lines = rollAbout(60, 20).lines;
+    const middle = lines.reduce((a, b) => (Math.abs(a.y) < Math.abs(b.y) ? a : b));
+    expect(middle.alpha).toBe(1);
+    const outer = lines.reduce((a, b) => (Math.abs(a.y) > Math.abs(b.y) ? a : b));
+    expect(outer.alpha).toBeLessThan(1);
   });
 });

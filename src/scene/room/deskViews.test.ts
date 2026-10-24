@@ -11,12 +11,15 @@ import {
   macHands,
   macSeatLocal,
   macSeatedPitch,
+  nearestDeskView,
   pcSeatLocal,
+  swipeWay,
+  turnSeatedHead,
   seatWorld,
   type DeskView,
   type SwipeLatch,
 } from "./deskViews";
-import { MAC, PIECES, STANDARD_HFOV, macToDesk, monitorFace, pieceToWorld, viewDirection, zoomView } from "./layout";
+import { MAC, PIECES, STANDARD_HFOV, holoFanPlace, macToDesk, monitorFace, pieceToWorld, viewDirection, zoomView } from "./layout";
 import { MAC_CASE, macFace, macPictureCentre } from "./macCase";
 import { chairPlacement, seatFacing, seatOnLine, seatShare } from "./seat";
 import { bodyJoints, deskHands } from "./self";
@@ -47,20 +50,47 @@ describe("the desk's four views", () => {
     expect(deskViewToward("camera", "down")).toBe("pc");
   });
 
-  it("join the upper screen to the left and the right ones as well, both ways", () => {
+  it("join the upper screen to the left and the right ones as well, both ways — the right one diagonally, past the fan", () => {
     expect(deskViewToward("mac", "up")).toBe("camera");
-    expect(deskViewToward("video", "up")).toBe("camera");
     expect(deskViewToward("camera", "left")).toBe("mac");
-    expect(deskViewToward("camera", "right")).toBe("video");
+    expect(deskViewToward("video", "upLeft")).toBe("camera");
+    expect(deskViewToward("camera", "downRight")).toBe("video");
+  });
+
+  it("reach the hologram fan from the main, the upper and the video screens, the way it is seen, and back", () => {
+    expect(deskViewToward("pc", "upRight")).toBe("fan");
+    expect(deskViewToward("camera", "right")).toBe("fan");
+    expect(deskViewToward("video", "up")).toBe("fan");
+    expect(deskViewToward("fan", "downLeft")).toBe("pc");
+    expect(deskViewToward("fan", "left")).toBe("camera");
+    expect(deskViewToward("fan", "down")).toBe("video");
+  });
+
+  it("see the fan where those moves say: right of the upper screen, over the video one, up and right of the main one", () => {
+    const fan = pose("fan");
+    expect(fan.yaw - pose("camera").yaw).toBeGreaterThan(20 * DEG);
+    expect(Math.abs(fan.pitch - pose("camera").pitch)).toBeLessThan(10 * DEG);
+    expect(fan.pitch - pose("video").pitch).toBeGreaterThan(15 * DEG);
+    expect(Math.abs(fan.yaw - pose("video").yaw)).toBeLessThan(10 * DEG);
+    expect(fan.yaw - pose("pc").yaw).toBeGreaterThan(20 * DEG);
+    expect(fan.pitch - pose("pc").pitch).toBeGreaterThan(15 * DEG);
+  });
+
+  it("take a diagonal with nowhere to go as the straight way it went most", () => {
+    expect(deskViewToward("mac", "upRight", "up")).toBe("camera");
+    expect(deskViewToward("mac", "upRight", "right")).toBe("pc");
+    expect(deskViewToward("mac", "upRight")).toBe("mac");
+    // Where the diagonal leads somewhere, it goes there, whichever way it went most.
+    expect(deskViewToward("pc", "upRight", "up")).toBe("fan");
   });
 
   it("go nowhere past the ends, nor below the side screens", () => {
-    for (const [view, swipe] of [["mac", "left"], ["mac", "down"], ["video", "right"], ["video", "down"], ["camera", "up"]] as const)
+    for (const [view, swipe] of [["mac", "left"], ["mac", "down"], ["video", "right"], ["video", "down"], ["camera", "up"], ["fan", "up"], ["fan", "right"]] as const)
       expect(deskViewToward(view, swipe)).toBe(view);
   });
 
   it("can always be turned back from: every move has a swipe that returns", () => {
-    const swipes = ["left", "right", "up", "down"] as const;
+    const swipes = ["left", "right", "up", "down", "upLeft", "upRight", "downLeft", "downRight"] as const;
     for (const view of DESK_VIEWS)
       for (const swipe of swipes) {
         const to = deskViewToward(view, swipe);
@@ -69,11 +99,18 @@ describe("the desk's four views", () => {
   });
 
   it("type on the machine whose screen is in front", () => {
-    expect(DESK_VIEWS.map(deskViewMachine)).toEqual(["pc", "pc", "pc", "mac"]);
+    expect(DESK_VIEWS.map(deskViewMachine)).toEqual(["pc", "pc", "pc", "mac", "pc"]);
   });
 
   it("keep the PC's view as it was: the PC's zoom", () => {
     expect(pose("pc")).toEqual(poseFromView(zoomView("desk"), framing));
+  });
+
+  it("look at the fan's middle from the PC's seat", () => {
+    expect(offAxis(pose("fan"), world(holoFanPlace().centre))).toBeLessThan(0.6);
+    const [x, z] = floorSpot(pose("fan"));
+    const [sx, sz] = seatWorld(pcSeatLocal());
+    expect(Math.hypot(x - sx, z - sz)).toBeLessThan(1e-9);
   });
 
   it("look at the middle of the upper and the right-hand monitors from the PC's seat", () => {
@@ -262,8 +299,9 @@ describe("a two-finger swipe", () => {
     expect(swipe([[-50, 0]]).out).toEqual(["right"]);
     expect(swipe([[0, 50]]).out).toEqual(["up"]);
     expect(swipe([[0, -50]]).out).toEqual(["down"]);
-    // The way it mostly went.
-    expect(swipe([[30, -45]]).out).toEqual(["down"]);
+    // The way it mostly went, 24° off the straight; 34° off is a diagonal (2026-10-25, for the fan).
+    expect(swipe([[20, -45]]).out).toEqual(["down"]);
+    expect(swipe([[30, -45]]).out).toEqual(["downLeft"]);
   });
 
   it("turns once a swipe, when it has added up — not again as the fingers speed up, nor for the momentum after", () => {
@@ -308,5 +346,42 @@ describe("a two-finger swipe", () => {
 
   it("does not turn for a nudge", () => {
     expect(swipe([[SWIPE.threshold - 1, 0]]).out).toEqual([null]);
+  });
+});
+
+describe("which way a swipe went", () => {
+  it("is straight unless it went within 15° of a diagonal", () => {
+    // Fingers left scroll right: a positive x is a swipe to the left, a positive y one up.
+    expect(swipeWay(100, 0)).toEqual({ swipe: "left", axis: "left" });
+    expect(swipeWay(0, -100)).toEqual({ swipe: "down", axis: "down" });
+    // 27° off the horizontal: still straight.
+    expect(swipeWay(-100, 50)).toEqual({ swipe: "right", axis: "right" });
+    // 31° and 45°: diagonal.
+    expect(swipeWay(-100, 60)).toEqual({ swipe: "upRight", axis: "right" });
+    expect(swipeWay(100, -100).swipe).toBe("downLeft");
+    expect(swipeWay(-60, 100)).toEqual({ swipe: "upRight", axis: "up" });
+  });
+});
+
+describe("looking round with the mouse while sat", () => {
+  const sat = pose("pc");
+
+  it("turns the head with the eye kept over the seat", () => {
+    for (const [yaw, pitch] of [[0.8, 0.1], [-1.5, 0.4], [3, -0.6]]) {
+      const turned = turnSeatedHead(sat, yaw, pitch);
+      expect(turned.yaw).toBe(yaw);
+      expect(turned.pitch).toBe(pitch);
+      const [x, z] = floorSpot(turned);
+      const [sx, sz] = floorSpot(sat);
+      expect(Math.hypot(x - sx, z - sz)).toBeLessThan(1e-9);
+      expect(seatShare(turned)).toBe(1);
+    }
+  });
+
+  it("goes on from the screen nearest the look", () => {
+    for (const view of DESK_VIEWS) expect(nearestDeskView(pose(view).yaw, pose(view).pitch)).toBe(view);
+    // A little off the fan, still the fan; straight up from the main screen, the upper one.
+    expect(nearestDeskView(pose("fan").yaw + 0.05, pose("fan").pitch - 0.05)).toBe("fan");
+    expect(nearestDeskView(pose("pc").yaw, 0.6)).toBe("camera");
   });
 });
