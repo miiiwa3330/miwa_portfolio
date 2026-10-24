@@ -139,3 +139,7 @@
 
 - **属性やクラスが付いたことではなく、効いた結果を見る。** `<html data-screen-cursor>` が立つのをヘッドレスで確かめて「隠れる」と報告したが、ユーザーの画面では隠れていなかった。`getComputedStyle(document.elementFromPoint(x, y)).cursor` を、その要素から `<html>` までたどると `auto` で、`document.styleSheets` のどこにも規則が無かった
 - **動いている開発サーバー（Turbopack）は、`globals.css` の変更を TSX より遅れて取り込むことがある。** TSX の変更は反映されているのに、配信中の CSS のチャンクには足した規則が無かった（`touch` して6秒後もまだ古く、しばらくあとに入った）。規則が落ちたのか遅れているだけなのかは、`@tailwindcss/postcss` と `lightningcss` に `globals.css` を通して切り分けられる（どちらも規則を残した）
+
+**ダブルクリックはヘッドレスでは成り立たない**（2026-10-23、Mac のゲーム）。Mac のクリックは「机のマウスのボタンが下りた瞬間」をフレームの中で拾うので、毎秒3フレームでは押す・離す・押すに1秒以上かかり、500ms の `DOUBLE_CLICK` に入らない。押したままの時間も1フレーム以上要る（`mouse.down` から `up` まで1.5秒以上待つ）。確かめるあいだだけ `mac/finder.ts` の `DOUBLE_CLICK.ms` を30秒にし、退避したファイルを `cp` で戻して `grep` で戻ったことを確かめる。**コミットに混ぜない。**
+
+**音はヘッドレスでは聞けないので、鳴らした回数を数える**（2026-10-25、Mac のゲームの音）。`page.evaluateOnNewDocument` で `AudioContext.prototype.createOscillator`（と `createBufferSource`）を包み、できたノードの `start` が呼ばれるたびに周波数を `window` の配列へ積む。あとで `page.evaluate` で読むと、どの音がどの順に鳴ったかが周波数で分かる（`mac/sounds.ts` の音符と照らす）。AudioContext はクリックの中で作られるので、`page.mouse` の本物のクリックを使う（合成したイベントではジェスチャにならない）。

@@ -24,9 +24,10 @@ import {
 import { cursorShown, macPointer } from "../deskPointer";
 import { useDeskFocus } from "../deskFocus";
 import { onDeskView, setDeskView } from "../deskView";
-import { isGameKey, macAdvance, macClose, macKey, macPress } from "../mac/finder";
+import { isGameKey, macAdvance, macClose, macKey, macKeyUp, macPoint, macPress } from "../mac/finder";
 import { macNow, macPlaying, onMac, setMac } from "../mac/macSession";
 import { macScreen } from "./macScreen";
+import { playMacSound } from "./macSound";
 import { roundedRectOutline } from "../room/keyboard";
 import { profilePrism, shapeOf, sideRibbon } from "./caseShapes";
 
@@ -434,32 +435,70 @@ export default function Macintosh({ seated }: { seated: boolean }) {
     [picture, arrowSize]
   );
 
-  // What the Mac runs (`mac/finder.ts`): drawn whenever what it shows changes — not at every frame a game's clock moves.
+  // What the Mac runs (`mac/finder.ts`): drawn whenever what it shows changes —
+  // not at every frame a game's clock moves; and its sounds played, once each.
   useEffect(() => {
     let shown: ReturnType<typeof macNow> | null = null;
+    let heard = macNow().sounds;
     return onMac((state) => {
-      if (shown && shown.open === state.open && shown.selected === state.selected && shown.snake === state.snake && shown.best === state.best) return;
+      if (state.sounds !== heard) {
+        heard = state.sounds;
+        for (const sound of state.sounds) playMacSound(sound);
+      }
+      if (
+        shown &&
+        shown.open === state.open &&
+        shown.selected === state.selected &&
+        shown.snake === state.snake &&
+        shown.breakout === state.breakout &&
+        shown.mines === state.mines &&
+        shown.best === state.best
+      )
+        return;
       shown = state;
       screen.paint(state);
     });
   }, [screen]);
   useEffect(() => screen.paint(macNow()), [screen]);
 
+  // ⌘ or Option held on the reader's keyboard: a click flags a cell of Mines
+  // (the M0100 has one button). Kept from the keys themselves, as a click
+  // reaches the Mac through its mouse, not as the reader's own event.
+  const flagging = useRef(false);
+  useEffect(() => {
+    const read = (e: KeyboardEvent) => (flagging.current = e.metaKey || e.altKey);
+    const clear = () => (flagging.current = false);
+    window.addEventListener("keydown", read);
+    window.addEventListener("keyup", read);
+    window.addEventListener("blur", clear);
+    return () => {
+      window.removeEventListener("keydown", read);
+      window.removeEventListener("keyup", read);
+      window.removeEventListener("blur", clear);
+    };
+  }, []);
+
   // A click is the mouse's button going down, at the cursor — however it was
   // pressed: the reader's button on the screen, or the M0100's own. Opening a
-  // game turns to the Mac (and so zooms to its screen, `Scene`).
+  // game turns to the Mac (and so zooms to its screen, `Scene`). The cursor
+  // moving moves Breakout's paddle.
   const seatedRef = useRef(seated);
   useEffect(() => {
     seatedRef.current = seated;
   }, [seated]);
   useEffect(() => {
     let was = macPointer.now().pressed;
+    let x = macPointer.now().cursor.x;
     return macPointer.on((pointer) => {
+      if (pointer.cursor.x !== x) {
+        x = pointer.cursor.x;
+        setMac(macPoint(macNow(), pointer.cursor));
+      }
       const down = pointer.pressed && !was;
       was = pointer.pressed;
       if (!down) return;
       const before = macNow();
-      setMac(macPress(before, pointer.cursor, performance.now(), seatedRef.current, Math.random));
+      setMac(macPress(before, pointer.cursor, performance.now(), seatedRef.current, Math.random, flagging.current));
       if (!before.open && macPlaying()) setDeskView("mac");
     });
   }, []);
@@ -473,7 +512,8 @@ export default function Macintosh({ seated }: { seated: boolean }) {
   );
 
   // The reader's keys, while they type on the Mac and a game is open: the
-  // game's keys are its alone (an arrow or Space would scroll the page).
+  // games' keys are theirs alone (an arrow or Space would scroll the page).
+  // Let go, they stop Breakout's paddle; so does leaving the window.
   const typing = useDeskFocus() === "mac" && seated;
   useEffect(() => {
     if (!typing) return;
@@ -482,8 +522,17 @@ export default function Macintosh({ seated }: { seated: boolean }) {
       e.preventDefault();
       if (!e.repeat) setMac(macKey(macNow(), e.code, Math.random));
     };
+    const up = (e: KeyboardEvent) => setMac(macKeyUp(macNow(), e.code));
+    const blur = () => ["KeyA", "KeyD", "ArrowLeft", "ArrowRight"].forEach((code) => setMac(macKeyUp(macNow(), code)));
     window.addEventListener("keydown", down);
-    return () => window.removeEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", blur);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", blur);
+      blur();
+    };
   }, [typing]);
   // A game's clock: real time, as the keys go (a paused room still plays).
   useFrame((_, delta) => {

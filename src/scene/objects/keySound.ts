@@ -76,6 +76,11 @@ export function wakeKeySound(): void {
   decoding ??= decode(audio);
 }
 
+/** The desk's audio context, once a gesture has made it (`wakeKeySound`): the Mac's games play their tones through it too (`macSound`). */
+export function deskAudio(): AudioContext | null {
+  return audio;
+}
+
 /** A first key that arrives while the clips are still decoding waits for them, but no longer than this (seconds): later, it would sound late. */
 const LATE = 0.15;
 
