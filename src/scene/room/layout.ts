@@ -812,6 +812,103 @@ export function chairBackZ(): number {
   return pieceCentreDistance(PIECES.desk) - (zoomView("desk").forward - CHAIR_BACK_BEHIND_EYE);
 }
 
+/** The seated eye in the desk's frame: square in front of the main screen, where sitting down at the PC puts it. */
+export function seatedEyeOnDesk(): [number, number, number] {
+  return [0, SEATED_EYE_HEIGHT, pieceCentreDistance(PIECES.desk) - zoomView("desk").forward];
+}
+
+/**
+ * The hologram fan (2026-10-25, the user: 「3Dホログラムディスプレイファンを
+ * アームで取り付けたい（上のモニター裏から接続して、縦型PCの上らへんに配置）」
+ * — the 縦型 one is the video monitor stood on end): a fan of LED blades spun
+ * fast enough that what they light hangs in the air. It shows the time
+ * (`room/holoFan.ts`).
+ *
+ * The model is SuperbHolo's SH-30 (the maker's spec): a 30 cm sweep, 256
+ * LEDs across it, 512 × 512 px, 800 rpm. Without its clear cover (the user,
+ * 2026-10-25: 「本来厚みは棒の太さ分だけ」): the fan is only as thick as
+ * its blades. **仮**: the blades' thickness, the hub's size, `gap`, `left`
+ * and `forward`.
+ *
+ * Its own frame: origin at the middle of the blades' sweep (the picture's
+ * plane), +Y up, +Z out of the picture.
+ */
+export const HOLO_FAN = {
+  sweep: 0.3,
+  leds: 256,
+  px: 512,
+  rpm: 800,
+  /** How thick the blades are: a board with LEDs on it. */
+  bladeThickness: 0.006,
+  /** The motor's hub behind the blades, its back where the arm's ball joint holds it. */
+  hub: { radius: 0.028, depth: 0.05 },
+  /** How far its lowest point is over the video monitor's highest corner (the user moved it down, 2026-10-25: from 3 cm). */
+  gap: 0.015,
+  /** How far left of the video monitor's middle it hangs (the user moved it left, 2026-10-25). */
+  left: 0.06,
+  /**
+   * How far in front of the upper monitor's middle it hangs. Level with it,
+   * the first fan's clear cover (33.6 cm across, 7 cm deep) went into the
+   * monitor arm's upper beam (its rim 1.2 cm from the beam's middle line).
+   */
+  forward: 0.06,
+} as const;
+
+/** A point in the fan's own frame, turned by `yaw` and `pitch` (as a monitor is), not yet moved to its place. */
+function turnFan(place: { yaw: number; pitch: number }, local: readonly [number, number, number]): [number, number, number] {
+  return turnMonitor({ ...place, roll: 0 }, local);
+}
+
+/**
+ * Where the fan hangs: `left` of the video monitor's middle, `forward` of
+ * the upper monitor, turned and tipped to face the seated eye, and just high
+ * enough that its blades' lowest point is `gap` over the video monitor's top.
+ * The tip lowers the blades' bottom edge, and the tip depends on the height,
+ * so the two are settled together; a few rounds are plenty, as tipping
+ * hardly moves the bottom edge.
+ */
+export function holoFanPlace(): { centre: [number, number, number]; yaw: number; pitch: number } {
+  const x = MONITORS.video.x - HOLO_FAN.left;
+  const z = MONITORS.camera.z + HOLO_FAN.forward;
+  const top = Math.max(...monitorCorners("video").map((c) => c[1]));
+  const eye = seatedEyeOnDesk();
+  const yaw = Math.atan2(eye[0] - x, eye[2] - z);
+  const across = Math.hypot(eye[0] - x, eye[2] - z);
+  const r = HOLO_FAN.sweep / 2;
+  let y = top + HOLO_FAN.gap + r;
+  let pitch = 0;
+  for (let i = 0; i < 6; i++) {
+    pitch = Math.atan2(y - eye[1], across);
+    y = top + HOLO_FAN.gap + r * Math.cos(pitch) + (HOLO_FAN.bladeThickness / 2) * Math.sin(pitch);
+  }
+  return { centre: [x, y, z], yaw, pitch };
+}
+
+/** A point in the fan's own frame, in the desk's frame. */
+export function holoFanToDesk(local: readonly [number, number, number]): [number, number, number] {
+  const place = holoFanPlace();
+  const [tx, ty, tz] = turnFan(place, local);
+  return [place.centre[0] + tx, place.centre[1] + ty, place.centre[2] + tz];
+}
+
+/**
+ * The fan's arm, from the back of the upper monitor (the user): clamped to
+ * the monitor arm's head beside the lamp's bar, a riser up over the arm's
+ * wrist and its bracket (which leave the head to the right), a bar right
+ * behind the monitor and out past its right edge, and a link down and
+ * forward to a ball joint on the back of the fan's hub. **仮**: `rise`.
+ */
+export const HOLO_FAN_ARM = { rise: 0.06, bar: 0.016 } as const;
+
+/** The fan's arm's joints in the desk's frame, from the monitor arm's head out to the fan. */
+export function holoFanJoints(): Record<"clamp" | "riser" | "shoulder" | "ball", [number, number, number]> {
+  const head = armJoints().head;
+  const z = head[2] - DESK_LAMP.bar.back;
+  const y = head[1] + HOLO_FAN_ARM.rise;
+  const ball = holoFanToDesk([0, 0, -HOLO_FAN.hub.depth]);
+  return { clamp: [head[0], head[1], z], riser: [head[0], y, z], shoulder: [ball[0], y, z], ball };
+}
+
 /** The wall's upright ribs: one every 22.5°, at the panels' seams. */
 export const RIB_STEP = 22.5;
 /** How far, in degrees, a rib keeps clear of the edge of the door or the porthole. */

@@ -6,6 +6,7 @@ import {
   MAC,
   MAC_MOUSE,
   PEN_POT,
+  holoFanPlace,
   macToDesk,
   PIECES,
   SUBJECTS,
@@ -58,6 +59,8 @@ const ROOM = "部屋";
 const GUI = MONITORS.gui;
 /** The hologram's middle, as the room's camera frames it (`SUBJECTS`). */
 const HOLO_X = SUBJECTS.about.local[0];
+/** The hologram fan's middle. */
+const FAN = holoFanPlace().centre;
 
 export const PARTS: readonly LabPart[] = [
   onPiece("desk", "机の全体", DESK, "desk", [0, 0.95, 0], [0, 1.25, 2.6]),
@@ -70,6 +73,7 @@ export const PARTS: readonly LabPart[] = [
   onPiece("desk-keyboard", "キーボード（HHKB）", DESK, "desk", [KEYBOARD.x, KEYBOARD.y + 0.02, KEYBOARD.z], [KEYBOARD.x, KEYBOARD.y + 0.3, KEYBOARD.z + 0.32]),
   onPiece("desk-mouse", "マウス（EX-G）", DESK, "desk", [MOUSE.x, MOUSE.y + 0.025, MOUSE.z], [MOUSE.x - 0.12, MOUSE.y + 0.16, MOUSE.z + 0.2]),
   onPiece("desk-lamp", "アームランプ", DESK, "desk", [-0.4, 1.45, -0.15], [0.1, 1.6, 0.9]),
+  onPiece("desk-holo-fan", "ホログラムファン（時計）", DESK, "desk", FAN, [FAN[0] - 0.35, FAN[1] + 0.05, 0.75]),
   onPiece("desk-mug", "マグ", DESK, "desk", [MUG.x, 0.83, MUG.z], [MUG.x, 1.0, MUG.z + 0.5]),
   onPiece("desk-pens", "ペン立て（Mac の上）", DESK, "desk", macToDesk([PEN_POT.local[0], PEN_POT.local[1] + 0.06, PEN_POT.local[2]]), [-0.5, 1.4, 0.5]),
   onPiece("desk-drawers", "引き出し", DESK, "desk", [0.8, 0.4, 0.375], [0.8, 0.55, 1.2]),

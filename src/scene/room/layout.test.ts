@@ -58,6 +58,11 @@ import {
   DESK_MAT,
   MAC_MOUSE,
   lampJoints,
+  HOLO_FAN,
+  holoFanPlace,
+  holoFanToDesk,
+  holoFanJoints,
+  seatedEyeOnDesk,
   chairBackZ,
   wallRibAngles,
   floorGridLines,
@@ -566,6 +571,84 @@ describe("the upper monitor and its arm", () => {
     expect(MONITOR_ARM.head[2]).toBeLessThan(plateBack);
     expect(j.wrist[2]).toBeLessThan(j.head[2]);
     expect(j.elbow[2]).toBeLessThan(j.wrist[2]);
+  });
+});
+
+describe("the hologram fan", () => {
+  const place = holoFanPlace();
+  const r = HOLO_FAN.sweep / 2;
+  const half = HOLO_FAN.bladeThickness / 2;
+  // The blades' sweep, front and back, all round.
+  const rim: [number, number, number][] = [];
+  for (let i = 0; i < 96; i++)
+    for (const z of [-half, half]) {
+      const a = (i / 96) * 2 * Math.PI;
+      rim.push(holoFanToDesk([r * Math.cos(a), r * Math.sin(a), z]));
+    }
+  const videoCorners = monitorCorners("video");
+  const videoTop = Math.max(...videoCorners.map((c) => c[1]));
+  const toSegment = (p: readonly number[], a: readonly number[], b: readonly number[]) => {
+    const d = [0, 1, 2].map((i) => b[i] - a[i]);
+    const t = Math.max(0, Math.min(1, [0, 1, 2].reduce((sum, i) => sum + (p[i] - a[i]) * d[i], 0) / [0, 1, 2].reduce((sum, i) => sum + d[i] ** 2, 0)));
+    return Math.hypot(...[0, 1, 2].map((i) => p[i] - (a[i] + t * d[i])));
+  };
+
+  it("hangs just clear over the video monitor, over it", () => {
+    const lowest = Math.min(...rim.map((p) => p[1]));
+    expect(lowest - videoTop).toBeGreaterThan(0.01);
+    expect(lowest - videoTop).toBeLessThan(0.03);
+    const xs = videoCorners.map((c) => c[0]);
+    expect(place.centre[0]).toBeGreaterThan(Math.min(...xs));
+    expect(place.centre[0]).toBeLessThan(Math.max(...xs));
+    // Left of the monitor's middle, towards the upper monitor (the user moved it, 2026-10-25).
+    expect(place.centre[0]).toBeLessThan(MONITORS.video.x - 0.04);
+  });
+
+  it("faces the seated eye", () => {
+    const front = holoFanToDesk([0, 0, 1]);
+    const out = [0, 1, 2].map((i) => front[i] - place.centre[i]);
+    const eye = seatedEyeOnDesk();
+    const toEye = [0, 1, 2].map((i) => eye[i] - place.centre[i]);
+    const cos = [0, 1, 2].reduce((sum, i) => sum + out[i] * toEye[i], 0) / Math.hypot(...toEye);
+    expect(cos).toBeGreaterThan(0.9999);
+    // Turned in to the left and tipped down, as the seat is left of it and below.
+    expect(out[0]).toBeLessThan(-0.3);
+    expect(out[1]).toBeLessThan(-0.2);
+  });
+
+  it("is only as thick as its blades: no cover (the user)", () => {
+    expect(HOLO_FAN.bladeThickness).toBeLessThan(0.01);
+  });
+
+  it("keeps right of the upper monitor's frame", () => {
+    const right = Math.max(...monitorCorners("camera").map((c) => c[0]));
+    for (const p of rim) expect(p[0]).toBeGreaterThan(right + 0.03);
+  });
+
+  it("keeps its blades off the monitor arm's beams", () => {
+    // 4 cm for the beam's half-section and the tension bar beside it, and 2 cm of air.
+    const j = armJoints();
+    for (const p of rim) {
+      expect(toSegment(p, j.shoulder, j.elbow)).toBeGreaterThan(0.06);
+      expect(toSegment(p, j.elbow, j.wrist)).toBeGreaterThan(0.06);
+    }
+  });
+
+  it("hangs from the arm's head beside the lamp, up over the wrist and behind the upper monitor, out past its right edge", () => {
+    const j = holoFanJoints();
+    expect(j.clamp).toEqual(lampJoints().clamp);
+    // Over the wrist's joint block (5.6 cm) and its bolts, with the bar's own half.
+    expect(j.riser[1] - armJoints().wrist[1]).toBeGreaterThan(0.045);
+    expect(j.shoulder[1]).toBeCloseTo(j.riser[1], 12);
+    const upper = monitorCorners("camera");
+    expect(j.riser[2]).toBeLessThan(Math.min(...upper.map((c) => c[2])));
+    expect(j.shoulder[0]).toBeGreaterThan(Math.max(...upper.map((c) => c[0])));
+    // The link comes forward and down to the back of the fan's hub, behind its blades.
+    expect(j.ball[2]).toBeGreaterThan(j.shoulder[2]);
+    expect(j.ball[1]).toBeLessThan(j.shoulder[1]);
+    const back = holoFanToDesk([0, 0, -half]);
+    const out = [0, 1, 2].map((i) => holoFanToDesk([0, 0, 1])[i] - place.centre[i]);
+    expect([0, 1, 2].reduce((sum, i) => sum + (j.ball[i] - back[i]) * out[i], 0)).toBeLessThan(0);
   });
 });
 

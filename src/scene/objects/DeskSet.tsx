@@ -67,7 +67,7 @@ function Slab({
   return <RoundedBox args={size} radius={Math.min(radius, Math.min(...size) / 2 - 1e-4)} smoothness={3} position={at} rotation={rotation} material={material} />;
 }
 
-function Plain({ size, at, material }: { size: Vec3; at: Vec3; material: THREE.Material }) {
+export function Plain({ size, at, material }: { size: Vec3; at: Vec3; material: THREE.Material }) {
   return (
     <mesh position={at} material={material}>
       <boxGeometry args={size} />
@@ -76,7 +76,7 @@ function Plain({ size, at, material }: { size: Vec3; at: Vec3; material: THREE.M
 }
 
 /** A straight round bar between two points. */
-function Rod({ from, to, radius, material }: { from: Vec3; to: Vec3; radius: number; material: THREE.Material }) {
+export function Rod({ from, to, radius, material }: { from: Vec3; to: Vec3; radius: number; material: THREE.Material }) {
   const { position, quaternion, length } = useMemo(() => {
     const a = new THREE.Vector3(...from);
     const b = new THREE.Vector3(...to);
@@ -94,7 +94,7 @@ function Rod({ from, to, radius, material }: { from: Vec3; to: Vec3; radius: num
   );
 }
 
-function Ball({ at, radius, material }: { at: Vec3; radius: number; material: THREE.Material }) {
+export function Ball({ at, radius, material }: { at: Vec3; radius: number; material: THREE.Material }) {
   return (
     <mesh position={at} material={material}>
       <sphereGeometry args={[radius, 12, 8]} />

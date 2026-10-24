@@ -44,6 +44,7 @@ import { SecurityCameraBody, SecurityFeed } from "./SecurityCamera";
 import { DeskBody, DeskLamp, DeskMat, DeskMonitor, DeskSmalls, useDeskMaterials } from "./DeskSet";
 import DellMonitor from "./DellMonitor";
 import MonitorArm from "./MonitorArm";
+import HoloFan from "./HoloFan";
 import Kickstand from "./Kickstand";
 import Macintosh from "./Macintosh";
 import MacKeyboard from "./MacKeyboard";
@@ -348,6 +349,8 @@ export function Desk({ typing }: { typing?: boolean }) {
       </mesh>
       {/* Desk lamp (the "desk light" the lighting requirement switches). */}
       <DeskLamp m={m} on={lamp} />
+      {/* The hologram fan over the video monitor, on its arm from the upper monitor's, showing the time. */}
+      <HoloFan m={m} />
       <Chair />
     </Piece>
   );
