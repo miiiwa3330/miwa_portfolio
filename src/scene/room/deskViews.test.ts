@@ -366,15 +366,41 @@ describe("which way a swipe went", () => {
 describe("looking round with the mouse while sat", () => {
   const sat = pose("pc");
 
+  /** The way the body faces at the PC's seat. */
+  const facing = seatFacing(seatOnLine(sat));
+
   it("turns the head with the eye kept over the seat", () => {
-    for (const [yaw, pitch] of [[0.8, 0.1], [-1.5, 0.4], [3, -0.6]]) {
-      const turned = turnSeatedHead(sat, yaw, pitch);
-      expect(turned.yaw).toBe(yaw);
-      expect(turned.pitch).toBe(pitch);
+    for (const [yaw, pitch] of [[facing + 0.8, 0.1], [facing - 1.3, 0.4], [facing + 3, -1.2]]) {
+      const turned = turnSeatedHead(sat, yaw, pitch, facing);
       const [x, z] = floorSpot(turned);
       const [sx, sz] = floorSpot(sat);
       expect(Math.hypot(x - sx, z - sz)).toBeLessThan(1e-9);
       expect(seatShare(turned)).toBe(1);
+    }
+  });
+
+  it("turns only as far as a neck goes from the way the body faces: 80° either way, 50° down", () => {
+    expect(turnSeatedHead(sat, facing + 0.8, 0.1, facing).yaw).toBeCloseTo(facing + 0.8, 12);
+    expect(turnSeatedHead(sat, facing + 2, 0, facing).yaw).toBeCloseTo(facing + 80 * DEG, 12);
+    expect(turnSeatedHead(sat, facing - 2, 0, facing).yaw).toBeCloseTo(facing - 80 * DEG, 12);
+    // Round past behind, the long way: still the nearer stop.
+    expect(turnSeatedHead(sat, facing + 2 * Math.PI - 2, 0, facing).yaw).toBeCloseTo(facing - 80 * DEG, 12);
+    expect(turnSeatedHead(sat, facing, -1.2, facing).pitch).toBeCloseTo(-50 * DEG, 12);
+    expect(turnSeatedHead(sat, facing, 0.6, facing).pitch).toBe(0.6);
+    // At the Mac, from the Mac's way.
+    const mac = pose("mac");
+    const macFacing = seatFacing(seatOnLine(mac));
+    expect(macFacing).toBeCloseTo(MAC_SEAT_YAW, 9);
+    expect(turnSeatedHead(mac, macFacing + 2, 0, macFacing).yaw).toBeCloseTo(macFacing + 80 * DEG, 12);
+  });
+
+  it("lets every one of the desk's views be looked at without hitting the stop", () => {
+    for (const view of DESK_VIEWS) {
+      const p = pose(view);
+      const f = seatFacing(seatOnLine(p));
+      const turned = turnSeatedHead(p, p.yaw, p.pitch, f);
+      expect(turned.yaw).toBeCloseTo(p.yaw, 12);
+      expect(turned.pitch).toBeCloseTo(p.pitch, 12);
     }
   });
 

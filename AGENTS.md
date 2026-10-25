@@ -38,7 +38,7 @@ Next.js 16（App Router / `output: 'export'`）・React・TypeScript・Tailwind�
 ```bash
 npm run dev          # 開発サーバー (:3000)。/lab で部屋の部品を1つずつ見られる（開発のときだけ）
 npm run build        # 静的書き出し → out/
-npm test             # Vitest 一回実行（738件で約2秒）
+npm test             # Vitest 一回実行（740件で約2秒）
 npm run test:watch
 npm run lint
 npx tsc --noEmit     # 型のみ検査（テストは .tsx を1つも通らないので必須）

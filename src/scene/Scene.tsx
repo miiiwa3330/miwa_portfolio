@@ -49,7 +49,7 @@ import { deskViewNow, onDeskView, setDeskView } from "./deskView";
 import { macPointer, pcPointer } from "./deskPointer";
 import { STANDING, advanceGait, stepBob } from "./room/gait";
 import { AT_CENTRE, NO_KEYS, stepFreeWalk, type FreeWalk, type WalkKeys } from "./camera/freeWalk";
-import { seatOnLine, seatShare } from "./room/seat";
+import { seatFacing, seatOnLine, seatShare } from "./room/seat";
 import {
   EYE_HEIGHT,
   facingStop,
@@ -758,7 +758,8 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
   // head turns with it, as when standing (2026-10-25, the user). The reader
   // stays sat: the eye stays over the seat (`turnSeatedHead`). Esc gives the
   // cursor back and leaves the view where it was; a swipe turns to a screen
-  // again.
+  // again. The head turns only as far as a neck goes from the way the body
+  // faces (`NECK`).
   useEffect(() => {
     if (activeSection !== "desk" || pageOpen) return;
     lookedAwayRef.current = false;
@@ -772,7 +773,7 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     const onPointerMove = (e: PointerEvent) => {
       if (!captured() || flightRef.current || macPlaying()) return;
       const look = mouseLook(poseRef.current.yaw, poseRef.current.pitch, e.movementX, e.movementY);
-      poseRef.current = turnSeatedHead(poseRef.current, look.yaw, look.pitch);
+      poseRef.current = turnSeatedHead(poseRef.current, look.yaw, look.pitch, seatFacing(seatOnLine(poseRef.current)));
       lookedAwayRef.current = true;
     };
     window.addEventListener("pointerdown", onPointerDown);

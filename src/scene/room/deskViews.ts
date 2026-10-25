@@ -97,15 +97,31 @@ export function nearestDeskView(yaw: number, pitch: number): DeskView {
 }
 
 /**
- * A seated pose with the head turned to `yaw` and `pitch` — looking round
- * with the mouse while sat (2026-10-25, the user: 「全く何にも関係ないところで、
- * クリックすると立っている時と同じように自由視点に」; they chose staying sat
- * over standing up). The eye stays over the seat: the pose's place moves
- * back along the new way, as `deskViewPose` places every view.
+ * How far a seated reader can turn their head (2026-10-25, the user: 「座って
+ * いる間の自由視点は、視野角に制限を持たせたい」): only the neck turns — the
+ * body stays facing the desk (or the Mac), the hands on its keys — so as far
+ * as a neck goes. A healthy young adult's (the reader is about 20): 80°
+ * either way, 50° down, 80° up — the look's own 70° (`MAX_PITCH`) stops it
+ * first. Reference ranges differ (rotation 70–80°, flexion 45–55°,
+ * extension 45–80°); **仮**.
  */
-export function turnSeatedHead<P extends DeskViewPose>(pose: P, yaw: number, pitch: number): P {
+export const NECK = { turn: (80 * Math.PI) / 180, down: (50 * Math.PI) / 180, up: (80 * Math.PI) / 180 } as const;
+
+/**
+ * A seated pose with the head turned towards `yaw` and `pitch` — looking
+ * round with the mouse while sat (2026-10-25, the user: 「全く何にも関係ないと
+ * ころで、クリックすると立っている時と同じように自由視点に」; they chose
+ * staying sat over standing up) — as far as the neck goes from `facing`,
+ * the way the body faces (`seatFacing`; room yaw, radians). The eye stays
+ * over the seat: the pose's place moves back along the new way, as
+ * `deskViewPose` places every view.
+ */
+export function turnSeatedHead<P extends DeskViewPose>(pose: P, yaw: number, pitch: number, facing: number): P {
+  const off = Math.atan2(Math.sin(yaw - facing), Math.cos(yaw - facing));
+  const turned = facing + Math.min(NECK.turn, Math.max(-NECK.turn, off));
+  const tipped = Math.min(NECK.up, Math.max(-NECK.down, pitch));
   const [sx, sz] = floorSpot(pose);
-  return { ...pose, yaw, pitch, x: sx - Math.sin(yaw) * pose.forward, z: sz + Math.cos(yaw) * pose.forward };
+  return { ...pose, yaw: turned, pitch: tipped, x: sx - Math.sin(turned) * pose.forward, z: sz + Math.cos(turned) * pose.forward };
 }
 
 /** The machine the reader's keyboard types on in a view: the one they are looking at. */
