@@ -198,7 +198,7 @@ export function makeCityTexture(): THREE.CanvasTexture {
  * The left monitor's video: there is no footage yet, so it plays a
  * procedural loop — a neon grid running towards a striped sunset, the
  * look the room's own palette suggests. `draw` paints one frame at time `t`
- * (seconds, on the room's clock, so the pause button stops it).
+ * (seconds, on the room's clock).
  */
 export function makeVideo(width: number, height: number): { texture: THREE.CanvasTexture; draw: (t: number) => void } {
   const [c, ctx] = canvas(width, height);

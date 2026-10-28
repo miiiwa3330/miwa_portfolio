@@ -349,7 +349,7 @@ export function useDeskMouse(spec: DeskMouseSpec) {
     for (const b of wasDown.current) if (!down.has(b)) playMouse(mouseSample(b, strikes.current[b]), "up");
     wasDown.current = down;
 
-    // Buttons and the mouse move in real time, as the keys do: a paused room still clicks.
+    // Buttons and the mouse move in real time, as the keys do.
     const k = Math.min(1, delta * PRESS_RATE);
     const depth = press.current;
     for (const b of MOUSE_BUTTONS) {

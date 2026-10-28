@@ -21,7 +21,7 @@ import { HEAD_LAYER } from "../layers";
  * times a second at sixty) for the cost of one more small drawing of the
  * room a frame, rather than six at once every so often. The first frame
  * draws all six, so it is never seen half black. Real time, as the security
- * camera: the pause button freezes the room, not the reader.
+ * camera.
  */
 
 /**

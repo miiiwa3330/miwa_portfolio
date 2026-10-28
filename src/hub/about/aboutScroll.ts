@@ -73,7 +73,7 @@ export const ABOUT_AUTO_SCROLL_LINES_PER_SECOND = 0.3;
 
 /**
  * The most one frame of auto-scroll is allowed to advance the column, in
- * seconds of (already pause-discounted) time.
+ * seconds.
  *
  * Same reasoning as `MAX_FLIGHT_STEP` in `Scene.tsx`: a backgrounded tab's
  * next `requestAnimationFrame` can arrive with a multi-second gap since the
@@ -87,9 +87,7 @@ const MAX_AUTO_SCROLL_STEP_SECONDS = 0.1;
  * How far the column should auto-advance for one frame's real time step, in
  * pixels.
  *
- * Takes the step already run through `sceneClock.delta()` — zero while
- * paused — so the caller doesn't need its own pause branch; a zero in is a
- * zero out.
+ * Takes the step run through `sceneClock.delta()`.
  *
  * `lineHeightPx` is the column's own computed line height, read from the DOM
  * by the caller rather than restated here: it is the one number that already

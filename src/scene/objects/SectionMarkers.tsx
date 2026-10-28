@@ -169,8 +169,7 @@ export default function SectionMarkers() {
     const spotlight = activeSection ?? facingNow();
 
     // Only the pulse and the spark are on the diorama's clock. The easing below
-    // and the projection at the end are answers to the camera and the pointer,
-    // both of which still move while the scene is paused.
+    // and the projection at the end are answers to the camera and the pointer.
     const time = sceneClock.time(state.clock.elapsedTime);
 
     const camera = state.camera as THREE.PerspectiveCamera;
@@ -278,8 +277,7 @@ export default function SectionMarkers() {
       // direction, since the bolt is not a disc.
       drawn.current[index] ?? 0,
       // The trail draws a fresh bolt each time this turns over, which is the
-      // same instant this marker flashes — both come off `FLICKER_PERIOD`. On
-      // the scene clock, so the pause button stops the trail redrawing too.
+      // same instant this marker flashes — both come off `FLICKER_PERIOD`.
       strikeIndex(time),
       // Two ways the marker can have nothing to point at: behind the camera,
       // or outside the viewport (real, but unseeable — a trail running off the
@@ -305,10 +303,9 @@ export default function SectionMarkers() {
             setHovered(section);
           }}
           onPointerOut={() => setHovered(null)}
-          // Claimed on the way down, not answered here: a tap on empty sky
-          // pauses the diorama, and without this a tap on a marker would both
-          // fly to the area and freeze the town on the way. `onClick` is too
-          // late to say so — it fires on the way back up, racing the window
+          // Claimed on the way down, not answered here: says this pointer is
+          // spoken for before the window gets it. `onClick` is too late to
+          // say so — it fires on the way back up, racing the window
           // listener that is deciding what the gesture meant.
           onPointerDown={(e) => {
             e.stopPropagation();

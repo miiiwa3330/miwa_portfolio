@@ -1,6 +1,6 @@
 "use client";
 
-import { Globe, Pause, Play, Menu, X } from "lucide-react";
+import { Globe, Menu, X } from "lucide-react";
 import type { SectionType } from "@/types";
 import Wordmark from "@/ui/Wordmark";
 import { navItemForSection } from "./nav";
@@ -12,8 +12,6 @@ type Props = {
   activeSection: SectionType;
   isJa: boolean;
   toggleLanguage: () => void;
-  paused: boolean;
-  togglePaused: () => void;
   onLogoClick: () => void;
   onNavClick: (id: NonNullable<SectionType>) => void;
   zoomStage: ZoomStage;
@@ -31,8 +29,6 @@ export default function HubHeader({
   activeSection,
   isJa,
   toggleLanguage,
-  paused,
-  togglePaused,
   onLogoClick,
   onNavClick,
   zoomStage,
@@ -65,23 +61,18 @@ export default function HubHeader({
        * Right-hand controls.
        *
        * A phone gets two of them, in this order: language, then the menu.
-       * The pause button and the zoom control are gone there — a tap on
-       * empty sky freezes the town (`useTapGesture`) and a two-finger pinch
-       * moves between the orbit's two altitudes, so both buttons were
-       * duplicating a gesture while taking up a third of the header. The
-       * closest zoom stage, which the pinch does not reach, is what tapping
-       * an area's marker has always done.
+       * The zoom control is gone there — a two-finger pinch moves between
+       * the free view's two stages, so the button was duplicating a gesture
+       * while taking up space in the header. The closest zoom stage, which
+       * the pinch does not reach, is what tapping an area's marker has always
+       * done.
        */}
       <div className="flex items-center gap-2 sm:gap-3 md:gap-4 relative">
         {!handheld && (
           <>
             {/* Desktop navigation — from xl (1280px) up, not lg. The five
                 areas, "｜" and Note need about 1,190px of window beside the
-                logo and the three round buttons (at 1280px, 97px is left
-                between the logo and the pill; measured 2026-09-20). With
-                the Note link, the labels wrapped to two lines up to 1200px
-                and to three at 1024px (the five sections alone already
-                wrapped below ~1150px).
+                logo and the round buttons.
                 Below xl the menu button below takes over, as it already did
                 for narrow windows. `whitespace-nowrap` so a label can never
                 break mid-word if the widths shift again. */}
@@ -130,23 +121,6 @@ export default function HubHeader({
           ) : (
             <>
               <LightMenu isJa={isJa} compact={false} />
-              {/* Freeze the town */}
-              <button
-                onClick={togglePaused}
-                title={paused ? (isJa ? "動きを再生" : "Resume motion") : (isJa ? "動きを停止" : "Pause motion")}
-                aria-label={paused ? (isJa ? "動きを再生" : "Resume motion") : (isJa ? "動きを停止" : "Pause motion")}
-                aria-pressed={paused}
-                className={`w-11 h-11 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-200 border border-black/5 shadow-sm pointer-events-auto ${
-                  paused ? "bg-orange-600 text-white" : "bg-white text-gray-800"
-                }`}
-              >
-                {paused ? (
-                  <Play className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" />
-                ) : (
-                  <Pause className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" />
-                )}
-              </button>
-
               <ZoomControl isJa={isJa} stage={zoomStage} onSelect={onZoomSelect} />
             </>
           ))}

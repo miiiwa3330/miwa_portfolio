@@ -36,14 +36,6 @@ interface AppStateContextType {
   turnTo: (section: NonNullable<SectionType>) => void;
   turnRequest: { section: NonNullable<SectionType>; nonce: number } | null;
   /**
-   * Whether the diorama is frozen. Motion only: the idle orbit and everything
-   * that moves by itself stop where they are, while the camera can still be
-   * turned by hand and areas can still be opened — a paused town you can walk
-   * around is the point, a dead canvas is not.
-   */
-  paused: boolean;
-  togglePaused: () => void;
-  /**
    * Which of the free view's two stages is in effect while no section is
    * focused — "standard" (the default) or "fisheye" (widened to take in the
    * room). Only ever changes in the free view; every way of leaving a section
@@ -78,12 +70,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [pageOpen, setPageOpen] = useState(false);
   const [homeNonce, setHomeNonce] = useState(0);
   const [turnRequest, setTurnRequest] = useState<{ section: NonNullable<SectionType>; nonce: number } | null>(null);
-  const [paused, setPaused] = useState(false);
   const [viewZoom, setViewZoom] = useState<ViewZoom>("standard");
   const [lights, setLights] = useState<RoomLights>(DEFAULT_LIGHTS);
   const flipLight = useCallback((which: LightSwitch) => setLights((current) => flip(current, which)), []);
-
-  const togglePaused = useCallback(() => setPaused((p) => !p), []);
 
   const openPage = useCallback((section: NonNullable<SectionType>) => {
     setActiveSection(section);
@@ -183,9 +172,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       activeSection, setActiveSection, pageOpen, setPageOpen, openPage, closePage, goHome, homeNonce,
-      turnTo, turnRequest, paused, togglePaused, viewZoom, setViewZoom, goToView, lights, flipLight,
+      turnTo, turnRequest, viewZoom, setViewZoom, goToView, lights, flipLight,
     }),
-    [activeSection, pageOpen, openPage, closePage, goHome, homeNonce, turnTo, turnRequest, paused, togglePaused, viewZoom, goToView, lights, flipLight]
+    [activeSection, pageOpen, openPage, closePage, goHome, homeNonce, turnTo, turnRequest, viewZoom, goToView, lights, flipLight]
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;

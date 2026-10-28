@@ -77,8 +77,7 @@ export function sectionCardShare(handheld: boolean): number {
  * to turn it closes in one frame of `delta` seconds — `MathUtils.damp`'s
  * `1 - exp(-λΔt)`, applied to yaw and pitch alike.
  *
- * Real time, never the room's clock: the pause button freezes the room, not
- * the reader, and a turn the reader asks for while it is paused still has to
+ * Real time, never the room's clock: a turn the reader asks for still has to
  * arrive.
  *
  * (On the planet this was capped on the way back from a drag, at twice the
@@ -105,9 +104,9 @@ const TURN = Math.PI * 2;
 const DEG = Math.PI / 180;
 
 /**
- * The idle sway at time `t` (seconds on the room's clock, so the pause button
- * stops it): offsets in yaw and pitch (radians, at most `SWAY_YAW_DEG` and
- * `SWAY_PITCH_DEG`) and eye height (metres, at most `SWAY_BREATH_M`).
+ * The idle sway at time `t` (seconds on the room's clock): offsets in yaw and
+ * pitch (radians, at most `SWAY_YAW_DEG` and `SWAY_PITCH_DEG`) and eye height
+ * (metres, at most `SWAY_BREATH_M`).
  *
  * Each is two slow sine waves whose periods do not divide each other, so the
  * movement never visibly repeats; the eye height follows the slower pitch

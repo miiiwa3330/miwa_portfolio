@@ -14,8 +14,7 @@ import { HEAD_LAYER } from "../layers";
  * **Drawn ten times a second, not every frame.** It is the room drawn a
  * second time, from another camera (the same kind of cost as the fisheye);
  * a feed this small and this grainy does not need sixty. Real time, not the
- * room's clock: the pause button freezes the room, not the reader, and the
- * reader is what it films.
+ * room's clock: the reader is what it films.
  *
  * This component is the monitor's screen as well, placed inside the
  * monitor's own group, so it can take its own screen out of the picture

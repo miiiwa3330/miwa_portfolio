@@ -230,8 +230,7 @@ function ScreenHole({ panel }: { panel: Panel }) {
 
 /**
  * The left monitor's video — a procedural loop until there is footage
- * (`makeVideo`). Repainted about fifteen times a second on the room's clock,
- * so the pause button stops it like everything else that moves by itself.
+ * (`makeVideo`). Repainted about fifteen times a second on the room's clock.
  *
  * Drawn in the panel's own frame, which the monitor's `roll` has stood on
  * end: the picture is turned back by the same amount, so it plays upright,
@@ -784,8 +783,7 @@ const DESK_LAMP_BULB = lampJoints().bulb;
  *
  * The same switches as the header's light menu — both only call
  * `flipLight`. Claims the pointer on the way down (`pointerClaim`), as the
- * markers do: on a phone a tap on empty room pauses it, and a tap on a
- * switch is not empty room.
+ * markers do.
  */
 function LightSwitches() {
   const { lights, flipLight } = useAppState();

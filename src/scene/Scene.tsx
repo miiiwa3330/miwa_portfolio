@@ -420,45 +420,7 @@ function useViewInput(
   }, [canvas, yawRef, pitchRef, yawTargetRef, pitchTargetRef, tourURef, draggingRef, followTourRef, lockedRef, flightRef, onPinchZoom]);
 }
 
-/** Stands in for an absent `onEmptyTap`; the hook is disabled in that case anyway. */
-function noop() {}
 
-/** Movement below this, in px, is a tap rather than the start of a drag. */
-const TAP_SLOP_PX = 10;
-
-/**
- * A press held longer than this is not a tap, in ms.
- *
- * There has to be an upper bound as well as a movement one: a finger resting
- * on the glass while the reader decides what to do drifts less than the slop,
- * and lifting it half a second later should not read as having asked for
- * anything. 350ms is the usual figure for the boundary between a tap and a
- * press, and it is comfortably longer than the ~120ms a deliberate tap takes.
- */
-const TAP_MAX_MS = 350;
-
-/**
- * A tap on empty sky, which is how a phone pauses the diorama.
- *
- * The pause button is gone on a handheld (see `useHandheld`); this replaces
- * it. "Empty" has three exclusions and each is a different kind of thing:
- *
- *  - **A real control** — the header, the card rail, the terminal. Found by
- *    walking up the DOM from the target (`isInteractive`).
- *  - **An object in the scene** — an area marker. Invisible to the
- *    DOM, since every one of these lands on the same canvas, so they say so
- *    themselves on the way down (`pointerClaim`).
- *  - **A gesture that turned out to be something else** — a drag of the
- *    room, or a second finger arriving for a pinch. Both are ruled out
- *    here rather than negotiated with `useViewInput`: this hook watches the
- *    same events and cancels its own candidate, so the two never need to
- *    agree about anything.
- *
- * Deliberately separate from `useViewInput` rather than another branch inside
- * it. That hook is about where the camera points; this one is about a button
- * that is not there any more, and the only thing they share is the stream of
- * events.
- */
 /** The keys that walk: W/A/S/D by where they are on the keyboard, whatever the layout prints on them. */
 const WALK_CODES = new Set(["KeyW", "KeyA", "KeyS", "KeyD"]);
 
@@ -519,72 +481,6 @@ function useWalkKeys(): { read: () => WalkKeys } {
   };
 }
 
-function useTapGesture(enabled: boolean, flightRef: React.RefObject<unknown>, onTap: () => void) {
-  const onTapRef = useRef(onTap);
-  useEffect(() => {
-    onTapRef.current = onTap;
-  }, [onTap]);
-
-  useEffect(() => {
-    if (!enabled) return;
-
-    let candidate: { id: number; x: number; y: number; at: number } | null = null;
-    let pointersDown = 0;
-
-    const onPointerDown = (e: PointerEvent) => {
-      pointersDown += 1;
-      // A second finger means a pinch. The first finger's candidate goes with
-      // it — lifting out of a pinch is not a tap, however still the fingers
-      // were.
-      if (pointersDown > 1) {
-        candidate = null;
-        return;
-      }
-      if (isInteractive(e.target)) return;
-      if (pointerClaim.isClaimed(e.pointerId)) return;
-      // A flight owns the camera; a tap landing mid-flight is someone trying
-      // to interrupt it, and pausing the town is not what they asked for.
-      if (flightRef.current !== null) return;
-      candidate = { id: e.pointerId, x: e.clientX, y: e.clientY, at: e.timeStamp };
-    };
-
-    const onPointerMove = (e: PointerEvent) => {
-      if (!candidate || e.pointerId !== candidate.id) return;
-      if (Math.hypot(e.clientX - candidate.x, e.clientY - candidate.y) > TAP_SLOP_PX) {
-        candidate = null; // it became a drag
-      }
-    };
-
-    const onPointerUp = (e: PointerEvent) => {
-      pointersDown = Math.max(0, pointersDown - 1);
-      const tap = candidate;
-      candidate = null;
-      if (!tap || e.pointerId !== tap.id) return;
-      if (e.timeStamp - tap.at > TAP_MAX_MS) return;
-      // Checked again on the way up as well as on every move: a pointer can
-      // land and lift with no `pointermove` in between and still have
-      // travelled, and a coarse pointer reports its position generously.
-      if (Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > TAP_SLOP_PX) return;
-      onTapRef.current();
-    };
-
-    const onPointerCancel = () => {
-      pointersDown = Math.max(0, pointersDown - 1);
-      candidate = null;
-    };
-
-    window.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("pointermove", onPointerMove);
-    window.addEventListener("pointerup", onPointerUp);
-    window.addEventListener("pointercancel", onPointerCancel);
-    return () => {
-      window.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
-      window.removeEventListener("pointercancel", onPointerCancel);
-    };
-  }, [enabled, flightRef]);
-}
 
 /**
  * While the detail page covers the canvas there is nothing to look at, so the
@@ -607,24 +503,6 @@ function IdleHeartbeat({ obscured }: { obscured: boolean }) {
   return null;
 }
 
-/**
- * Hands the pause button's state to the diorama's clock, from inside the
- * Canvas where the renderer's own clock lives.
- */
-function ScenePause() {
-  const { paused } = useAppState();
-  const clock = useThree((state) => state.clock);
-
-  useEffect(() => {
-    // The `elapsedTime` property, not getElapsedTime(): the getter advances the
-    // clock as a side effect, and would eat the delta the next frame is owed.
-    // Being up to one frame (16ms) behind at the moment of the press is not
-    // something anyone can see; a swallowed frame is.
-    sceneClock.setPaused(paused, clock.elapsedTime);
-  }, [paused, clock]);
-
-  return null;
-}
 
 /** Yaw and pitch, in radians, of the tour at `u`. */
 function tourAngles(u: number): { yaw: number; pitch: number } {
@@ -632,7 +510,7 @@ function tourAngles(u: number): { yaw: number; pitch: number } {
   return { yaw: yawOf(d[0], d[2]) * DEG, pitch: Math.asin(Math.max(-1, Math.min(1, d[1]))) };
 }
 
-function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
+function CameraController() {
   const { activeSection, pageOpen, homeNonce, turnRequest, viewZoom, setViewZoom } = useAppState();
 
   // Whether the card is the strip along the bottom rather than the panel on
@@ -813,15 +691,6 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
   const walkRef = useRef<FreeWalk>(AT_CENTRE);
   const walkKeys = useWalkKeys();
 
-  // The tap that replaces the pause button. Off while the detail sheet covers
-  // the canvas, during About, where a tap beside the text is not asking for
-  // the room to freeze, and at the desk, where a tap is on the PC's screen.
-  useTapGesture(
-    !!onEmptyTap && !pageOpen && activeSection !== "about" && activeSection !== "desk",
-    flightRef,
-    onEmptyTap ?? noop
-  );
-
   const freePose = (yaw: number, pitch: number): RoomPose => ({
     x: walkRef.current.x,
     z: walkRef.current.z,
@@ -991,7 +860,7 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     const camera = state.camera as THREE.PerspectiveCamera;
     const size = state.size;
 
-    // The idle sway, on the room's clock so the pause button holds it still.
+    // The idle sway, on the room's clock.
     // Eased out while reading the PC's screen or the hologram — text that
     // sways is harder to read — and off for a reader who asked for less motion.
     const reading = activeSection === "desk" || activeSection === "about";
@@ -1007,8 +876,7 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
       if (walkRef.current.height > 0 || walkRef.current.vx || walkRef.current.vz) walkRef.current = { ...walkRef.current, vx: 0, vz: 0, height: 0, rise: 0 };
     }
 
-    // A flight owns the camera outright while it runs. Real delta, not the
-    // room's clock: the pause button freezes the room, not the reader.
+    // A flight owns the camera outright while it runs.
     const flight = flightRef.current;
     if (flight) {
       const step = advanceRoomFlight(flight, delta);
@@ -1157,17 +1025,8 @@ function Crosshair() {
 export default function Scene({
   obscured = false,
   interactive = true,
-  onEmptyTap,
 }: {
   obscured?: boolean;
-  /**
-   * Called when a handheld reader taps empty space — the gesture that replaces
-   * the pause button there (see `useTapGesture`). Absent on a desktop.
-   *
-   * **Must be stable.** It is handed across the `<Canvas>` boundary, and a new
-   * identity every render would rebind the listeners.
-   */
-  onEmptyTap?: () => void;
   /**
    * Whether the canvas should accept pointer events right now. `<Canvas>`'s
    * own outermost div sets an inline `pointerEvents` style, which beats any
@@ -1193,9 +1052,8 @@ export default function Scene({
         }}
       >
         <RoomScene />
-        <CameraController onEmptyTap={onEmptyTap} />
+        <CameraController />
         <LensRenderer />
-        <ScenePause />
         <IdleHeartbeat obscured={obscured} />
       </Canvas>
       <Crosshair />

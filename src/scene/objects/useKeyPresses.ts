@@ -44,7 +44,7 @@ function keyOf(caps: THREE.Mesh | null, face: THREE.Face | null | undefined): nu
 /** How quickly a cap follows the finger: the fraction of the way it goes in a second's 1/40. */
 const PRESS_RATE = 40;
 
-/** Fills `press` (a key's 0–1 depth) from what is held: eased, in real time, so a paused room still types. */
+/** Fills `press` (a key's 0–1 depth) from what is held: eased, in real time. */
 function stepPress(press: Float32Array, held: Set<number>, delta: number) {
   const k = Math.min(1, delta * PRESS_RATE);
   for (let i = 0; i < press.length; i++) {

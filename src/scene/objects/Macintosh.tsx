@@ -534,7 +534,7 @@ export default function Macintosh({ seated }: { seated: boolean }) {
       blur();
     };
   }, [typing]);
-  // A game's clock: real time, as the keys go (a paused room still plays).
+  // A game's clock: real time, as the keys go.
   useFrame((_, delta) => {
     if (macPlaying()) setMac(macAdvance(macNow(), delta, Math.random));
   });

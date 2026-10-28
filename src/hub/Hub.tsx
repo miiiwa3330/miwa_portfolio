@@ -17,7 +17,6 @@ import HubHeader from "./HubHeader";
 import HubDock from "./HubDock";
 import MobileMenu from "./MobileMenu";
 import { navItemForSection } from "./nav";
-import PauseFlash from "./PauseFlash";
 import HomeButton from "./HomeButton";
 import SemanticSEO from "./SemanticSEO";
 import Hologram from "./about/Hologram";
@@ -60,8 +59,6 @@ export default function Hub() {
     closePage,
     goHome,
     turnTo,
-    paused,
-    togglePaused,
     viewZoom,
     goToView,
   } = useAppState();
@@ -77,40 +74,6 @@ export default function Hub() {
 
   /** The full-screen navigation panel. Rendered here so it covers the header. */
   const [menuOpen, setMenuOpen] = useState(false);
-
-  // `paused` as a ref, so the tap handler below can read the current value
-  // without listing it as a dependency — see `handleEmptyTap` for why that
-  // callback has to keep the same identity for the life of the page.
-  const pausedRef = useRef(paused);
-  useEffect(() => {
-    pausedRef.current = paused;
-  }, [paused]);
-
-  /**
-   * The play/pause badge a tap leaves behind, and its state at that moment.
-   *
-   * Keyed by a nonce rather than by `paused` alone: tapping twice in quick
-   * succession comes back to the state it started in, and a key that did not
-   * change would leave the first badge's exit animation running instead of
-   * restarting it.
-   */
-  const [pauseFlash, setPauseFlash] = useState<{ nonce: number; paused: boolean } | null>(null);
-
-  /**
-   * A tap on empty sky freezes or resumes the town.
-   *
-   * Stable across renders: it crosses the `<Canvas>` boundary, where a new
-   * identity every render would rebind the scene's pointer listeners. Reads
-   * the next paused state from the updater rather than from `paused` in
-   * scope, which is what keeps the dependency list empty.
-   */
-  const handleEmptyTap = useCallback(() => {
-    togglePaused();
-    setPauseFlash((current) => ({
-      nonce: (current?.nonce ?? 0) + 1,
-      paused: !pausedRef.current,
-    }));
-  }, [togglePaused]);
 
   /**
    * Which area the card is about. With no section explicitly focused it is
@@ -340,10 +303,6 @@ export default function Hub() {
         <Scene
           obscured={sceneObscured}
           interactive={!seated}
-          // Only a phone gets the tap: a desktop still has a pause button, and
-          // handing the gesture over as well would mean a stray click on the
-          // starfield froze the town with nothing to say why.
-          onEmptyTap={handheld ? handleEmptyTap : undefined}
         />
       </div>
 
@@ -378,8 +337,6 @@ export default function Hub() {
             activeSection={section}
             isJa={isJa}
             toggleLanguage={toggleLanguage}
-            paused={paused}
-            togglePaused={togglePaused}
             onLogoClick={() => closeToHome("down", true)}
             onNavClick={handleNav}
             zoomStage={zoomStage}
@@ -465,23 +422,6 @@ export default function Hub() {
           />
         )}
       </AnimatePresence>
-
-      {/* The badge a tap on empty sky leaves behind. Keyed by the nonce so a
-          second tap restarts the animation rather than leaving the first
-          one's where it finished, and unmounted when it is done — it is a
-          full-screen fixed layer, and one left behind at `opacity: 0` sits
-          in every later hit-test for nothing. */}
-      {pauseFlash && (
-        <PauseFlash
-          key={pauseFlash.nonce}
-          paused={pauseFlash.paused}
-          onDone={() => setPauseFlash((current) =>
-            // Only clear the badge that just finished: a tap during the fade
-            // has already replaced it, and that one has its own life left.
-            current && current.nonce === pauseFlash.nonce ? null : current
-          )}
-        />
-      )}
 
       {/* --- PAGE CONTENT (detail reading) --- */}
       <Sheet

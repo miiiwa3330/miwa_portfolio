@@ -6,10 +6,9 @@ import { useSyncExternalStore } from "react";
  * Whether this is a phone-sized touch screen — the one place that question is
  * answered.
  *
- * Several of the mobile differences are *behaviour*, not styling: the pause
- * and zoom buttons are replaced by a tap and a pinch, the card becomes a rail
- * along the bottom, and the camera lifts the room the other way to make room
- * for it. None of that can be expressed as a Tailwind breakpoint, so the
+ * Several of the mobile differences are *behaviour*, not styling: the zoom
+ * control is replaced by a pinch, the card becomes a rail along the bottom,
+ * and the camera lifts the room the other way to make room for it. None of that can be expressed as a Tailwind breakpoint, so the
  * question has to be asked in JavaScript — and asked in exactly one place,
  * since a second copy of the predicate is a second thing to keep in step.
  *

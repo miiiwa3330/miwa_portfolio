@@ -10,9 +10,8 @@ import { sceneClock } from "@/scene/sceneClock";
  * light rising through the air over the device (docs/room-migration.md, step 5).
  *
  * It plays by itself while About is focused — a fraction of a line a second,
- * on the diorama's clock, so the pause button stops it — and when the last
- * line has risen out of the top the reader is taken back to the middle of the
- * room (`onFinish`). The wheel and a finger scroll it natively on top of
+ * on the diorama's clock — and when the last line has risen out of the top the
+ * reader is taken back to the middle of the room (`onFinish`). The wheel and a finger scroll it natively on top of
  * that; the auto-play notices and carries on from wherever they left it.
  *
  * Fills its parent: on a desktop that is the hologram's panel in the room
