@@ -46,15 +46,6 @@ interface AppStateContextType {
   viewZoom: ViewZoom;
   setViewZoom: (zoom: ViewZoom) => void;
   /**
-   * Ask the free view for a specific stage, unfocusing whatever section was
-   * open to get there if one was. What the zoom control's standard/fisheye
-   * stages do — unlike `setViewZoom` alone (what a pinch does, only ever
-   * while already unfocused), this can also back out of a section, landing
-   * at the requested stage instead of the "standard" every other way of
-   * leaving a section resets to.
-   */
-  goToView: (zoom: ViewZoom) => void;
-  /**
    * The room's lights — the ceiling light, the desk lamp and the neon's
    * colours. The one copy: the switch plate in the room and the light menu in
    * the header both only call `flipLight` (see `scene/room/lighting.ts`).
@@ -102,17 +93,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     closePage();
     setHomeNonce((n) => n + 1);
   }, [closePage]);
-
-  /**
-   * What the zoom control's standard/fisheye stages call — unlike
-   * closePage()/goHome(), which always settle on "standard", this can leave
-   * the visitor at "fisheye" if that's what they asked for.
-   */
-  const goToView = useCallback((zoom: ViewZoom) => {
-    setActiveSection(null);
-    setPageOpen(false);
-    setViewZoom(zoom);
-  }, []);
 
   // --- The URL ---------------------------------------------------------
   // The open section is mirrored into the hash so the back button closes the
@@ -172,9 +152,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       activeSection, setActiveSection, pageOpen, setPageOpen, openPage, closePage, goHome, homeNonce,
-      turnTo, turnRequest, viewZoom, setViewZoom, goToView, lights, flipLight,
+      turnTo, turnRequest, viewZoom, setViewZoom, lights, flipLight,
     }),
-    [activeSection, pageOpen, openPage, closePage, goHome, homeNonce, turnTo, turnRequest, viewZoom, goToView, lights, flipLight]
+    [activeSection, pageOpen, openPage, closePage, goHome, homeNonce, turnTo, turnRequest, viewZoom, lights, flipLight]
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;

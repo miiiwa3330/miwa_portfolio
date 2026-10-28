@@ -20,7 +20,6 @@ import { navItemForSection } from "./nav";
 import HomeButton from "./HomeButton";
 import SemanticSEO from "./SemanticSEO";
 import Hologram from "./about/Hologram";
-import type { ZoomStage } from "./ZoomControl";
 import { adjacentSection } from "@/scene/room/tour";
 import Sheet from "@/detail/Sheet";
 import { RoomHtmlLayer, RoomPanel } from "./room/RoomHtml";
@@ -59,8 +58,6 @@ export default function Hub() {
     closePage,
     goHome,
     turnTo,
-    viewZoom,
-    goToView,
   } = useAppState();
   const { language, toggleLanguage } = useLanguage();
   const { openTerminal } = useTerminal();
@@ -102,20 +99,6 @@ export default function Hub() {
     if (section) turnTo(adjacentSection(section, step));
   };
   const openedAt = useRef(0);
-
-  // What the zoom control highlights: any focused section (including About)
-  // reads as its own "zoom" stage, same as a pinch reaching the closest step —
-  // otherwise it's whichever free-view stage viewZoom names.
-  const zoomStage: ZoomStage = activeSection ? "zoom" : viewZoom;
-  const handleZoomSelect = (stage: ZoomStage) => {
-    if (stage === "zoom") {
-      // Step in to whatever is in front — the desk included, which sits the
-      // reader down at the PC.
-      setActiveSection(activeSection ?? facingNow());
-    } else {
-      goToView(stage);
-    }
-  };
 
   // The dotted trail starts from a dot on the card's corner. The trail measures
   // that element itself, so its size and position are stated once, in the
@@ -339,8 +322,6 @@ export default function Hub() {
             toggleLanguage={toggleLanguage}
             onLogoClick={() => closeToHome("down", true)}
             onNavClick={handleNav}
-            zoomStage={zoomStage}
-            onZoomSelect={handleZoomSelect}
             // The sheet is the only white surface that ever gets under the
             // header. About is deliberately not one: it has no sheet, its text
             // sits straight on the starfield, and the logo stays white there.

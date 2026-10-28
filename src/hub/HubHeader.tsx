@@ -5,7 +5,6 @@ import type { SectionType } from "@/types";
 import Wordmark from "@/ui/Wordmark";
 import { navItemForSection } from "./nav";
 import NavPills from "./NavPills";
-import ZoomControl, { type ZoomStage } from "./ZoomControl";
 import LightMenu from "./LightMenu";
 
 type Props = {
@@ -14,8 +13,6 @@ type Props = {
   toggleLanguage: () => void;
   onLogoClick: () => void;
   onNavClick: (id: NonNullable<SectionType>) => void;
-  zoomStage: ZoomStage;
-  onZoomSelect: (stage: ZoomStage) => void;
   /** True while the white detail sheet covers the canvas — see the logo below. */
   onLightBackground: boolean;
   onClose?: () => void;
@@ -31,8 +28,6 @@ export default function HubHeader({
   toggleLanguage,
   onLogoClick,
   onNavClick,
-  zoomStage,
-  onZoomSelect,
   onLightBackground,
   onClose,
   handheld,
@@ -61,11 +56,8 @@ export default function HubHeader({
        * Right-hand controls.
        *
        * A phone gets two of them, in this order: language, then the menu.
-       * The zoom control is gone there — a two-finger pinch moves between
-       * the free view's two stages, so the button was duplicating a gesture
-       * while taking up space in the header. The closest zoom stage, which
-       * the pinch does not reach, is what tapping an area's marker has always
-       * done.
+       * A desktop gets language and the light menu, and the navigation pills
+       * from xl up.
        */}
       <div className="flex items-center gap-2 sm:gap-3 md:gap-4 relative">
         {!handheld && (
@@ -119,10 +111,7 @@ export default function HubHeader({
               <span>{isJa ? "閉じる" : "Close"}</span>
             </button>
           ) : (
-            <>
-              <LightMenu isJa={isJa} compact={false} />
-              <ZoomControl isJa={isJa} stage={zoomStage} onSelect={onZoomSelect} />
-            </>
+            <LightMenu isJa={isJa} compact={false} />
           ))}
 
         {/*
