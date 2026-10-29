@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import CornerBrackets from "@/ui/CornerBrackets";
 import { productPath, type Project } from "@/data";
 import { CARD_TAG_COUNT, statusLabel } from "@/detail/products/catalog";
 import { CategoryBadge, StatusBadge } from "@/detail/products/Badges";
@@ -38,9 +39,11 @@ export default function ProductList({ projects, titleAs: Title = "h2", columns =
         <li key={project.slug} className="flex">
           <Link
             href={productPath(project.slug)}
-            className="group flex-1 rounded-3xl bg-white border border-black/5 overflow-hidden flex flex-col hover:border-orange-300 motion-safe:hover:-translate-y-1 transition-[border-color,transform] duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
+            className="group relative flex-1 rounded-none bg-white border border-black/20 overflow-hidden flex flex-col hover:border-black motion-safe:hover:-translate-y-1 transition-[border-color,transform] duration-200 focus-visible:outline-none"
           >
-            <div className="relative w-full overflow-hidden h-48 bg-gray-50">
+            <CornerBrackets size="sm" offset="normal" strokeWidth="2" colorClass="border-neutral-900" className="opacity-0 group-hover:opacity-100 transition-opacity" />
+
+            <div className="relative w-full overflow-hidden h-48 bg-neutral-100 border-b border-black/10">
               <Image
                 src={project.image}
                 alt=""
@@ -53,37 +56,37 @@ export default function ProductList({ projects, titleAs: Title = "h2", columns =
               </div>
             </div>
 
-            <div className="flex-1 flex flex-col p-6">
+            <div className="flex-1 flex flex-col p-5">
               <div className="flex justify-between items-start mb-2 gap-2">
-                <Title className="min-w-0 text-xl font-bold text-gray-900 group-hover:text-orange-600 transition-colors line-clamp-1 [overflow-wrap:anywhere]">
+                <Title className="min-w-0 text-lg font-bold text-neutral-900 group-hover:underline transition-colors line-clamp-1 [overflow-wrap:anywhere]">
                   {project.title}
                 </Title>
                 <CategoryBadge category={project.category} />
               </div>
 
-              <p className="text-sm text-gray-600 mb-4 flex-1 line-clamp-2 leading-relaxed">{project.description}</p>
+              <p className="text-sm text-neutral-600 mb-4 flex-1 line-clamp-2 leading-relaxed">{project.description}</p>
 
-              <div className="flex flex-wrap gap-1.5 mb-6">
+              <div className="flex flex-wrap gap-1.5 mb-5 font-mono">
                 {project.tags.slice(0, CARD_TAG_COUNT).map((tag) => (
                   <span
                     key={tag}
-                    className="text-xs px-2.5 py-1 bg-gray-50 border border-black/5 rounded-lg text-gray-600 font-medium"
+                    className="text-[11px] px-2 py-0.5 bg-neutral-50 border border-black/15 rounded-none text-neutral-700 font-medium"
                   >
                     {tag}
                   </span>
                 ))}
                 {project.tags.length > CARD_TAG_COUNT && (
-                  <span className="text-xs px-2.5 py-1 bg-gray-50 border border-black/5 rounded-lg text-gray-500 font-medium">
+                  <span className="text-[11px] px-2 py-0.5 bg-neutral-50 border border-black/15 rounded-none text-neutral-500 font-medium">
                     +{project.tags.length - CARD_TAG_COUNT}
                   </span>
                 )}
               </div>
 
-              <div className="flex items-center justify-end pt-3 border-t border-black/5 mt-auto">
-                <span className="inline-flex items-center gap-0.5 whitespace-nowrap text-sm font-bold text-orange-700 group-hover:text-orange-600">
+              <div className="flex items-center justify-end pt-3 border-t border-black/10 mt-auto font-mono">
+                <span className="inline-flex items-center gap-0.5 whitespace-nowrap text-xs font-bold text-neutral-900 group-hover:underline uppercase">
                   紹介を読む
                   <ChevronRight
-                    size={16}
+                    size={14}
                     aria-hidden="true"
                     className="motion-safe:group-hover:translate-x-0.5 transition-transform duration-200"
                   />

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import sitemap from "@/app/sitemap";
 import { siteUrl } from "@/data/site";
-import { sectionFromHash } from "@/state/sectionUrl";
 import { NAV, PAGE_LINKS, leadsToHub, navItemForSection, navKey, offHubHref, pageLinkForPath } from "./nav";
 
 const byLabel = (ja: string) => {
@@ -30,11 +29,14 @@ describe("NAV", () => {
     const keys = [...NAV, ...PAGE_LINKS].map(navKey);
     expect(new Set(keys).size).toBe(keys.length);
   });
+
+  it("leads only to pages the build writes and lists", () => {
+    const urls = sitemap().map((entry) => entry.url);
+    for (const item of NAV) expect(urls).toContain(siteUrl(item.page));
+  });
 });
 
 describe("PAGE_LINKS", () => {
-  // In words on the header, not only as the monitor button's icon: the notes
-  // are what the AdSense review has to find (devlog 2026-09-20).
   it("puts the notes after the areas", () => {
     expect(PAGE_LINKS.map((l) => [l.ja, l.page])).toEqual([["ノート", "/notes"]]);
   });
@@ -50,25 +52,31 @@ describe("PAGE_LINKS", () => {
 });
 
 describe("offHubHref", () => {
-  it("leads to the hub at the area", () => {
-    expect(offHubHref(byLabel("自己紹介"))).toBe("/#about");
-    expect(offHubHref(byLabel("制作実績"))).toBe("/#products");
-    expect(offHubHref(byLabel("技術スタック"))).toBe("/#skills");
-    expect(offHubHref(byLabel("経歴・活動"))).toBe("/#experience");
-    expect(offHubHref(byLabel("お問い合わせ"))).toBe("/#contact");
-  });
-
-  it("uses a hash the hub opens on arrival", () => {
-    for (const item of NAV) {
-      const url = new URL(offHubHref(item), "https://miiiwa.com/notes/drag-the-sun");
-      expect(url.pathname).toBe("/");
-      expect(sectionFromHash(url.hash)).toBe(item.section);
-    }
+  it("leads to the dedicated page for the area", () => {
+    expect(offHubHref(byLabel("自己紹介"))).toBe("/about");
+    expect(offHubHref(byLabel("制作実績"))).toBe("/products");
+    expect(offHubHref(byLabel("技術スタック"))).toBe("/skills");
+    expect(offHubHref(byLabel("経歴・活動"))).toBe("/experience");
+    expect(offHubHref(byLabel("お問い合わせ"))).toBe("/contact");
   });
 });
 
 describe("pageLinkForPath", () => {
+  const about = NAV.find((i) => i.page === "/about");
+  const products = NAV.find((i) => i.page === "/products");
+  const skills = NAV.find((i) => i.page === "/skills");
+  const experience = NAV.find((i) => i.page === "/experience");
+  const contact = NAV.find((i) => i.page === "/contact");
   const notes = PAGE_LINKS.find((l) => l.page === "/notes");
+
+  it("lights the respective entry on each section page", () => {
+    expect(pageLinkForPath("/about")).toBe(about);
+    expect(pageLinkForPath("/products")).toBe(products);
+    expect(pageLinkForPath("/products/imadoko")).toBe(products);
+    expect(pageLinkForPath("/skills")).toBe(skills);
+    expect(pageLinkForPath("/experience")).toBe(experience);
+    expect(pageLinkForPath("/contact")).toBe(contact);
+  });
 
   it("lights the notes on their index and on every note", () => {
     expect(notes).toBeDefined();
@@ -78,15 +86,13 @@ describe("pageLinkForPath", () => {
 
   it("lights nothing on the other pages", () => {
     expect(pageLinkForPath("/")).toBeUndefined();
-    expect(pageLinkForPath("/products")).toBeUndefined();
-    expect(pageLinkForPath("/products/imadoko")).toBeUndefined();
     expect(pageLinkForPath("/privacy")).toBeUndefined();
     expect(pageLinkForPath("/notes-archive")).toBeUndefined();
   });
 });
 
 describe("navItemForSection", () => {
-  it("lights the open area's entry, and nothing with none open", () => {
+  it("lights the focused area's entry, and nothing with none focused", () => {
     expect(navItemForSection("experience")).toBe(byLabel("経歴・活動"));
     expect(navItemForSection("products")).toBe(byLabel("制作実績"));
     expect(navItemForSection(null)).toBeUndefined();
@@ -100,15 +106,13 @@ describe("leadsToHub", () => {
     expect(leadsToHub("/#products")).toBe(true);
   });
 
-  it("is false for the other pages of the site", () => {
+  it("is false for the standalone pages of the site", () => {
+    expect(leadsToHub("/about")).toBe(false);
     expect(leadsToHub("/products")).toBe(false);
+    expect(leadsToHub("/skills")).toBe(false);
+    expect(leadsToHub("/experience")).toBe(false);
+    expect(leadsToHub("/contact")).toBe(false);
     expect(leadsToHub("/notes")).toBe(false);
     expect(leadsToHub("/privacy")).toBe(false);
-  });
-
-  it("covers every entry in NAV", () => {
-    for (const item of NAV) {
-      expect(leadsToHub(offHubHref(item))).toBe(true);
-    }
   });
 });

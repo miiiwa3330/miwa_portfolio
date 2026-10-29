@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Lamp, Lightbulb, Palette } from "lucide-react";
 import { useAppState } from "@/state/AppStateContext";
 import { neonTheme, type LightSwitch } from "@/scene/room/lighting";
+import CornerBrackets from "@/ui/CornerBrackets";
 
 /**
  * The room's light switches, on the screen: the ceiling light, the desk lamp
@@ -11,10 +12,10 @@ import { neonTheme, type LightSwitch } from "@/scene/room/lighting";
  * in the room — both only call `flipLight`, and the state they change is
  * held once (`AppStateContext`).
  *
- * One round button in the header that opens a short list, rather than three
- * more round buttons: the header is already full on a phone.
+ * Styled in the loo100 aesthetic (radius: 0, box-label, fine border).
+ * The button is enclosed in corner brackets ("「」") while the menu is open.
  */
-export default function LightMenu({ isJa, compact }: { isJa: boolean; compact: boolean }) {
+export default function LightMenu({ isJa }: { isJa: boolean }) {
   const { lights, flipLight } = useAppState();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -31,11 +32,11 @@ export default function LightMenu({ isJa, compact }: { isJa: boolean; compact: b
 
   const neon = neonTheme(lights);
   const rows: { key: LightSwitch; icon: React.ReactNode; label: string; state: string; on: boolean }[] = [
-    { key: "ceiling", icon: <Lightbulb size={18} />, label: isJa ? "天井灯" : "Ceiling", state: lights.ceiling ? "ON" : "OFF", on: lights.ceiling },
-    { key: "desk", icon: <Lamp size={18} />, label: isJa ? "デスクライト" : "Desk lamp", state: lights.desk ? "ON" : "OFF", on: lights.desk },
-    { key: "neon", icon: <Palette size={18} />, label: isJa ? "ネオン" : "Neon", state: isJa ? neon.ja : neon.en, on: true },
+    { key: "ceiling", icon: <Lightbulb size={16} />, label: isJa ? "天井灯" : "Ceiling", state: lights.ceiling ? "ON" : "OFF", on: lights.ceiling },
+    { key: "desk", icon: <Lamp size={16} />, label: isJa ? "デスクライト" : "Desk lamp", state: lights.desk ? "ON" : "OFF", on: lights.desk },
+    { key: "neon", icon: <Palette size={16} />, label: isJa ? "ネオン" : "Neon", state: isJa ? neon.ja : neon.en, on: true },
   ];
-  const size = compact ? "w-11 h-11" : "w-11 h-11 sm:w-12 sm:h-12 md:w-14 md:h-14";
+  const size = "w-12 h-12";
 
   return (
     <div ref={root} className="relative pointer-events-auto">
@@ -45,22 +46,46 @@ export default function LightMenu({ isJa, compact }: { isJa: boolean; compact: b
         aria-label={isJa ? "照明" : "Lights"}
         aria-expanded={open}
         aria-haspopup="menu"
-        className={`${size} rounded-full flex items-center justify-center bg-white text-gray-800 border border-black/5 shadow-sm hover:scale-105 active:scale-95 transition-all duration-200`}
+        className={`group relative ${size} rounded-none flex items-center justify-center transition-all duration-150 active:scale-95 border backdrop-blur-md ${
+          open
+            ? "bg-neutral-900/85 text-white border-black"
+            : "bg-white/85 text-neutral-800 border-black/20 hover:bg-white"
+        }`}
       >
-        <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5" fill={lights.ceiling || lights.desk ? "#fde68a" : "none"} />
+        <CornerBrackets
+          size="xs"
+          offset="tight"
+          strokeWidth="2"
+          colorClass={open ? "border-neutral-900" : "border-neutral-800"}
+          className="opacity-0 group-hover:opacity-100 transition-opacity"
+        />
+        <Lightbulb className="w-4 h-4" fill={lights.ceiling || lights.desk ? "#fde68a" : "none"} />
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-white text-gray-800 border border-black/5 shadow-lg p-1.5">
+        <div role="menu" className="absolute right-0 top-full mt-2 w-56 rounded-none bg-white text-neutral-900 border border-black/20 shadow-none p-1 font-mono">
           {rows.map((row) => (
             <button
               key={row.key}
               role="menuitem"
               onClick={() => flipLight(row.key)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-orange-50 text-left"
+              className="group relative w-full flex items-center gap-2.5 px-3 py-2 rounded-none hover:bg-neutral-100 text-left text-xs transition-colors"
             >
-              <span className={row.on ? "text-orange-600" : "text-gray-400"}>{row.icon}</span>
-              <span className="flex-1 text-sm font-bold">{row.label}</span>
-              <span className={`text-xs font-mono ${row.on ? "text-orange-700" : "text-gray-400"}`}>{row.state}</span>
+              <CornerBrackets
+                size="xs"
+                offset="tight"
+                strokeWidth="2"
+                colorClass="border-neutral-900"
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
+              />
+              <span className={row.on ? "text-neutral-900" : "text-neutral-400"}>{row.icon}</span>
+              <span className="flex-1 font-bold">{row.label}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 border ${
+                row.on
+                  ? "bg-neutral-900 text-neutral-100 border-neutral-700"
+                  : "bg-neutral-100 text-neutral-500 border-neutral-200"
+              }`}>
+                {row.state}
+              </span>
             </button>
           ))}
         </div>

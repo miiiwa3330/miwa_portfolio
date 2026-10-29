@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BookOpen, Monitor, Terminal } from "lucide-react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { GithubIcon, XIcon } from "@/ui/icons";
+import CornerBrackets from "@/ui/CornerBrackets";
 import Footer from "./Footer";
 
 const MotionLink = motion.create(Link);
@@ -74,18 +75,21 @@ export default function HubDock({ isJa, openTerminal, pageOpen }: Props) {
           title={isJa ? "リンク" : "Links"}
           aria-expanded={toolsOpen}
           aria-label={isJa ? "リンク" : "Links"}
-          whileHover={{ scale: 1.08 }}
-          whileTap={{ scale: 0.92 }}
-          animate={{
-            rotate: toolsOpen ? 8 : 0,
-          }}
-          transition={{ type: "spring", stiffness: 400, damping: 25 }}
-          className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors border border-black/5 shadow-sm ${toolsOpen
-              ? "bg-orange-600 text-white shadow-md shadow-orange-600/25"
-              : "bg-white text-gray-800 hover:bg-white"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className={`group relative w-10 h-10 rounded-none flex items-center justify-center transition-colors border ${toolsOpen
+              ? "bg-neutral-900 text-neutral-100 border-black"
+              : "bg-white text-neutral-800 border-black/20 hover:bg-neutral-100"
             }`}
         >
-          <Monitor size={19} />
+          <CornerBrackets
+            size="xs"
+            offset="tight"
+            strokeWidth="2"
+            colorClass={toolsOpen ? "border-neutral-900" : "border-neutral-800"}
+            className="opacity-0 group-hover:opacity-100 transition-opacity"
+          />
+          <Monitor size={16} />
         </motion.button>
 
         <AnimatePresence>
@@ -95,58 +99,62 @@ export default function HubDock({ isJa, openTerminal, pageOpen }: Props) {
               initial="hidden"
               animate="visible"
               exit="hidden"
-              className="flex items-center gap-2 ml-2.5"
+              className="flex items-center gap-2 ml-2"
             >
               <MotionLink
                 variants={itemVariants}
-                whileHover={{ scale: 1.15, y: -2 }}
-                whileTap={{ scale: 0.92 }}
+                whileHover={{ scale: 1.05, y: -1 }}
+                whileTap={{ scale: 0.95 }}
                 href="/notes"
                 title={isJa ? "ノート" : "Notes"}
                 aria-label={isJa ? "ノート" : "Notes"}
-                className="w-11 h-11 bg-white rounded-full flex items-center justify-center text-orange-600 hover:text-orange-700 hover:bg-white transition-colors border border-black/5 shadow-sm hover:shadow-md shrink-0"
+                className="group relative w-10 h-10 bg-white rounded-none flex items-center justify-center text-neutral-800 hover:text-black hover:bg-neutral-100 transition-colors border border-black/20 shrink-0"
               >
-                <BookOpen size={19} />
+                <CornerBrackets size="xs" offset="tight" strokeWidth="2" colorClass="border-neutral-900" className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                <BookOpen size={16} />
               </MotionLink>
 
               <motion.a
                 variants={itemVariants}
-                whileHover={{ scale: 1.15, y: -2 }}
-                whileTap={{ scale: 0.92 }}
+                whileHover={{ scale: 1.05, y: -1 }}
+                whileTap={{ scale: 0.95 }}
                 href="https://github.com/miiiwa1121"
                 target="_blank"
                 rel="noopener noreferrer"
                 title="GitHub"
                 aria-label="GitHub"
-                className="w-11 h-11 bg-white rounded-full flex items-center justify-center text-gray-800 hover:text-gray-950 hover:bg-white transition-colors border border-black/5 shadow-sm hover:shadow-md shrink-0"
+                className="group relative w-10 h-10 bg-white rounded-none flex items-center justify-center text-neutral-800 hover:text-black hover:bg-neutral-100 transition-colors border border-black/20 shrink-0"
               >
-                <GithubIcon size={19} />
+                <CornerBrackets size="xs" offset="tight" strokeWidth="2" colorClass="border-neutral-900" className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                <GithubIcon size={16} />
               </motion.a>
 
               <motion.a
                 variants={itemVariants}
-                whileHover={{ scale: 1.15, y: -2 }}
-                whileTap={{ scale: 0.92 }}
+                whileHover={{ scale: 1.05, y: -1 }}
+                whileTap={{ scale: 0.95 }}
                 href="https://x.com/miiiwa3330"
                 target="_blank"
                 rel="noopener noreferrer"
                 title="X"
                 aria-label="X"
-                className="w-11 h-11 bg-white rounded-full flex items-center justify-center text-gray-900 hover:bg-white transition-colors border border-black/5 shadow-sm hover:shadow-md shrink-0"
+                className="group relative w-10 h-10 bg-white rounded-none flex items-center justify-center text-neutral-800 hover:text-black hover:bg-neutral-100 transition-colors border border-black/20 shrink-0"
               >
-                <XIcon size={17} />
+                <CornerBrackets size="xs" offset="tight" strokeWidth="2" colorClass="border-neutral-900" className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                <XIcon size={15} />
               </motion.a>
 
               <motion.button
                 variants={itemVariants}
-                whileHover={{ scale: 1.15, y: -2 }}
-                whileTap={{ scale: 0.92 }}
+                whileHover={{ scale: 1.05, y: -1 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={openTerminal}
                 title="Terminal mode"
                 aria-label="Terminal mode"
-                className="w-11 h-11 bg-white rounded-full flex items-center justify-center text-emerald-600 hover:text-emerald-700 hover:bg-white transition-colors border border-black/5 shadow-sm hover:shadow-md shrink-0"
+                className="group relative w-10 h-10 bg-white rounded-none flex items-center justify-center text-emerald-700 hover:text-emerald-900 hover:bg-neutral-100 transition-colors border border-black/20 shrink-0"
               >
-                <Terminal size={19} />
+                <CornerBrackets size="xs" offset="tight" strokeWidth="2" colorClass="border-neutral-900" className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Terminal size={16} />
               </motion.button>
             </motion.div>
           )}

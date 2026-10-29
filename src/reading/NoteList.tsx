@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import CornerBrackets from "@/ui/CornerBrackets";
 import { formatNoteDate, notePath, type NoteSource } from "@/data";
 
 type Props = {
@@ -23,28 +24,30 @@ export default function NoteList({ notes, titleAs: Title = "h2" }: Props) {
         <li key={note.slug} className="flex">
           <Link
             href={notePath(note.slug)}
-            className="group flex-1 flex flex-col p-6 sm:p-7 rounded-2xl bg-white border border-black/5 hover:border-orange-300/80 motion-safe:hover:-translate-y-1 transition-[border-color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
+            className="group relative flex-1 flex flex-col p-5 sm:p-6 rounded-none bg-white border border-black/20 hover:border-black motion-safe:hover:-translate-y-1 transition-[border-color,transform] duration-200 focus-visible:outline-none"
           >
+            <CornerBrackets size="sm" offset="normal" strokeWidth="2" colorClass="border-neutral-900" className="opacity-0 group-hover:opacity-100 transition-opacity" />
+
             <time
               dateTime={note.date}
-              className="self-start text-orange-700 font-mono text-xs sm:text-sm font-bold bg-orange-50 border border-orange-200/60 px-3 py-1 rounded-full tabular-nums"
+              className="self-start text-neutral-100 font-mono text-[10px] font-bold bg-neutral-900 border border-neutral-700 px-2 py-0.5 rounded-none tabular-nums uppercase"
             >
               {formatNoteDate(note.date)}
             </time>
-            <Title className="mt-4 font-bold text-gray-950 text-lg sm:text-xl leading-[1.5] group-hover:text-orange-600 transition-colors [overflow-wrap:anywhere]">
+            <Title className="mt-3 font-bold text-neutral-950 text-lg sm:text-xl leading-[1.5] group-hover:underline transition-colors [overflow-wrap:anywhere]">
               {note.title}
             </Title>
-            <p className="mt-2 flex-1 text-gray-600 text-sm sm:text-base leading-relaxed">{note.description}</p>
-            <div className="mt-4 pt-4 border-t border-black/5 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-              <span className="flex flex-wrap gap-x-2 gap-y-1 font-mono text-xs text-gray-500">
+            <p className="mt-2 flex-1 text-neutral-600 text-sm sm:text-base leading-relaxed">{note.description}</p>
+            <div className="mt-4 pt-4 border-t border-black/10 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 font-mono">
+              <span className="flex flex-wrap gap-x-2 gap-y-1 text-xs text-neutral-500">
                 {note.tags.map((tag) => (
                   <span key={tag}>#{tag}</span>
                 ))}
               </span>
-              <span className="ml-auto inline-flex items-center gap-0.5 whitespace-nowrap text-sm font-bold text-orange-700 group-hover:text-orange-600">
+              <span className="ml-auto inline-flex items-center gap-0.5 whitespace-nowrap text-xs font-bold text-neutral-900 group-hover:underline uppercase">
                 読む
                 <ChevronRight
-                  size={16}
+                  size={14}
                   aria-hidden="true"
                   className="motion-safe:group-hover:translate-x-0.5 transition-transform duration-200"
                 />

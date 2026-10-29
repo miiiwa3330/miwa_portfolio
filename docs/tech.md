@@ -17,7 +17,11 @@
 - **Tailwind CSS** (v4) - ユーティリティファーストのCSSフレームワーク。デザイントークンは `src/app/globals.css` の `:root` に集約。
 - **Framer Motion** - React向けの高機能アニメーションライブラリ。セクションのフェードイン、詳細ページの開閉、モーダルの出現に使用。
 - **Lucide React** / **React Icons** - SVGアイコンライブラリ。技術スタックのアイコンはローカル描画（外部CDNに依存しない）。
-- **柔らかい環境光的な box-shadow（`shadow-sm`〜`shadow-2xl`）は採用しない方針。** カード・ヘッダー・詳細ページ（Products/Skills/Experience/Contact の内側のカード類も含む）は `border border-black/5` 系のボーダーだけで面の境界を示す。例外は2つ、どちらも「環境光」ではなく別の意味を持つ意図的な効果: (1) オレンジのCTAボタンの `shadow-[0_4px_0_...]`＋`active:shadow-none active:translate-y-1` は押し込み感を出す立体的な段差で、外すとボタンの物理的なフィードバックそのものが消える。(2) ステータスを示す小さいドットの `shadow-[0_0_8px/10px_...]` は発光表現で、面の下に落ちる影ではない。
+- **loo100（漏洩百貨店）準拠のインダストリアル・HUDスタイル（2026-10-29）**:
+  - **角丸の完全排除（`--radius: 0`）**: ボタン、カード、ナビゲーション、タグ、バッジ、モーダルに至るまで角丸（`rounded-full`, `rounded-2xl`, `rounded-3xl` 等）をすべて廃止し、シャープな直角矩形で統一
+  - **箱ラベル（`.box-label`）**: 濃い背景（`bg-neutral-900 text-neutral-100` 等）と等幅フォント（`font-mono`）によるインダストリアルなラベル表現
+  - **1px細線ボーダー**: 境界は `border border-black/20` や `border-white/20` などの細線で構成し、環境光的な box-shadow は用いない
+  - **選択中の「」囲み（コーナーブラケット）**: 選択中のボタン、アクティブなカード、開いているメニュー、選択スキルタイルなどの四角の四隅を、鉤括弧を構成する4つのL字フレーム（`┌ ┐ └ ┘`）で囲む（`src/ui/CornerBrackets.tsx`、計算ロジックは純関数 `src/ui/cornerBracketClasses.ts`）
 
 ## デザイントークン
 サイト全体の配色は、惑星の頃のボクセル世界に揃えて決めたもの。部屋になった今は3Dの配色と対応していない。UI の配色の作り直しは別ブランチで行う（[room-migration.md](room-migration.md) の「今回やらないこと」）。
@@ -187,8 +191,12 @@ AdSense の審査で「有用性の低いコンテンツ」として不合格に
 
 | URL | ファイル | 中身 |
 | --- | --- | --- |
+| `/about` | `app/(reading)/about/page.tsx` ＋ `detail/About.tsx` | 自己紹介・プロフィール（2026-10-29 独立ページ化） |
 | `/products` | `app/(reading)/products/page.tsx` | 制作実績の一覧 |
 | `/products/[slug]` | `app/(reading)/products/[slug]/page.tsx` ＋ `content/products/<slug>.mdx` | 制作実績ごとの紹介。先頭と末尾に Play Now（ポップアップと同じボタン） |
+| `/skills` | `app/(reading)/skills/page.tsx` ＋ `detail/Skills.tsx` | 技術スタック一覧（2026-10-29 独立ページ化） |
+| `/experience` | `app/(reading)/experience/page.tsx` ＋ `detail/Experience.tsx` | 経歴・活動タイムライン（2026-10-29 独立ページ化） |
+| `/contact` | `app/(reading)/contact/page.tsx` ＋ `detail/Contact.tsx` | お問い合わせ窓口（2026-10-29 独立ページ化） |
 | `/notes` | `app/(reading)/notes/page.tsx` | ノートの一覧 |
 | `/notes/[slug]` | `app/(reading)/notes/[slug]/page.tsx` ＋ `content/notes/<slug>.mdx` | 技術日記 |
 

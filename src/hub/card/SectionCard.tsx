@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { ChevronRight } from "lucide-react";
+import CornerBrackets from "@/ui/CornerBrackets";
 import { useCardGestures } from "./useCardGestures";
 import { useStepGate } from "./useStepGate";
 import { initialWheelState, stepForWheel, wheelPixels } from "./cardWheel";
@@ -26,51 +27,32 @@ import { CARD_COPY } from "./cardCopy";
  * `facingStop` in `scene/room/layout.ts` for why that direction matters.
  */
 
-/** How far each layer behind sits below the front card, in px. */
-const PEEK_OFFSETS = [11, 21];
-
 /**
- * 3D Deck Card Shuffle:
- * Cards transition like a deck of playing cards being dealt or shuffled.
- * The exiting card peels off with a subtle tilt and rotation, while the
- * incoming card rises from the stack with smooth spring physics.
+ * Simple slide & fade transition between cards without card-deck tilt/stacking.
  */
 const CARD_VARIANTS: Variants = {
   enter: (step: number) => ({
     opacity: 0,
-    y: step < 0 ? 52 : -52,
-    x: step < 0 ? -24 : 24,
-    rotateZ: step < 0 ? -4.5 : 4.5,
-    rotateX: step < 0 ? -8 : 8,
-    scale: 0.93,
-    filter: "blur(2px)",
+    y: step < 0 ? 24 : -24,
+    scale: 0.98,
   }),
   center: {
     opacity: 1,
     y: 0,
-    x: 0,
-    rotateZ: 0,
-    rotateX: 0,
     scale: 1,
-    filter: "blur(0px)",
     transition: {
       type: "spring",
-      stiffness: 340,
-      damping: 26,
-      mass: 0.85,
+      stiffness: 380,
+      damping: 28,
     },
   },
   exit: (step: number) => ({
     opacity: 0,
-    y: step < 0 ? -64 : 64,
-    x: step < 0 ? 36 : -36,
-    rotateZ: step < 0 ? 6.5 : -6.5,
-    rotateX: step < 0 ? 10 : -10,
-    scale: 0.91,
-    filter: "blur(3px)",
+    y: step < 0 ? -24 : 24,
+    scale: 0.98,
     transition: {
-      duration: 0.28,
-      ease: [0.32, 0, 0.67, 0],
+      duration: 0.2,
+      ease: "easeOut",
     },
   }),
 };
@@ -163,22 +145,8 @@ function SectionCardBody({
     <div
       ref={stackRef}
       {...gestures}
-      className="relative w-full max-w-xs sm:max-w-sm cursor-pointer select-none touch-none pointer-events-auto [perspective:1000px]"
+      className="relative w-full max-w-xs sm:max-w-sm cursor-pointer select-none touch-none pointer-events-auto"
     >
-      {/* The rest of the stack. Positioned, so they paint under the card,
-          which takes a stacking context of its own below. */}
-      {browsable && PEEK_OFFSETS.map((offset, i) => (
-        <div
-          key={offset}
-          aria-hidden="true"
-          className="absolute inset-0 rounded-3xl border border-black/5 shadow-md pointer-events-none transition-transform duration-300"
-          style={{
-            transform: `translateY(${offset}px) scale(${1 - (i + 1) * 0.04}) rotate(${i === 0 ? -1.2 : 1.5}deg)`,
-            background: i === 0 ? "#fcfbf7" : "#f5f4ee",
-          }}
-        />
-      ))}
-
       {/* Where the trail leaves the card, and the trail's near end. */}
       {!focused && (
         <span
@@ -201,31 +169,34 @@ function SectionCardBody({
           initial="enter"
           animate="center"
           exit="exit"
-          whileHover={{ y: -5, rotateZ: 0.8, scale: 1.01 }}
-          whileTap={{ scale: 0.98 }}
-          style={{ transformStyle: "preserve-3d" }}
-          className="relative z-10 bg-white rounded-3xl p-6 sm:p-8 border border-black/10 shadow-xl shadow-black/5"
+          whileHover={{ y: -3 }}
+          whileTap={{ scale: 0.99 }}
+          className="group relative z-10 bg-white/85 backdrop-blur-md rounded-none p-6 sm:p-7 border border-black/20 shadow-none hover:border-black transition-colors"
         >
+          {/* Hovering the card displays corner brackets ("「」") cleanly inside */}
+          <CornerBrackets size="md" offset="card" strokeWidth="2" colorClass="border-neutral-900" className="opacity-0 group-hover:opacity-100 transition-opacity" />
+
           <div className="flex items-center justify-between mb-3">
-            <span className="text-[11px] font-bold uppercase tracking-widest text-orange-700 bg-orange-50 border border-orange-200/60 px-2.5 py-0.5 rounded-full">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-neutral-100 bg-neutral-900 border border-neutral-700 px-2 py-0.5 rounded-none">
               {card.sub}
             </span>
           </div>
 
-          <h3 className="text-2xl font-black text-gray-900 tracking-tight mb-2">
+          <h3 className="text-xl sm:text-2xl font-black text-neutral-900 tracking-tight mb-2">
             {isJa ? card.jaTitle : card.enTitle}
           </h3>
 
-          <p className="text-gray-600 text-sm leading-relaxed mb-6 font-normal">
+          <p className="text-neutral-600 text-sm leading-relaxed mb-6 font-normal">
             {isJa ? card.ja : card.en}
           </p>
 
           <button
             onClick={onOpen}
-            className="group/btn inline-flex items-center gap-2 bg-[#ea580c] hover:bg-[#c2410c] text-white font-bold py-2.5 px-6 rounded-full shadow-[0_4px_0_#9a3412] hover:shadow-[0_2px_0_#9a3412] hover:translate-y-[2px] active:shadow-none active:translate-y-1 transition-all text-sm"
+            className="group/btn relative inline-flex items-center gap-2 bg-neutral-900 hover:bg-black text-white font-mono font-bold py-2.5 px-5 rounded-none border border-black transition-all text-xs uppercase"
           >
+            <CornerBrackets size="xs" offset="tight" strokeWidth="2" colorClass="border-neutral-900" className="opacity-0 group-hover/btn:opacity-100 transition-opacity" />
             <span>{isJa ? "詳しく見る" : "More"}</span>
-            <ChevronRight size={16} className="group-hover/btn:translate-x-0.5 transition-transform" />
+            <ChevronRight size={14} className="group-hover/btn:translate-x-0.5 transition-transform" />
           </button>
         </motion.div>
       </AnimatePresence>

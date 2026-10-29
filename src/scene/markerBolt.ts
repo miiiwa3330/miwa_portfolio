@@ -179,18 +179,13 @@ export const MARKER_IDLE_INK = "#a6dbf7";
 export const MARKER_FACING_INK = "#7fe8ff";
 
 /**
- * The lightning that runs out to the marker, and the anchor dot on the card.
- *
- * Darker than either marker colour on purpose — the trail's near end and the
- * dot sit on the *white* card, where `#a6dbf7` all but disappears, while the
- * markers themselves only ever sit against the room's walls and furniture.
+ * The dotted trail that runs out to the marker, and the anchor dot on the card.
+ * Orange / vermilion (#ea580c) matching the brand accent colour.
  */
-export const MARKER_TRAIL_INK = "rgba(58, 160, 208, 0.75)";
+export const MARKER_TRAIL_INK = "rgba(234, 88, 12, 0.9)";
 
 /**
- * The halo under the trail, matching the glow baked into the marker's texture.
- *
- * Pale and faint: it is laid down as a much wider stroke along the same path,
- * so anything stronger would read as a second line rather than as light.
+ * The halo under the trail.
+ * Pale and faint orange glow.
  */
-export const MARKER_TRAIL_GLOW = "rgba(126, 212, 245, 0.3)";
+export const MARKER_TRAIL_GLOW = "rgba(234, 88, 12, 0.25)";

@@ -3,6 +3,7 @@
 import { Globe, Menu, X } from "lucide-react";
 import type { SectionType } from "@/types";
 import Wordmark from "@/ui/Wordmark";
+import CornerBrackets from "@/ui/CornerBrackets";
 import { navItemForSection } from "./nav";
 import NavPills from "./NavPills";
 import LightMenu from "./LightMenu";
@@ -45,7 +46,7 @@ export default function HubHeader({
       <button
         onClick={onLogoClick}
         aria-label="Miiiwa."
-        className={`pointer-events-auto font-black text-2xl sm:text-4xl md:text-5xl tracking-tight hover:scale-[1.03] active:scale-[0.98] transition-transform select-none ${
+        className={`pointer-events-auto font-black text-3xl sm:text-4xl md:text-5xl tracking-tight hover:scale-[1.03] active:scale-[0.98] transition-transform select-none ${
           onLightBackground ? "text-gray-900" : "text-white"
         }`}
       >
@@ -72,6 +73,7 @@ export default function HubHeader({
               isJa={isJa}
               current={navItemForSection(activeSection)}
               onSectionClick={onNavClick}
+              onLight={onLightBackground}
               className="hidden xl:flex"
             />
 
@@ -82,9 +84,20 @@ export default function HubHeader({
               title={isJa ? "セクション一覧" : "Menu"}
               aria-haspopup="dialog"
               aria-label={isJa ? "セクション一覧" : "Menu"}
-              className="xl:hidden w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-200 border border-black/5 pointer-events-auto shadow-sm bg-white text-gray-800"
+              className={`group relative xl:hidden w-12 h-12 rounded-none flex items-center justify-center active:scale-95 transition-all duration-150 pointer-events-auto backdrop-blur-md ${
+                onLightBackground
+                  ? "bg-neutral-900/85 text-neutral-100 hover:bg-neutral-900 border border-black"
+                  : "bg-white/85 text-neutral-800 hover:bg-white border border-black/20"
+              }`}
             >
-              <Menu size={18} />
+              <CornerBrackets
+                size="xs"
+                offset="tight"
+                strokeWidth="2"
+                colorClass={onLightBackground ? "border-white" : "border-neutral-900"}
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
+              />
+              <Menu size={20} />
             </button>
           </>
         )}
@@ -93,61 +106,62 @@ export default function HubHeader({
           onClick={toggleLanguage}
           title="Toggle language"
           aria-label="Toggle language"
-          className="h-11 px-3 sm:h-12 sm:px-3.5 md:h-14 md:px-4 bg-white rounded-full flex items-center gap-1.5 sm:gap-2 text-gray-800 hover:scale-105 active:scale-95 transition-all duration-200 border border-black/5 shadow-sm pointer-events-auto"
+          className={`group relative h-12 px-4 rounded-none flex items-center gap-1.5 active:scale-95 transition-all duration-150 pointer-events-auto font-mono text-xs sm:text-sm backdrop-blur-md ${
+            onLightBackground
+              ? "bg-neutral-900/85 text-neutral-100 hover:bg-neutral-900 border border-black"
+              : "bg-white/85 text-neutral-800 hover:bg-white border border-black/20"
+          }`}
         >
-          <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
-          <span className="text-xs sm:text-sm font-black w-5 sm:w-6">{isJa ? "JP" : "EN"}</span>
+          <CornerBrackets
+            size="xs"
+            offset="tight"
+            strokeWidth="2"
+            colorClass={onLightBackground ? "border-white" : "border-neutral-900"}
+            className="opacity-0 group-hover:opacity-100 transition-opacity"
+          />
+          <Globe className="w-4 h-4 text-[#ea580c]" />
+          <span className="font-bold w-6">{isJa ? "JP" : "EN"}</span>
         </button>
 
-        {!handheld &&
-          (onLightBackground ? (
-            <button
-              onClick={onClose}
-              title={isJa ? "閉じる" : "Close"}
-              aria-label={isJa ? "閉じる" : "Close"}
-              className="w-[96px] sm:w-[108px] md:w-[128px] h-11 sm:h-12 md:h-14 rounded-full flex items-center justify-center gap-1.5 sm:gap-2 bg-[#ea580c] hover:bg-[#c2410c] text-white font-bold text-xs sm:text-sm shadow-md transition-all hover:scale-105 active:scale-95 pointer-events-auto cursor-pointer"
-            >
-              <X className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span>{isJa ? "閉じる" : "Close"}</span>
-            </button>
-          ) : (
-            <LightMenu isJa={isJa} compact={false} />
-          ))}
-
-        {/*
-         * The phone's last slot, shared by two buttons that swap places.
-         *
-         * While the detail sheet is up it closes the sheet; otherwise it
-         * opens the menu. One slot rather than two because the two are never
-         * both useful: navigating somewhere else while reading means leaving
-         * what you are reading, which is what closing does first anyway —
-         * and a second round button beside this one is a third of the header
-         * spent saying so.
-         */}
-        {handheld &&
-          (onLightBackground ? (
-            <button
-              onClick={onClose}
-              title={isJa ? "閉じる" : "Close"}
-              aria-label={isJa ? "閉じる" : "Close"}
-              className="w-11 h-11 rounded-full flex items-center justify-center bg-[#ea580c] text-white shadow-md active:scale-95 transition-transform pointer-events-auto"
-            >
-              <X size={20} />
-            </button>
-          ) : (
-            <>
-            <LightMenu isJa={isJa} compact />
-            <button
-              onClick={onMenuOpen}
-              title={isJa ? "セクション一覧" : "Menu"}
-              aria-haspopup="dialog"
-              aria-label={isJa ? "セクション一覧" : "Menu"}
-              className="w-11 h-11 rounded-full flex items-center justify-center bg-white text-gray-800 border border-black/5 shadow-sm active:scale-95 transition-transform pointer-events-auto"
-            >
-              <Menu size={20} />
-            </button>
-            </>
-          ))}
+        {onLightBackground ? (
+          <button
+            onClick={onClose}
+            title={isJa ? "閉じる" : "Close"}
+            aria-label={isJa ? "閉じる" : "Close"}
+            className="group relative w-12 h-12 rounded-none flex items-center justify-center active:scale-95 transition-all duration-150 pointer-events-auto bg-neutral-900/85 text-neutral-100 hover:bg-neutral-900 border border-black backdrop-blur-md cursor-pointer"
+          >
+            <CornerBrackets
+              size="xs"
+              offset="tight"
+              strokeWidth="2"
+              colorClass="border-white"
+              className="opacity-0 group-hover:opacity-100 transition-opacity"
+            />
+            <X className="w-4 h-4" />
+          </button>
+        ) : (
+          <>
+            <LightMenu isJa={isJa} />
+            {handheld && (
+              <button
+                onClick={onMenuOpen}
+                title={isJa ? "セクション一覧" : "Menu"}
+                aria-haspopup="dialog"
+                aria-label={isJa ? "セクション一覧" : "Menu"}
+                className="group relative w-12 h-12 rounded-none flex items-center justify-center active:scale-95 transition-transform pointer-events-auto bg-white/85 text-neutral-800 hover:bg-white border border-black/20 backdrop-blur-md"
+              >
+                <CornerBrackets
+                  size="xs"
+                  offset="tight"
+                  strokeWidth="2"
+                  colorClass="border-neutral-900"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                />
+                <Menu size={20} />
+              </button>
+            )}
+          </>
+        )}
       </div>
     </header>
   );

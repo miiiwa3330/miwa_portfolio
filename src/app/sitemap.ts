@@ -16,6 +16,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   return [
     { url: siteUrl("/"), lastModified: now, changeFrequency: "weekly", priority: 1.0 },
+    { url: siteUrl("/about"), lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: siteUrl("/products"), lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     ...PROJECTS.map((p) => ({
       url: siteUrl(productPath(p.slug)),
@@ -23,6 +24,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly" as const,
       priority: 0.7,
     })),
+    { url: siteUrl("/skills"), lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: siteUrl("/experience"), lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: siteUrl("/contact"), lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: siteUrl("/notes"), lastModified: newestNote, changeFrequency: "weekly", priority: 0.8 },
     ...notes.map((n) => ({
       url: siteUrl(notePath(n.slug)),
