@@ -13,7 +13,7 @@ export default function About() {
 
   return (
     <div className="py-8 md:py-12">
-      <SectionHeading className="mb-10 md:mb-14">About</SectionHeading>
+      <SectionHeading as="h1" className="mb-10 md:mb-14">About</SectionHeading>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
         {/* Left column: Summary profile card */}
