@@ -13,7 +13,11 @@ const MotionLink = motion.create(Link);
 type Props = {
   isJa: boolean;
   openTerminal: () => void;
-  pageOpen: boolean;
+  /**
+   * The copyright and privacy link in the bottom right — the hub's. A reading
+   * page has its own at the foot of the page (`ReadingFooter`).
+   */
+  withFooter: boolean;
 };
 
 const containerVariants: Variants = {
@@ -59,7 +63,7 @@ const itemVariants: Variants = {
   },
 };
 
-export default function HubDock({ isJa, openTerminal, pageOpen }: Props) {
+export default function HubDock({ isJa, openTerminal, withFooter }: Props) {
   const [toolsOpen, setToolsOpen] = useState(false);
 
   return (
@@ -161,9 +165,9 @@ export default function HubDock({ isJa, openTerminal, pageOpen }: Props) {
         </AnimatePresence>
       </div>
 
-      {/* Footer (only on Home screen, bottom right) */}
+      {/* Footer (only on the hub, bottom right) */}
       <div className="absolute bottom-9 right-12 pointer-events-auto">
-        {!pageOpen && <Footer />}
+        {withFooter && <Footer />}
       </div>
     </div>
   );

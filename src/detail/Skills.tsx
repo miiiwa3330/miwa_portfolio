@@ -201,6 +201,9 @@ export default function Skills() {
                     viewport={{ once: true }}
                     transition={{ delay: catIdx * 0.05 + skillIdx * 0.02, duration: 0.3 }}
                     whileHover={{ y: -3 }}
+                    // Bound only on a phone. On a pointer screen the hover
+                    // styles below already say this, and a tap that latched a
+                    // tile lit would leave it fighting the hover it sits under.
                     onClick={
                       handheld
                         ? () => setLitSkill((current) => (current === skill.name ? null : skill.name))

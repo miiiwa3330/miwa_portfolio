@@ -288,7 +288,7 @@ function CardRailBody({
 
 /**
  * One card on the strip, positioned at its slot offset.
- * Styled in the loo100 aesthetic (radius: 0, box-label, fine border).
+ * The site's box style (square corners, a box label, a fine border).
  * The selected center card is enclosed in corner brackets ("「」").
  */
 function RailCardFace({

@@ -12,7 +12,7 @@ const BUTTON =
 
 /**
  * "Play Now" and "View Code", for a product's own page — the popup's pair,
- * with the popup's labels and shapes, styled in the loo100 aesthetic.
+ * with the popup's labels and shapes, in the site's box style.
  *
  * Trying the product is the one thing these pages exist to lead to, so Play
  * is the only filled button on them. The hub's `ProjectLinks` intercepts a

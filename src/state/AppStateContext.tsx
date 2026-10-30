@@ -1,7 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, ReactNode } from "react";
-import { hasSheet, hashForState, sectionFromHash } from "./sectionUrl";
+import { hashForState, movedToPage, sectionFromHash } from "./sectionUrl";
+import { pathForSection } from "@/hub/nav";
 import type { Focus, SectionType } from "@/types";
 import type { ViewZoom } from "@/scene/room/layout";
 import { DEFAULT_LIGHTS, flipLight as flip, type LightSwitch, type RoomLights } from "@/scene/room/lighting";
@@ -10,22 +11,17 @@ interface AppStateContextType {
   /**
    * What the camera has stepped in to (null = standing in the middle of the
    * room): one of the areas, or the desk — the PC, which is focused like an
-   * area but has no detail page and no card.
+   * area but has no card.
    */
   activeSection: Focus;
   setActiveSection: (section: Focus) => void;
-  /** Whether the detail page (About…Footer) is shown and scrollable. */
-  pageOpen: boolean;
-  setPageOpen: (open: boolean) => void;
-  /** Open the detail page focused on a section (also focuses the camera). */
-  openPage: (section: NonNullable<SectionType>) => void;
   /**
-   * Close the detail page and unfocus, leaving the camera exactly where the
-   * section framing put it. This is what scrolling off either end does: you
-   * stay looking at the area you were just reading about.
+   * Step back out of the area, leaving the camera looking the way the area's
+   * framing put it: you stay facing what you were just looking at. What
+   * getting up from the PC and reading the hologram to the end do.
    */
-  closePage: () => void;
-  /** Full reset: close the page and fly the camera back to the default view. */
+  unfocus: () => void;
+  /** Full reset: unfocus and fly the camera back to the default view. */
   goHome: () => void;
   /** Bumps every time goHome() runs; the camera watches it to reset its view. */
   homeNonce: number;
@@ -40,7 +36,7 @@ interface AppStateContextType {
    * focused — "standard" (the default) or "fisheye" (widened to take in the
    * room). Only ever changes in the free view; every way of leaving a section
    * resets it back to "standard", so "fisheye" is always a deliberate,
-   * temporary choice (a pinch or the zoom control), never something you can
+   * temporary choice (a pinch), never something you can
    * get stuck in.
    */
   viewZoom: ViewZoom;
@@ -58,45 +54,30 @@ const AppStateContext = createContext<AppStateContextType | undefined>(undefined
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [activeSection, setActiveSection] = useState<Focus>(null);
-  const [pageOpen, setPageOpen] = useState(false);
   const [homeNonce, setHomeNonce] = useState(0);
   const [turnRequest, setTurnRequest] = useState<{ section: NonNullable<SectionType>; nonce: number } | null>(null);
   const [viewZoom, setViewZoom] = useState<ViewZoom>("standard");
   const [lights, setLights] = useState<RoomLights>(DEFAULT_LIGHTS);
   const flipLight = useCallback((which: LightSwitch) => setLights((current) => flip(current, which)), []);
 
-  const openPage = useCallback((section: NonNullable<SectionType>) => {
-    setActiveSection(section);
-    if (section !== "about") {
-      setPageOpen(true);
-    } else {
-      setPageOpen(false);
-    }
-    // Normalizes the stage the free view comes back to the moment a section is
-    // entered, not just when it is left — the flight back out is framed for
-    // whatever this says when it starts.
-    setViewZoom("standard");
-  }, []);
-
   const turnTo = useCallback((section: NonNullable<SectionType>) => {
     setTurnRequest((previous) => ({ section, nonce: (previous?.nonce ?? 0) + 1 }));
   }, []);
 
-  const closePage = useCallback(() => {
+  const unfocus = useCallback(() => {
     setActiveSection(null);
-    setPageOpen(false);
     setViewZoom("standard");
-    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "auto" });
   }, []);
 
   const goHome = useCallback(() => {
-    closePage();
+    unfocus();
     setHomeNonce((n) => n + 1);
-  }, [closePage]);
+  }, [unfocus]);
 
   // --- The URL ---------------------------------------------------------
-  // The open section is mirrored into the hash so the back button closes the
-  // panel instead of leaving the site, and a section can be linked to.
+  // Sitting at the PC is mirrored into the hash (`/#desk`), so the back button
+  // gets up from the chair and the seat can be linked to; the old `/#products`
+  // style links are sent on to their pages (see `sectionUrl.ts`).
 
   /** False until the hash we arrived with has been honoured. */
   const urlApplied = useRef(false);
@@ -104,13 +85,18 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const applyUrl = (fromHistory: boolean) => {
       const section = sectionFromHash(window.location.hash);
+      // Only on the hub: the provider lives in the root layout, and a reading
+      // page's own `#` is a heading, not an area.
+      if (movedToPage(section) && window.location.pathname === "/") {
+        // replace, not assign: the old URL is not a step anyone wants to go
+        // back to — it would only send them forward again.
+        window.location.replace(pathForSection(section));
+        return;
+      }
       setActiveSection(section);
-      setPageOpen(hasSheet(section));
-      // Bypasses openPage()/closePage() (it calls the raw setters above
-      // directly, to apply both section and page-open in one pass), so the
-      // same "always land at near" normalization those two carry has to be
-      // repeated here — otherwise the back button or a direct link could
-      // leave the visitor stranded in the fisheye.
+      // The same "always land at standard" normalization unfocus() carries —
+      // otherwise the back button or a direct link could leave the visitor
+      // stranded in the fisheye.
       setViewZoom("standard");
       // Going back to no section is a request to see the diorama again.
       if (fromHistory && !section) setHomeNonce((n) => n + 1);
@@ -134,15 +120,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     // Until the incoming hash has been read, writing to the URL would erase it.
     if (!urlApplied.current) return;
 
-    const wanted = hashForState(activeSection, pageOpen);
+    const wanted = hashForState(activeSection);
     // Already correct — which is exactly the case when this state came *from*
     // the URL, so following a link or going back never pushes a second entry.
     if (window.location.hash === wanted) return;
 
-    // pushState, not replaceState: each opened section is its own step back,
-    // which is what makes the back button close the panel.
+    // pushState, not replaceState: sitting down is its own step back, which
+    // is what makes the back button get up from the chair.
     window.history.pushState(null, "", wanted || window.location.pathname);
-  }, [pageOpen, activeSection]);
+  }, [activeSection]);
 
   // Memoised so a re-render of the provider that changed none of this — a
   // parent re-rendering, a state set to the value it already held — does not
@@ -151,10 +137,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   // whole three.js tree when it runs (see `facingChannel` for the full note).
   const value = useMemo(
     () => ({
-      activeSection, setActiveSection, pageOpen, setPageOpen, openPage, closePage, goHome, homeNonce,
+      activeSection, setActiveSection, unfocus, goHome, homeNonce,
       turnTo, turnRequest, viewZoom, setViewZoom, lights, flipLight,
     }),
-    [activeSection, pageOpen, openPage, closePage, goHome, homeNonce, turnTo, turnRequest, viewZoom, lights, flipLight]
+    [activeSection, unfocus, goHome, homeNonce, turnTo, turnRequest, viewZoom, lights, flipLight]
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;

@@ -6,8 +6,7 @@ import { motion, type Variants } from "framer-motion";
 import { Terminal, X } from "lucide-react";
 import { GithubIcon, XIcon } from "@/ui/icons";
 import CornerBrackets from "@/ui/CornerBrackets";
-import type { SectionType } from "@/types";
-import { NAV, PAGE_LINKS, leadsToHub, navKey, offHubHref, type NavEntry } from "./nav";
+import { NAV, PAGE_LINKS, navKey, type NavEntry } from "./nav";
 
 /**
  * The handheld navigation, as a panel over the whole screen.
@@ -24,18 +23,15 @@ import { NAV, PAGE_LINKS, leadsToHub, navKey, offHubHref, type NavEntry } from "
  * under, and the close button lands exactly where that hamburger was, so the
  * button reads as having opened into the panel rather than been replaced.
  *
- * The reading pages open the same panel. There an area is not a camera
- * flight but a link to the hub (`offHubHref`; a plain <a>, see
- * `leadsToHub`), and there is no terminal to open, so both of those props are
- * optional.
+ * The reading pages open the same panel. An area is a link to its own page
+ * either way (2026-10-30); what differs is that there is no terminal to open
+ * there, so that prop is optional.
  */
 
 type Props = {
   isJa: boolean;
   /** The row drawn lit. */
   current: NavEntry | undefined;
-  /** On the hub: an area's row flies the camera instead of linking. */
-  onNavClick?: (id: NonNullable<SectionType>) => void;
   onClose: () => void;
   /** On the hub only — the terminal overlay lives there. */
   openTerminal?: () => void;
@@ -113,7 +109,6 @@ function RowFace({ lit, marker, label, other }: { lit: boolean; marker: string; 
 export default function MobileMenu({
   isJa,
   current,
-  onNavClick,
   onClose,
   openTerminal,
 }: Props) {
@@ -179,33 +174,15 @@ export default function MobileMenu({
               />
             );
 
-            if (onNavClick) {
-              const id = item.section;
-              return (
-                <motion.button
-                  key={navKey(item)}
-                  variants={ROW_VARIANTS}
-                  onClick={() => {
-                    onNavClick(id);
-                    onClose();
-                  }}
-                  aria-current={lit ? "page" : undefined}
-                  className={rowClass(lit)}
-                >
-                  {content}
-                </motion.button>
-              );
-            }
-            const href = offHubHref(item);
             const linkProps = {
-              href,
+              href: item.page,
               onClick: onClose,
               "aria-current": lit ? ("page" as const) : undefined,
               className: rowClass(lit),
             };
             return (
               <motion.div key={navKey(item)} variants={ROW_VARIANTS}>
-                {leadsToHub(href) ? <a {...linkProps}>{content}</a> : <Link {...linkProps}>{content}</Link>}
+                <Link {...linkProps}>{content}</Link>
               </motion.div>
             );
           })}

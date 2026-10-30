@@ -296,7 +296,6 @@ export const MAX_FLIGHT_STEP = 1 / 10;
  *
  * - **No time is charged on the first frame** (`primed`). A flight begins in an
  *   effect, between two frames; the gap before it is not time it has run for.
- *   Behind the detail page that gap is the heartbeat's full second.
  * - **A flight that ends in the free view hands back its angles** (`land`).
  *   The free view's yaw/pitch refs are a separate source of truth from the
  *   camera; a flight that does not update them on landing leaves the next idle

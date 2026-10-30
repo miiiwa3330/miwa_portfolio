@@ -17,8 +17,7 @@ type Props = {
 };
 
 /**
- * Wraps a product or note detail page in a carousel-like layout inspired by
- * bukka_now's result screen:
+ * Wraps a product's or a note's page in a carousel-like layout:
  * - Main content sits in the standard `max-w-6xl` container (matching the index).
  * - On wide screens, the previous and next entries peek in from the left and
  *   right viewport edges.

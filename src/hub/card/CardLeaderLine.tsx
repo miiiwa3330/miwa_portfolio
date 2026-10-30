@@ -82,7 +82,7 @@ type Props = {
    * whenever this is absent.
    */
   anchorRef: React.RefObject<HTMLElement | null>;
-  /** Suppressed while the detail page covers everything. */
+  /** Suppressed while an area is focused: the area itself fills the frame. */
   hidden: boolean;
 };
 

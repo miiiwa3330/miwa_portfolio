@@ -15,7 +15,7 @@
 
 ## スタイリング・アニメーション
 - **Tailwind CSS** (v4) - ユーティリティファーストのCSSフレームワーク。デザイントークンは `src/app/globals.css` の `:root` に集約。
-- **Framer Motion** - React向けの高機能アニメーションライブラリ。セクションのフェードイン、詳細ページの開閉、モーダルの出現に使用。
+- **Framer Motion** - React向けの高機能アニメーションライブラリ。セクションのフェードイン、モーダルの出現に使用。
 - **Lucide React** / **React Icons** - SVGアイコンライブラリ。技術スタックのアイコンはローカル描画（外部CDNに依存しない）。
 - **loo100（漏洩百貨店）準拠のインダストリアル・HUDスタイル（2026-10-29）**:
   - **角丸の完全排除（`--radius: 0`）**: ボタン、カード、ナビゲーション、タグ、バッジ、モーダルに至るまで角丸（`rounded-full`, `rounded-2xl`, `rounded-3xl` 等）をすべて廃止し、シャープな直角矩形で統一
@@ -41,7 +41,7 @@
 トップページの3Dは、**ロケットを増改築したコロニーの中の、円い自分の部屋**（2026-10-01 に惑星から移行。要件・設計・各手順の実測は [room-migration.md](room-migration.md)、壊しやすい箇所は [scene-invariants.md](scene-invariants.md)）。惑星の頃の設計（球面の幾何、ボクセルの街、太陽、クロール）は [planet-archive.md](planet-archive.md) に記録として残してある。
 
 - **すべてコードで手続き生成**: 外部の GLB も画像ファイルも使わない。家具は箱・円柱・球の組み合わせ、壁・床・丸窓の外・左のモニターの動画は canvas に描く（`scene/objects/roomTextures.ts`）。飾りの乱数は `scene/hash.ts` の `hash01` で決定的にしてある
-- **ハイブリッド・レイアウト**: `<Canvas>` を背面に固定し、その上に通常の HTML のオーバーレイ（ヘッダー・カード・詳細シート）を重ねる。さらに、部屋の中の物として存在する HTML（PC の画面・ホログラムの文字）を、CSS の3D変換で canvas の後ろと手前に置く
+- **ハイブリッド・レイアウト**: `<Canvas>` を背面に固定し、その上に通常の HTML のオーバーレイ（ヘッダー・カード）を重ねる。エリアの文章は部屋の上に重ねず、**それぞれ独立したページ**（`/about`・`/products`・`/skills`・`/experience`・`/contact`、「読み物のページ」）に置く（2026-10-30。それまでは下からせり上がる詳細シートだった）。さらに、部屋の中の物として存在する HTML（PC の画面・ホログラムの文字）を、CSS の3D変換で canvas の後ろと手前に置く
 
 ### 部屋：配置は純粋関数に持つ
 
@@ -149,7 +149,7 @@
 
 自分から動くもの（視点の揺れ・マーカーの脈動・左のモニターの動画・ホログラムの仮の多面体の回転・ホログラムの文字の自動再生）は、レンダラの時刻ではなく `scene/sceneClock.ts` を読む（2026-10-29 に一時停止機能は廃止した）。
 
-**この時計はレンダラの時刻が単調でないことを前提に組んである。** `frameloop` を `"demand"`↔`"always"` で切り替えると、R3F の `setFrameloop` が `clock.stop(); clock.elapsedTime = 0; clock.start(); clock.elapsedTime = 0` を実行する（`events-*.esm.js`）——詳細ページを開くたび・閉じるたびに**レンダラの時刻が0から数え直しになる**。`sceneClock` は内部に `restarts`（巻き戻り幅の累計）を持ち、渡された `elapsed` が前回より小さければその差を積んで補正する。これが無いと、時刻の関数で位置が決まるもの（マーカーの脈動と `strikeIndex`、動画）が**閉じた瞬間に一斉にワープする**——しかも `Hub.tsx` は progress がわずかでも立てば `setCovered(false)` を投げるので、スペーサが透けて部屋が見えている状態で起きる。**`frameloop` の切り替え自体は残す**——省電力のためのもので、直すべきはこちら側。
+**この時計はレンダラの時刻が単調でないことを前提に組んである。** `frameloop` を `"demand"`↔`"always"` で切り替えると、R3F の `setFrameloop` が `clock.stop(); clock.elapsedTime = 0; clock.start(); clock.elapsedTime = 0` を実行する（`events-*.esm.js`）——**切り替えるたびにレンダラの時刻が0から数え直しになる**。`sceneClock` は内部に `restarts`（巻き戻り幅の累計）を持ち、渡された `elapsed` が前回より小さければその差を積んで補正する。これが無いと、時刻の関数で位置が決まるもの（マーカーの脈動と `strikeIndex`、動画）が**切り替えの瞬間に一斉にワープする**。2026-10-30 まで、詳細シートがキャンバスを覆っているあいだ `"demand"` に落としていた（省電力）ので、シートを開くたび・閉じるたびに起きていた。**シートを外した今は何も切り替えていないが、補正は残す**——1フレーム1回の比較で済み、キャンバスを覆うものができたら最初に戻したくなるのがこの省電力だから。
 
 ### スマホは別の場面として組む（2026-09-12）
 
@@ -158,12 +158,12 @@
 | | PC | スマホ |
 | --- | --- | --- |
 | セクション一覧 | ヘッダーのナビ | 全画面パネル（`hub/MobileMenu.tsx`） |
-| ヘッダー右 | 言語 / 照明（シート表示中は閉じる） | 言語 / メニュー（シート表示中は閉じるに入れ替わる） |
+| ヘッダー右 | 言語 / 照明（1280px 未満はその前にメニュー） | 言語 / 照明 / メニュー |
 | ズーム（画角） | **トラックパッドのピンチ**（`ctrlKey` 付き `wheel`。標準⇄魚眼） | 2本指ピンチ（標準⇄魚眼）。寄るのはマーカーや机のタップ |
 | ツアーの飛行・縦スクロール | ホイール／トラックパッドの2本指スクロール | **2本指スクロール**（`twoFingerGesture()` が間隔の変化と区別する） |
 | カード | 画面中央左のスタック、縦スワイプ／ホイールで送る | 画面下のレール、横スワイプで送る（`hub/card/CardRail.tsx`） |
 | 外部リンク・著作権 | 左下のドック・右下のフッター | 全画面パネルの中 |
-| HOME ボタン | 画面下中央 | カードのすぐ上・画面中央。カードの無い PC と自己紹介では画面下中央（`hub/HomeButton.tsx` を両方が使う） |
+| 戻る（BACK）ボタン | 画面下中央 | カードのすぐ上・画面中央。カードの無い PC と自己紹介では画面下中央（`hub/HomeButton.tsx` を両方が使う） |
 | 照明 | ヘッダーの照明メニュー | 同じ（メニューボタンの左） |
 | 画角 | 標準 水平90°（寄ると67°） / 魚眼 161° | 標準 縦78° / 魚眼 横90°（仮） |
 | 縦のずらし | 0 | 被写体をカードレールの上の帯の真ん中へ（`cardLift` = 0.21） |
@@ -191,22 +191,23 @@ AdSense の審査で「有用性の低いコンテンツ」として不合格に
 
 | URL | ファイル | 中身 |
 | --- | --- | --- |
-| `/about` | `app/(reading)/about/page.tsx` ＋ `detail/About.tsx` | 自己紹介・プロフィール（2026-10-29 独立ページ化） |
+| `/about` | `app/(reading)/about/page.tsx` ＋ `detail/About.tsx` | 自己紹介・プロフィール（2026-10-30 独立ページ化） |
 | `/products` | `app/(reading)/products/page.tsx` | 制作実績の一覧 |
 | `/products/[slug]` | `app/(reading)/products/[slug]/page.tsx` ＋ `content/products/<slug>.mdx` | 制作実績ごとの紹介。先頭と末尾に Play Now（ポップアップと同じボタン） |
-| `/skills` | `app/(reading)/skills/page.tsx` ＋ `detail/Skills.tsx` | 技術スタック一覧（2026-10-29 独立ページ化） |
-| `/experience` | `app/(reading)/experience/page.tsx` ＋ `detail/Experience.tsx` | 経歴・活動タイムライン（2026-10-29 独立ページ化） |
-| `/contact` | `app/(reading)/contact/page.tsx` ＋ `detail/Contact.tsx` | お問い合わせ窓口（2026-10-29 独立ページ化） |
+| `/skills` | `app/(reading)/skills/page.tsx` ＋ `detail/Skills.tsx` | 技術スタック一覧（2026-10-30 独立ページ化） |
+| `/experience` | `app/(reading)/experience/page.tsx` ＋ `detail/Experience.tsx` | 経歴・活動タイムライン（2026-10-30 独立ページ化） |
+| `/contact` | `app/(reading)/contact/page.tsx` ＋ `detail/Contact.tsx` | お問い合わせ窓口（2026-10-30 独立ページ化） |
 | `/notes` | `app/(reading)/notes/page.tsx` | ノートの一覧 |
 | `/notes/[slug]` | `app/(reading)/notes/[slug]/page.tsx` ＋ `content/notes/<slug>.mdx` | 技術日記 |
 
 - **ルートグループ `(reading)` で共通のヘッダー・フッターを持つ**（`app/(reading)/layout.tsx`、`reading/ReadingHeader.tsx`／`ReadingFooter.tsx`）。URL にグループ名は出ない。フッターの文字は `gray-500`——ハブの `gray-400` は暗い空向けで、クリーム地ではコントラスト比が約2.5:1になる
-- **見た目はハブの詳細シートに揃える**（2026-09-19 ユーザーの指定。最初は編集的な長文として別の意匠を立てていたが、「プライバシーポリシーに似た、ほかの画面と違う見た目」として差し戻された）。**ハブの部品をコピーせず、そのものを使う**: ロゴ（`ui/Wordmark.tsx`）、白い丸のナビ（`hub/NavPills.tsx`）、全画面メニュー（`hub/MobileMenu.tsx`）、オレンジの縦棒の見出し（`detail/SectionHeading.tsx`）、公開状態・カテゴリのバッジ（`detail/products/Badges.tsx`）。一覧はハブのカード（制作実績は `ProjectCard` の形で3列、ノートは経歴のカードの語彙で2列）、紹介ページは**ポップアップを1ページに開いた形**（画像・題・Overview / Tech Stack・Play Now / View Code）
+- **2026-10-30 から、ここはエリアのページでもある。** 部屋のカード・ヘッダーのナビ・全画面メニューから、エリアはそれぞれのページへ移る（`hub/nav.ts` の `NAV` の `page`。ハブでも `next/link`）。部屋に残るのは自己紹介のホログラムと PC の画面だけ
+- **見た目はハブの詳細シートに揃える**（2026-09-19 ユーザーの指定。2026-10-30 にシートそのものは無くなり、ここが元になった。最初は編集的な長文として別の意匠を立てていたが、「プライバシーポリシーに似た、ほかの画面と違う見た目」として差し戻された）。**ハブの部品をコピーせず、そのものを使う**: ロゴ（`ui/Wordmark.tsx`）、白い丸のナビ（`hub/NavPills.tsx`）、全画面メニュー（`hub/MobileMenu.tsx`）、オレンジの縦棒の見出し（`detail/SectionHeading.tsx`）、公開状態・カテゴリのバッジ（`detail/products/Badges.tsx`）。一覧はハブのカード（制作実績は `ProjectCard` の形で3列、ノートは経歴のカードの語彙で2列）、紹介ページは**ポップアップを1ページに開いた形**（画像・題・Overview / Tech Stack・Play Now / View Code）
   - **ヘッダーはその場固定＋背景透明（`fixed top-0 inset-x-0 z-40 bg-transparent`）。** トップ画面と同じ四隅の家具（左上: Miiiwa. タイトルロゴ、右上: 言語切り替え・閉じるボタン・NavPills/Menu）をピクセル単位で揃え、長文コンテンツは固定家具の下を滑らかに通過するレイアウトとした（2026-09-19 ユーザー指定）。左下にはハブと同じ PC アイコンドック（`ReadingDock.tsx`）を配置。
     - **スクロール中は本文がヘッダーに重なる**（PC 1440px で `h2` が丸いナビの下に隠れ、スマホ 390px でロゴが本文の行に乗る）。**承知のうえでこのまま**（2026-09-20 ユーザー判断）。AdSense のポリシーが禁じているのは「広告が本文やナビに重なる」ことで、サイト自身のヘッダーではない。直すなら固定は保ったまま帯に背景色を敷く
-  - **本文はカードに入れず、シートの上に直接置く。** 375px でカードの余白を足すと1行が約20字から約17字に減る。PC では `md:px-10` で、上のカードの内側の文字と左端を揃える
-- **読み物のページからハブ（`/` と `/#…`）へのリンクは素の `<a>`**（`hub/nav.ts` の `leadsToHub()`。ナビ・メニュー・ロゴ・MDX の本文のリンクが従う）。理由は2つ、どちらも本番ビルドで実測:
-  - `AppStateProvider` はルートの `layout.tsx` にあってページをまたいで生き残り、**ハッシュを読むのは最初のマウントのときだけ**。`<Link href="/#experience">` で移ると、URL は `#experience` なのにシートが開かなかった
+  - **本文はカードに入れず、シートの上に直接置く。** 375px でカードの余白を足すと1行が約20字から約17字に減る。PC では `md:px-10` で、上のカードの内側の文字と左端を揃える。**2026-10-30 の刷新で本文がカードに入り、段の幅の上限（`max-w-[44rem]`）も外れた**（375px で17.2字、1440px で58.2字。実測）。ユーザーの確認待ち（[review.md](review.md) の R-1）
+- **読み物のページからハブ（`/` と `/#desk`）へのリンクは素の `<a>`**（`hub/nav.ts` の `leadsToHub()`。ロゴ・閉じるボタン・パンくず・MDX の本文のリンクが従う）。理由は2つ、どちらも本番ビルドで実測:
+  - `AppStateProvider` はルートの `layout.tsx` にあってページをまたいで生き残り、**ハッシュを読むのは最初のマウントのときだけ**。`<Link href="/#experience">` で移ると、URL は `#experience` なのにシートが開かなかった（シートがあった頃の実測。`/#desk` で同じことが起きる）
   - `next/link` は画面に入ったリンク先を先読みする。ロゴが `<Link href="/">` だった間、**読み物のページを開くたびに three.js を含むハブの3チャンク（約1.27MB）を取得していた**。`<a>` にして0件
   - 逆向き（ハブ → 読み物のページ）は `next/link` のままでよい。ブラウザの戻るは `popstate` でハブが URL を読み直す
 - **`output: 'export'` のまま動的ルートを書き出す。** `generateStaticParams` がデータ（`PROJECTS`／`NOTES`）から slug を列挙し、`dynamicParams = false` で列挙外を 404 にする（同梱ドキュメント `01-app/02-guides/static-exports.md` の「Unsupported Features」——`dynamicParams: true` と `generateStaticParams` 無しは書き出せない）。本文は `` await import(`@/content/products/${slug}.mdx`) ``（同 `mdx.md` の「Using dynamic imports」）
@@ -219,7 +220,7 @@ AdSense の審査で「有用性の低いコンテンツ」として不合格に
 - **制作実績の本文の事実は、各サービスのリポジトリから取る**（2026-09-19 のユーザーの許可。`AGENTS.md` の「参照範囲」の例外）。未公開のサービス（gashaan・Umoja・Reallog・thanks-log・MelTalk・plavo）は、事業計画や料金のような内部の話を書かない。公開済みのサービスでも、**サービス側が画面に出さないと決めたこと**（漏洩百貨店の記事を AI が書いていること、bukka_now の集計に生成した回答が入っていること）は書かない（2026-10-21）
 - **ポップアップの「Read More」**（`detail/products/ProjectModal.tsx`）は `next/link`。Code／Play と違い、このアプリのルートだから。塗りつぶしのボタンは Play の1つのままにしてある（最優先の行動は「サービスで遊ぶ」——ユーザーの指定）
 - **ヘッダーの「ノート」はセクションではない。** 建物もマーカーもカードも持たず、押すとジオラマを出て `/notes` へ行く。建物ごと足す案もあったが、UI の刷新が近いのでナビのリンクだけにした（ユーザー判断）。`SectionType` には足していない
-  - **ナビは2本のリストで、あいだに区切りを描く**（`hub/nav.ts`）。`NAV` は部屋の5エリア（`section` だけを持つ）、`PAGE_LINKS` はハブの外のページ（`page` だけを持つ。今はノートだけ）。PC のナビ（`hub/NavPills.tsx`）は 5エリア ｜ ノート、全画面メニュー（`hub/MobileMenu.tsx`）は 01〜05 のあとに横線を引き、ノートの行は番号の代わりに「↗」（ジオラマを出る印）。読み物のページでは `pageLinkForPath()` がノートを光らせ、エリアはどのページでも光らない
+  - **ナビは2本のリストで、あいだに区切りを描く**（`hub/nav.ts`）。`NAV` は部屋の5エリア（`section` と、そのページの `page` を持つ）、`PAGE_LINKS` はハブの外のページ（`page` だけを持つ。今はノートだけ）。PC のナビ（`hub/NavPills.tsx`）は 5エリア ｜ ノート、全画面メニュー（`hub/MobileMenu.tsx`）は 01〜05 のあとに横線を引き、ノートの行は番号の代わりに「↗」（ジオラマを出る印）。読み物のページでは `pageLinkForPath()` が、いま開いているページの項目（エリアのページならそのエリア、ノートならノート）を光らせる
   - **経緯**: 2026-09-19 に「5エリア ｜ ノート」で作り、同日に区切りを外して経歴の前へ（ユーザーの指定）、さらに同日にナビから外して左下の PC アイコンの中の本のアイコンへ移した（同）。**2026-09-20 に「｜ ノート」で戻した**（同）。本のアイコンだけでは、ノートへの見える入口が「ホバーで出るラベルの無いアイコン」しか無く、ハブの HTML で画面に見える `/notes` へのリンクは0本だった（`sr-only` の中だけ）。ノートは AdSense の「有用性の低いコンテンツ」への答えの中心なので、ラベル付きで最初から見える場所に置く。PC アイコンの本のアイコンは残してあり、全画面メニューの下段にあった本のアイコンは、同じパネルにノートの行ができたので外した
   - `PAGE_LINKS` の行き先はサイトマップにあること（＝ビルドが書き出すページであること）を `nav.test.ts` で押さえている。ページのリンクは `next/link`（ハブに入らないので `leadsToHub` は偽）
 - **全画面メニューは、画面の高さが足りないと行を詰める。** 6行と区切りは原寸で約740px を要し、iPhone SE の Safari は 548〜603px しか残さない。ノートの行を足したら 375×667 で下段のアイコンに 19px 重なり、320×568 で先頭が上に 6px 切れた。高さ 760px 以下で行の余白と文字を1段小さく（約615px で収まる）、640px 以下で英語の副題を隠す（約520px で収まる）。548〜932px の6通りで、行が閉じるボタンと下段のアイコンのあいだに収まる（隙間は最小 33px）。**`[@media(max-height:…)]` の変異はクラス名を省略せずに書く**——Tailwind はソースの文字列からクラスを拾うので、テンプレート文字列で組み立てた名前は CSS が生成されない
@@ -229,14 +230,13 @@ AdSense の審査で「有用性の低いコンテンツ」として不合格に
 
 ### その他
 
-- **省電力**: 詳細ページがキャンバスを覆っている間は `frameloop="demand"` に切り替え、毎秒1回だけ描画する。**切り替えはレンダラの時計をリセットする**ので、`sceneClock` 側の補正とセット（「ジオラマの時計」参照）。
-- **URL**: 開いているセクションをハッシュ（`#products` 等）に反映し、戻るボタンとリンク共有に対応。**PC に座っているあいだは `#desk`**（シートを持たないので、区画とは別の規則。`state/sectionUrl.ts` の `hashForState`）。セクションの詳細シートはクライアント描画だが、PC の画面のウィンドウとホログラムの文は部屋の中の HTML として書き出される。
-- **経歴から制作実績へ（`detail/Sheet.tsx`）。** 経歴のうち `project`（実績の slug）を持つ項目はカード全体がボタンになり、押すと制作実績に切り替わって、その実績のモーダルが最初から開く。切り替えはヘッダーのナビがシートを開いたまま行うのと同じ `setActiveSection("products")` で、URL も `#products` に進むので、ブラウザの戻るで経歴に帰れる。**「どの実績を開くか」は `AppStateContext` ではなく `Sheet` の state に持つ**——Context に置くと、変わるたびに three.js のツリー全体が再調停される（「毎フレームの値は React state に載せない」）うえ、シーンには関係の無い値だから。`Products` はそれを `useState` の初期値として**マウント時に一度だけ**読み、以後モーダルは読み手のもの（閉じたら戻ってこない）。**依頼は制作実績以外のセクションへ移った瞬間に捨てる**。effect ではなく、前回の `activeSection` を state に持ってレンダー中に比べる形（React の「前回のレンダーの情報を保存する」）——effect で消すと、このプロジェクトの lint（`react-hooks/set-state-in-effect`）に掛かり、描画も1回余分に走る。捨てないと、経歴で押した直後（`Products` がマウントされる前、シートの切り替えアニメーションの0.3秒）に別のセクションへ移ったとき、あとで普通に制作実績を開いた瞬間に関係の無いモーダルが開く
+- **URL**: **PC に座っているあいだは `#desk`**（ユーザーの指定、2026-10-01。`state/sectionUrl.ts` の `hashForState`）。戻るボタンで立ち上がり、リンクを開けば座った状態から始まる。エリアには URL のハッシュを付けない——ページが別にあるから。**シートの頃のリンク（`/#products`・`/#skills`・`/#experience`・`/#contact`）は、ハブが開いた瞬間にそのページへ `location.replace` で送る**（`movedToPage`。2026-10-29 まで読み物のページのナビもこの形で、外にも出ている）。`/#about` は元々シートを持たずホログラムを指していたので、そのまま部屋で開く。送るのはパスが `/` のときだけ——`AppStateProvider` はルートの `layout.tsx` にあり、読み物のページの `#` は見出しへのリンクだから
+- **経歴から制作実績へ。** 経歴のうち `project`（実績の slug）を持つ項目はカード全体が実績のページへの `next/link`、`url` を持つ項目は外部への `<a target="_blank">`（`detail/Experience.tsx` の `MilestoneCard`）。ボタンにして `router.push`／`window.open` で開く形を外したのは、新しいタブで開けず（中クリック・右クリック）、クローラーにもリンクとして見えないから。**PC の画面の中では、実績の項目だけボタンのまま**——ページではなく、同じ画面の制作実績のウィンドウにその実績のポップアップを開いて切り替える（`onOpenProject`、`hub/desk/DeskScreen.tsx` の state）
 - **制作実績の Code／Play は `next/link` ではなく素の `<a>`（`detail/products/ProjectLinks.tsx`）。** 実績のリンク先は、他ドメインか、同じサイトに同居させた過去バージョン（`/archive/v0`・`/archive/v1`、[structure.md](structure.md) の「`public/archive/`」）のどちらかで、**このアプリのルートは1つも無い**。`<Link>` は本番でビューポートに入ったリンクを自分のルートとして先読みするので、`/archive/v1` を指すと**実績を開いただけで v1 のルートツリー・CSS・フォントの計6件を取りに行く**（本番ビルドで実測。`<a>` にして0件）。`target="_blank"` なのでクリック時のクライアント遷移は元々起きず、`<Link>` を使う利点が無い。
 
 ## テスト
 - **Vitest**（node環境）。React も three.js も含まない純粋ロジックのみを対象にしているため、DOMもレンダラも不要で全体が1秒未満で走る（件数は `AGENTS.md` の「コマンド」にだけ書く）。
-- 対象: 部屋の配置・ズームの寄り方・座る位置と椅子・壁の柱（`scene/room/layout.ts`）、巡回の輪（`scene/room/tour.ts`）、HTML を載せる板の位置（`scene/room/screens.ts`）、照明の切り替え（`scene/room/lighting.ts`）、体の関節（`scene/room/self.ts`）、歩き（`scene/room/gait.ts`）、座る度合いと椅子の位置（`scene/room/seat.ts`）、カーブミラーの位置（`scene/room/mirror.ts`）、歩く飛行（`scene/camera/walkFlight.ts`）、レンズの式（`scene/camera/fisheye.ts`）、カメラの姿勢・画面上の位置・飛行・ずらし（`scene/camera/roomCamera.ts`）、CSS の3D変換が WebGL の射影と一致すること（`scene/camera/cssView.ts`）、首振りの減衰と視点の揺れ（`scene/camera/cameraMotion.ts`）、マーカーの可視判定（`scene/camera/markerScreen.ts`）、マーカーの形（`scene/markerBolt.ts`）、Mac のゲームの規則・音とデスクトップのクリック・キー・時間（`scene/mac/snake.ts`・`breakout.ts`・`mines.ts`・`sounds.ts`・`finder.ts`）、座ったときの4つの視点とゲームのズーム（`scene/room/deskViews.ts`）、ジェスチャの判定（`scene/viewGesture.ts`）、ジオラマの時計（`scene/sceneClock.ts`）、決定論的ハッシュ（`scene/hash.ts`）、制作実績のフィルタ（`detail/products/catalog.ts`）、経歴の並び順とリンク先の実在（`data/experience.ts`）、プロジェクトデータの言語解決と、実績が指す画像・過去バージョンが配信物に実在し、過去バージョンが自分のディレクトリの外を指さず、検索よけ（`noindex`）が入っているか（`data/projectModel.ts`。これだけは `public/` を読む）、URL の解釈（`state/sectionUrl.ts`）、ナビの並びと、読み物のページからの行き先（`hub/nav.ts`）、カードレールの窓（`hub/card/railLayout.ts`）、詳細ページの退場方向（`detail/detailSheet.ts`）、カードのホイール送り（`hub/card/cardWheel.ts`）、点線の稲妻（`hub/card/lightningPath.ts`）、自己紹介の自動再生と読了判定（`hub/about/aboutScroll.ts`）、自己紹介の文の全角（`hub/about/aboutCopy.tsx` を読む）、ノートの並び順と日付の書式（`data/noteModel.ts`）、読み物のページのメタデータ（`reading/pageMeta.ts`）、サイトマップ（`app/sitemap.ts`）、`ads.txt` と発行者 ID の一致（`data/site.ts`）、読み物の本文の実在・最低文字数・サイト内リンクの実在（`content/`。`src/content/` を読む）。
+- 対象: 部屋の配置・ズームの寄り方・座る位置と椅子・壁の柱（`scene/room/layout.ts`）、巡回の輪（`scene/room/tour.ts`）、HTML を載せる板の位置（`scene/room/screens.ts`）、照明の切り替え（`scene/room/lighting.ts`）、体の関節（`scene/room/self.ts`）、歩き（`scene/room/gait.ts`）、座る度合いと椅子の位置（`scene/room/seat.ts`）、カーブミラーの位置（`scene/room/mirror.ts`）、歩く飛行（`scene/camera/walkFlight.ts`）、レンズの式（`scene/camera/fisheye.ts`）、カメラの姿勢・画面上の位置・飛行・ずらし（`scene/camera/roomCamera.ts`）、CSS の3D変換が WebGL の射影と一致すること（`scene/camera/cssView.ts`）、首振りの減衰と視点の揺れ（`scene/camera/cameraMotion.ts`）、マーカーの可視判定（`scene/camera/markerScreen.ts`）、マーカーの形（`scene/markerBolt.ts`）、Mac のゲームの規則・音とデスクトップのクリック・キー・時間（`scene/mac/snake.ts`・`breakout.ts`・`mines.ts`・`sounds.ts`・`finder.ts`）、座ったときの4つの視点とゲームのズーム（`scene/room/deskViews.ts`）、ジェスチャの判定（`scene/viewGesture.ts`）、ジオラマの時計（`scene/sceneClock.ts`）、決定論的ハッシュ（`scene/hash.ts`）、制作実績のフィルタ（`detail/products/catalog.ts`）、経歴の並び順とリンク先の実在（`data/experience.ts`）、プロジェクトデータの言語解決と、実績が指す画像・過去バージョンが配信物に実在し、過去バージョンが自分のディレクトリの外を指さず、検索よけ（`noindex`）が入っているか（`data/projectModel.ts`。これだけは `public/` を読む）、URL の解釈（`state/sectionUrl.ts`）、ナビの並びと、読み物のページからの行き先（`hub/nav.ts`）、カードレールの窓（`hub/card/railLayout.ts`）、経歴の年ごとのまとめ（`detail/experienceTimeline.ts`）、カードのホイール送り（`hub/card/cardWheel.ts`）、点線の稲妻（`hub/card/lightningPath.ts`）、自己紹介の自動再生と読了判定（`hub/about/aboutScroll.ts`）、自己紹介の文の全角（`hub/about/aboutCopy.tsx` を読む）、ノートの並び順と日付の書式（`data/noteModel.ts`）、読み物のページのメタデータ（`reading/pageMeta.ts`）・パンくず（`reading/breadcrumbs.ts`）・前後の記事（`reading/adjacentEntry.ts`）・本文を見出しごとに区切ること（`reading/splitMdxBody.ts`。実際の MDX をすべてコンパイルして確かめる）、「」囲みのクラス（`ui/cornerBracketClasses.ts`）、サイトマップ（`app/sitemap.ts`）、`ads.txt` と発行者 ID の一致（`data/site.ts`）、読み物の本文の実在・最低文字数・サイト内リンクの実在（`content/`。`src/content/` を読む）。
 - 新しいテストは**変異テストで検証する運用**にしている。意図的なバグを仕込んで落ちることを確認しないと、緑であることに意味がないため。
 
 ```bash

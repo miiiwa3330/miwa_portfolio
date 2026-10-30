@@ -18,7 +18,7 @@ type Props = {
 };
 
 /**
- * Filter bar for products, styled in the loo100 aesthetic (radius: 0, box-label, fine border).
+ * Filter bar for products, in the site's box style (square corners, a box label, a fine border).
  * Selected filter boxes are enclosed in corner brackets ("「」").
  */
 export default function ProductFilters({

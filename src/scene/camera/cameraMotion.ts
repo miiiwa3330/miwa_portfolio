@@ -129,11 +129,12 @@ export function idleSway(t: number): { yaw: number; pitch: number; height: numbe
  * Symmetrical rather than an ease-*out*, which is what camera-controls' own
  * `smoothTime` damping gives you. A damped flight spends most of its travel in
  * its first moments, and the flight that matters most here — backing out of a
- * section once the detail page is dismissed — begins with the sheet still
+ * section once the detail sheet was dismissed — began with the sheet still
  * sliding off the screen. Nearly all of the movement therefore happened behind
  * an opaque panel, and what was left when the canvas came back into view was
  * the last tenth of it: a snap, not a camera pulling back. Holding the start
- * still buys that half-second back.
+ * still bought that half-second back. (The sheet went on 2026-10-30; a flight
+ * still starts and ends still, which is what a head turning does.)
  */
 export function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;

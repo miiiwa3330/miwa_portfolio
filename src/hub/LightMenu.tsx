@@ -12,8 +12,11 @@ import CornerBrackets from "@/ui/CornerBrackets";
  * in the room — both only call `flipLight`, and the state they change is
  * held once (`AppStateContext`).
  *
- * Styled in the loo100 aesthetic (radius: 0, box-label, fine border).
- * The button is enclosed in corner brackets ("「」") while the menu is open.
+ * One button in the header that opens a short list, rather than three more
+ * buttons: the header is already full on a phone.
+ *
+ * The site's box style (square corners, a box label, a fine border). The
+ * button is enclosed in corner brackets ("「」") while the menu is open.
  */
 export default function LightMenu({ isJa }: { isJa: boolean }) {
   const { lights, flipLight } = useAppState();

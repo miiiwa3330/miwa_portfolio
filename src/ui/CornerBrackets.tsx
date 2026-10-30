@@ -6,8 +6,8 @@ type Props = CornerBracketConfig & {
 
 /**
  * Visual 4-corner bracket frame ("「」") to enclose a rectangular element.
- * Follows the industrial / HUD aesthetic (zero radius, monochrome, sharp corners)
- * used in loo100 and Cyberpunk/sci-fi displays.
+ * Part of the site's box style (square corners, monochrome, fine lines; see
+ * docs/tech.md): drawn round whatever is hovered or selected.
  */
 export default function CornerBrackets({
   size = "sm",

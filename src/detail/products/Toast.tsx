@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import CornerBrackets from "@/ui/CornerBrackets";
 
-/** Transient message pinned to the bottom of the viewport, styled in loo100 aesthetic. */
+/** Transient message pinned to the bottom of the viewport, in the site's box style. */
 export default function Toast({ children }: { children: React.ReactNode }) {
   return (
     <motion.div

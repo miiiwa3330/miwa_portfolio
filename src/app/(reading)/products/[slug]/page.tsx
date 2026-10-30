@@ -70,7 +70,7 @@ export default async function ProductPage({ params }: Params) {
       }}
     >
       <article>
-        {/* Header card matching the industrial loo100 style and full max-w-6xl width */}
+        {/* The header card, at the index pages' full max-w-6xl width */}
         <header className="relative group rounded-none bg-white border border-black/20 overflow-hidden">
           <CornerBrackets
             size="lg"

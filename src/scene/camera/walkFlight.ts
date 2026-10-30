@@ -18,9 +18,7 @@ import { ROLL_IN, seatShare, seatedShare, standForward } from "../room/seat";
  *
  * Where nothing walks (turning on the spot, a change of lens), it is the
  * plain glide it always was (`easedMove`), and never shorter than the
- * duration asked for: a walk shorter than that is slowed to fit, so a flight
- * that starts behind the detail page still has most of its way to go when
- * the page has slid off.
+ * duration asked for: a walk shorter than that is slowed to fit.
  */
 
 /** **Provisional (仮).** The walking pace, in m/s — brisk; a room 6.6 m across. */

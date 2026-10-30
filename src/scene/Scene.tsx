@@ -130,16 +130,11 @@ const WHEEL_REARM_MS = 220;
  * walks takes as long as the walk (`camera/walkFlight.ts`), which out to an
  * area is longer than either.
  *
- * Two values, and the one in play is chosen by whether the detail page was
- * covering the canvas when the flight began — not by which control started it.
- * The sheet takes roughly 0.3s to slide off the screen, and a flight underneath
- * it is a flight nobody sees; the longer figure is what leaves most of the
- * pull-back still to come at the moment the diorama is uncovered. With nothing
- * in the way there is nothing to wait for, and the same delay would only read
- * as the camera being slow off the mark.
+ * (There was a second, longer figure, 1.6s, for a flight that began behind the
+ * detail sheet as it slid away. The sheet went on 2026-10-30, and with it the
+ * only flight anyone could not see the start of.)
  */
 const FLIGHT_SECONDS = 1.1;
-const RETURN_SECONDS = 1.6;
 
 /** Straight-line distance between two tracked pointers, in screen px. */
 function pointerDistance(a: { x: number; y: number }, b: { x: number; y: number }): number {
@@ -358,8 +353,8 @@ function useViewInput(
       }
     };
 
-    // A hard flick that dismisses the detail page keeps emitting wheel events
-    // for a second or two after the fingers leave the trackpad. A stream that
+    // A hard flick keeps emitting wheel events for a second or two after the
+    // fingers leave the trackpad. A stream that
     // began while locked is refused until the wheel falls quiet: a genuinely
     // new gesture always starts after a pause.
     let lastWheelAt = 0;
@@ -419,7 +414,6 @@ function useViewInput(
     };
   }, [canvas, yawRef, pitchRef, yawTargetRef, pitchTargetRef, tourURef, draggingRef, followTourRef, lockedRef, flightRef, onPinchZoom]);
 }
-
 
 /** The keys that walk: W/A/S/D by where they are on the keyboard, whatever the layout prints on them. */
 const WALK_CODES = new Set(["KeyW", "KeyA", "KeyS", "KeyD"]);
@@ -481,29 +475,6 @@ function useWalkKeys(): { read: () => WalkKeys } {
   };
 }
 
-
-/**
- * While the detail page covers the canvas there is nothing to look at, so the
- * render loop is switched to on-demand and nudged about once a second instead
- * of running at 60fps behind an opaque panel. Rendering the room for an
- * audience of nobody competes for the same main thread the sheet animation and
- * the section mount are using.
- */
-const OBSCURED_HEARTBEAT_MS = 1000;
-
-function IdleHeartbeat({ obscured }: { obscured: boolean }) {
-  const invalidate = useThree((state) => state.invalidate);
-
-  useEffect(() => {
-    if (!obscured) return;
-    const id = setInterval(invalidate, OBSCURED_HEARTBEAT_MS);
-    return () => clearInterval(id);
-  }, [obscured, invalidate]);
-
-  return null;
-}
-
-
 /** Yaw and pitch, in radians, of the tour at `u`. */
 function tourAngles(u: number): { yaw: number; pitch: number } {
   const d = ROOM_TOUR.direction(u);
@@ -511,7 +482,7 @@ function tourAngles(u: number): { yaw: number; pitch: number } {
 }
 
 function CameraController() {
-  const { activeSection, pageOpen, homeNonce, turnRequest, viewZoom, setViewZoom } = useAppState();
+  const { activeSection, homeNonce, turnRequest, viewZoom, setViewZoom } = useAppState();
 
   // Whether the card is the strip along the bottom rather than the panel on
   // the left — which decides whether the subject has to be slid clear of it.
@@ -564,7 +535,6 @@ function CameraController() {
   const prevSectionRef = useRef<Focus>(null);
   const prevNonceRef = useRef(homeNonce);
   const prevZoomRef = useRef(viewZoom);
-  const prevPageOpenRef = useRef(pageOpen);
 
   /** The flight in progress, if any. The record and its step are in `camera/roomCamera.ts`. */
   const flightRef = useRef<RoomFlight | null>(null);
@@ -581,13 +551,13 @@ function CameraController() {
 
   // Turning only makes sense in the free view — lock out drag/wheel input
   // whenever a section is focused, so stray gestures can't accumulate.
-  const lockedRef = useRef(pageOpen || !!activeSection);
+  const lockedRef = useRef(!!activeSection);
   useEffect(() => {
-    lockedRef.current = pageOpen || !!activeSection;
+    lockedRef.current = !!activeSection;
     // Stepping into an area hands the cursor back: what is there — the card,
-    // the PC's screen, the page — is read and clicked with it.
+    // the PC's screen, the hologram — is read and clicked with it.
     if (lockedRef.current && document.pointerLockElement) document.exitPointerLock();
-  }, [pageOpen, activeSection]);
+  }, [activeSection]);
 
   const canvas = useThree((state) => state.gl.domElement);
   useViewInput(canvas, yawRef, pitchRef, yawTargetRef, pitchTargetRef, tourURef, draggingRef, followTourRef, lockedRef, flightRef, setViewZoom);
@@ -605,7 +575,7 @@ function CameraController() {
     sectionRef.current = activeSection;
   }, [activeSection]);
   useEffect(() => {
-    if (activeSection !== "desk" || pageOpen) return;
+    if (activeSection !== "desk") return;
     let latch: SwipeLatch | null = null;
     const onWheel = (e: WheelEvent) => {
       // A pinch, the page's own controls, or a screen: not a swipe between the screens.
@@ -629,7 +599,7 @@ function CameraController() {
     };
     window.addEventListener("wheel", onWheel, { passive: false });
     return () => window.removeEventListener("wheel", onWheel);
-  }, [activeSection, pageOpen]);
+  }, [activeSection]);
 
   // Sat at the desk: a click on nothing — not a screen, not the page's
   // controls, not a key or a mouse on the desk — captures the mouse, and the
@@ -639,7 +609,7 @@ function CameraController() {
   // again. The head turns only as far as a neck goes from the way the body
   // faces (`NECK`).
   useEffect(() => {
-    if (activeSection !== "desk" || pageOpen) return;
+    if (activeSection !== "desk") return;
     lookedAwayRef.current = false;
     const captured = () => document.pointerLockElement === canvas;
     const onPointerDown = (e: PointerEvent) => {
@@ -660,7 +630,7 @@ function CameraController() {
       window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointermove", onPointerMove);
     };
-  }, [activeSection, pageOpen, canvas]);
+  }, [activeSection, canvas]);
   useEffect(() => {
     /** Where a view holds the camera: the Mac's zoomed to its screen while a game is open on it (`macGamePose`). */
     const held = (view: DeskView): RoomPose =>
@@ -784,9 +754,7 @@ function CameraController() {
     const wasZoomChange = viewZoom !== prevZoomRef.current;
     prevZoomRef.current = viewZoom;
 
-    // Longer when the detail page was covering the canvas as the flight was
-    // asked for — most of a short flight would happen behind the sheet.
-    const duration = prevPageOpenRef.current ? RETURN_SECONDS : FLIGHT_SECONDS;
+    const duration = FLIGHT_SECONDS;
 
     /** Turn the free view to `yaw`/`pitch` and fly there, at the current stage. */
     const flyToFree = (yaw: number, pitch: number) => {
@@ -829,7 +797,7 @@ function CameraController() {
       return;
     }
 
-    // 4. The free view's stage changed (a pinch, or the zoom control) while
+    // 4. The free view's stage changed (a pinch) while
     //    already in the free view: same direction, new field of view.
     if (wasZoomChange) {
       flyToFree(yawRef.current, pitchRef.current);
@@ -844,11 +812,6 @@ function CameraController() {
     pitchRef.current = home.pitch;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSection, homeNonce, viewZoom]);
-
-  // Declared after the effect above so that effect always reads the previous value.
-  useEffect(() => {
-    prevPageOpenRef.current = pageOpen;
-  }, [pageOpen]);
 
   // Ahead of every other frame callback (a negative priority still leaves
   // the rendering to R3F): the markers project through this camera, and if
@@ -1023,10 +986,8 @@ function Crosshair() {
 }
 
 export default function Scene({
-  obscured = false,
   interactive = true,
 }: {
-  obscured?: boolean;
   /**
    * Whether the canvas should accept pointer events right now. `<Canvas>`'s
    * own outermost div sets an inline `pointerEvents` style, which beats any
@@ -1040,7 +1001,6 @@ export default function Scene({
       <Canvas
         camera={{ position: [0, EYE_HEIGHT, 0], fov: 45, near: 0.05, far: 60 }}
         dpr={[1, 2]}
-        frameloop={obscured ? "demand" : "always"}
         events={roomEvents}
         style={interactive ? undefined : { pointerEvents: "none" }}
         // The prototype's exposure, for its placeholder lights. Not a design
@@ -1054,7 +1014,6 @@ export default function Scene({
         <RoomScene />
         <CameraController />
         <LensRenderer />
-        <IdleHeartbeat obscured={obscured} />
       </Canvas>
       <Crosshair />
     </>

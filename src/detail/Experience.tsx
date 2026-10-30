@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import Image from "next/image";
 import { Monoton } from "next/font/google";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
 import CornerBrackets from "@/ui/CornerBrackets";
@@ -19,12 +19,15 @@ const timelineYearFont = Monoton({
 });
 
 type Props = {
-  /** Switch to Products with this project's modal open (optional). */
+  /**
+   * Switch to Products with this project's modal open — on the PC's screen,
+   * where Experience is a window and Products is another. Without it (the
+   * `/experience` page) a project's card is a link to the project's page.
+   */
   onOpenProject?: (slug: string) => void;
 };
 
 export default function Experience({ onOpenProject }: Props = {}) {
-  const router = useRouter();
   const { language } = useLanguage();
   const isJa = language === "ja";
 
@@ -75,36 +78,7 @@ export default function Experience({ onOpenProject }: Props = {}) {
                   const title = exp.title[language];
                   const project = exp.project ? projects.get(exp.project) : undefined;
                   const externalUrl = exp.url;
-                  const open = project
-                    ? () => {
-                        if (onOpenProject) {
-                          onOpenProject(project.slug);
-                        } else {
-                          router.push(productPath(project.slug));
-                        }
-                      }
-                    : externalUrl
-                      ? () => {
-                          window.open(externalUrl, "_blank", "noopener,noreferrer");
-                        }
-                      : undefined;
-                  const buttonProps = open
-                    ? {
-                        role: "button",
-                        tabIndex: 0,
-                        onClick: open,
-                        onKeyDown: (e: React.KeyboardEvent) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            open();
-                          }
-                        },
-                        "aria-label": project
-                          ? `${title} - ${isJa ? `${project.title} の紹介を開く` : `Open ${project.title}`}`
-                          : `${title} - ${externalUrl}`,
-                      }
-                    : {};
-
+                  const clickable = !!project || !!externalUrl;
                   return (
                     <motion.div
                       key={`${exp.period} ${exp.title.en}`}
@@ -156,13 +130,23 @@ export default function Experience({ onOpenProject }: Props = {}) {
                         </div>
                       </div>
 
-                      {/* Right column: Milestone card */}
+                      {/* Right column: Milestone card. A milestone tied to a
+                          project or a site is itself the way there, so the
+                          whole card takes the tap — a phone has no hover to
+                          discover a smaller target with. */}
                       <div className={`flex-1 min-w-0 pl-2 sm:pl-4 ${isLast ? "pb-2" : "pb-6 sm:pb-8"}`}>
-                        <div
-                          {...buttonProps}
-                          className={`relative group/card p-5 sm:p-6 rounded-none bg-white border border-black/20 shadow-none transition-all duration-200 ${
-                            open
-                              ? "hover:border-[#ea580c] cursor-pointer select-none focus-visible:outline-none"
+                        <MilestoneCard
+                          href={project ? productPath(project.slug) : externalUrl}
+                          external={!project && !!externalUrl}
+                          onOpen={project && onOpenProject ? () => onOpenProject(project.slug) : undefined}
+                          label={
+                            project
+                              ? `${title} - ${isJa ? `${project.title} の紹介を開く` : `Open ${project.title}`}`
+                              : undefined
+                          }
+                          className={`block relative group/card p-5 sm:p-6 rounded-none bg-white border border-black/20 shadow-none transition-all duration-200 ${
+                            clickable
+                              ? "hover:border-[#ea580c] cursor-pointer focus-visible:outline-none focus-visible:border-[#ea580c]"
                               : "hover:border-black"
                           }`}
                         >
@@ -170,7 +154,7 @@ export default function Experience({ onOpenProject }: Props = {}) {
                             size="sm"
                             offset="tight"
                             strokeWidth="2"
-                            colorClass={open ? "border-[#ea580c]" : "border-neutral-900"}
+                            colorClass={clickable ? "border-[#ea580c]" : "border-neutral-900"}
                             className="opacity-0 group-hover/card:opacity-100 transition-opacity"
                           />
                           <h3 className="font-bold text-neutral-950 text-lg sm:text-xl mb-2">
@@ -185,6 +169,8 @@ export default function Experience({ onOpenProject }: Props = {}) {
                               <div className="relative w-16 aspect-[1200/630] shrink-0 overflow-hidden rounded-none border border-black/15 bg-neutral-100">
                                 <Image src={project.image} alt="" fill sizes="64px" className="object-cover" />
                               </div>
+                              {/* Stacked on a phone: side by side, the call to action
+                                  left a one-word name like "Synesthesium" no room. */}
                               <div className="min-w-0 flex-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-0.5 sm:gap-3">
                                 <span className="min-w-0 text-sm font-bold text-neutral-900 leading-snug break-words">
                                   {project.title}
@@ -208,7 +194,7 @@ export default function Experience({ onOpenProject }: Props = {}) {
                               </span>
                             </div>
                           )}
-                        </div>
+                        </MilestoneCard>
                       </div>
                     </motion.div>
                   );
@@ -220,4 +206,61 @@ export default function Experience({ onOpenProject }: Props = {}) {
       </div>
     </DetailSection>
   );
+}
+
+/**
+ * A milestone's card, as whatever it leads to: a link to the project's page
+ * or out to the site (a real `<a>`, so a middle-click, a new tab and a crawler
+ * all work), a button where a handler stands in for the page (`onOpen`, the
+ * PC's screen), or a plain box where it leads nowhere.
+ */
+function MilestoneCard({
+  href,
+  external,
+  onOpen,
+  label,
+  className,
+  children,
+}: {
+  href: string | undefined;
+  external: boolean;
+  onOpen: (() => void) | undefined;
+  label: string | undefined;
+  className: string;
+  children: React.ReactNode;
+}) {
+  if (onOpen) {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={label}
+        onClick={onOpen}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onOpen();
+          }
+        }}
+        className={`${className} select-none`}
+      >
+        {children}
+      </div>
+    );
+  }
+  if (href && external) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
+        {children}
+      </a>
+    );
+  }
+  if (href) {
+    return (
+      <Link href={href} aria-label={label} className={className}>
+        {children}
+      </Link>
+    );
+  }
+  return <div className={className}>{children}</div>;
 }

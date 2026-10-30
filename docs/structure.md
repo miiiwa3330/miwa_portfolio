@@ -25,7 +25,7 @@
 
 - **2026-10-01 に部屋の中への移行（[room-migration.md](room-migration.md)）で、`scene/planet/`（球面の幾何）・`scene/voxel/`（ボクセルエンジン）・惑星の部品・`sunLight`・`planetPlacement`・`camera/cameraLayout`・`camera/cameraFlight` を外した。** 部屋の側が借りていたものは移した: `hash01`（`voxel/rng.ts` → `scene/hash.ts`）、`Direction` 型（`planet/geometry.ts` → `scene/direction.ts`）、`Tour` 型（`planet/tour.ts` → `room/tour.ts`）、首振りの減衰とカードの横寄せ（`cameraLayout.ts` → `camera/cameraMotion.ts`）、`MAX_FLIGHT_STEP`（`cameraFlight.ts` → `roomCamera.ts`）。当時のコードは `v1-voxel-planet` のタグで読める
 - **`camera/cameraLayout.ts` と `planet/geometry.ts` の旧称は `worldLayout.ts` / `planetLayout.ts`**（devlog 202607〜202608 の記述はこの旧称のまま。どちらも今は無い）
-- **同じ5エリアを指す語は `section` に統一してある。** `SectionCard`（旧 `AreaCard`）・`SectionMarkers`（旧 `AreaMarkers`）も含めて、コード内で `Area` は使わない（画面に出る日本語が「エリア」なのは別の話）。詳細ページの見出しコンテナは `detail/DetailSection.tsx` で、`SectionType` とは無関係
+- **同じ5エリアを指す語は `section` に統一してある。** `SectionCard`（旧 `AreaCard`）・`SectionMarkers`（旧 `AreaMarkers`）も含めて、コード内で `Area` は使わない（画面に出る日本語が「エリア」なのは別の話）。エリアのページの見出しコンテナは `detail/DetailSection.tsx` で、`SectionType` とは無関係
 - **`SectionType`・`Stop`・`Focus` は `@/types` からだけ読む。** `AppStateContext` の再エクスポート経由という第2の経路は撤去済み。`ViewZoom` は `@/scene/room/layout` が唯一の定義元。`room/layout.ts` は `Stop` を再エクスポートしているが、定義は `@/types`
 - **`/lab` のページ本体は `app/lab/page.dev.tsx`。** `next.config.ts` の `pageExtensions` が、開発のときだけ `dev.tsx` を拾う。`output: 'export'` では `app/` の下のページが全部書き出されるので、本番のビルドからルートごと外した（`notFound()` で404にする案は、`out/lab.html` と、ラボのコードのチャンクが配信物に残ったので退けた。詳細は [devlog 2026-10-22](devlog/202610.md#2026-10-22)）。`next.config.ts` を変えたら dev サーバーを起動し直す
 - **`RoomScene.tsx` は default export（`RoomScene`）に加えて、部屋の部品（`Shell`・`Desk`・`Shelf`・`Bookcase`・`PortholeAndHammock`・`Board`・`Comms`・`Door`・`Workbench`・`Lights`）を named で出している。** `/lab` が1つずつ描くため。部品を足したら `lab/parts.ts` に1行足す
@@ -41,7 +41,7 @@
 | 置き場 | 何が入るか |
 | --- | --- |
 | `app/(reading)/` | ルートグループ。`layout.tsx`（共通のヘッダー・フッター）と `about/`・`products/`・`skills/`・`experience/`・`contact/`・`notes/` の一覧と個別ページ。**グループ名は URL に出ない** |
-| `reading/` | 読み物のページだけが使う部品（`ReadingHeader`／`ReadingFooter`／`ReadingDock`／`BackLink`／`ProductActions`／`ProductList`／`NoteList`）と、メタデータの組み立て（`pageMeta.ts`） |
+| `reading/` | 読み物のページだけが使う部品（`ReadingHeader`／`ReadingFooter`／`ReadingDock`／`ArticlePager`／`ProseSections`／`ProductActions`／`ProductList`／`NoteList`）と、その純粋関数（メタデータ `pageMeta.ts`・パンくず `breadcrumbs.ts`・前後の記事 `adjacentEntry.ts`・本文の区切り `groupProseByHeading.ts`／`splitMdxBody.ts`）。**`ProseSections.tsx` と `splitMdxBody.ts` のように、大文字小文字だけが違う名前を同じディレクトリに置かない**（macOS のファイルシステムは区別せず、`tsc` が「同じファイル」として落ちる。2026-10-30 に踏んだ） |
 | `content/products/<slug>.mdx` | 制作実績の本文。**`data/projects.ts` の全 slug に1つずつ**（テストが両方向の過不足を見る） |
 | `content/notes/<slug>.mdx` | ノートの本文。事実（題・日付・要約）は `data/notes.ts` 側に書き、MDX には `#` の見出しを書かない |
 | `mdx-components.tsx` | MDX の本文の型。`@next/mdx` が `app/` と同じ階層を要求するので `src/` 直下に置く（ここだけ `src/` 直下のファイル） |

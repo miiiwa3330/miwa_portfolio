@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { hasSheet, hashForSection, hashForState, sectionFromHash } from "./sectionUrl";
+import sitemap from "@/app/sitemap";
+import { siteUrl } from "@/data/site";
+import { pathForSection } from "@/hub/nav";
+import { hashForSection, hashForState, movedToPage, sectionFromHash } from "./sectionUrl";
 
 describe("sectionFromHash", () => {
   it("reads every real section", () => {
@@ -42,18 +45,27 @@ describe("the desk's URL", () => {
     expect(sectionFromHash(hashForSection("desk"))).toBe("desk");
   });
 
-  it("shows #desk while sitting at the desk, which has no sheet to be open", () => {
-    expect(hashForState("desk", false)).toBe("#desk");
+  it("shows #desk while sitting at the desk", () => {
+    expect(hashForState("desk")).toBe("#desk");
   });
 
-  it("shows an area only while its sheet is open, as before", () => {
-    expect(hashForState("products", true)).toBe("#products");
-    expect(hashForState("products", false)).toBe("");
-    expect(hashForState(null, false)).toBe("");
+  it("shows nothing for an area: its page is a page of its own now", () => {
+    for (const id of ["about", "products", "skills", "experience", "contact", null] as const) {
+      expect(hashForState(id)).toBe("");
+    }
+  });
+});
+
+describe("the old links", () => {
+  it("sends on the four areas that had a sheet, and nothing else", () => {
+    for (const id of ["products", "skills", "experience", "contact"] as const) expect(movedToPage(id)).toBe(true);
+    for (const id of ["about", "desk", null] as const) expect(movedToPage(id)).toBe(false);
   });
 
-  it("opens a sheet for the four areas that have one, and for nothing else", () => {
-    for (const id of ["products", "skills", "experience", "contact"] as const) expect(hasSheet(id)).toBe(true);
-    for (const id of ["about", "desk", null] as const) expect(hasSheet(id)).toBe(false);
+  it("sends them to pages the build writes", () => {
+    const urls = sitemap().map((entry) => entry.url);
+    for (const id of ["products", "skills", "experience", "contact"] as const) {
+      expect(urls).toContain(siteUrl(pathForSection(id)));
+    }
   });
 });

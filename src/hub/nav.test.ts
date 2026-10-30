@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import sitemap from "@/app/sitemap";
 import { siteUrl } from "@/data/site";
-import { NAV, PAGE_LINKS, leadsToHub, navItemForSection, navKey, offHubHref, pageLinkForPath } from "./nav";
+import { NAV, PAGE_LINKS, leadsToHub, navItemForSection, navKey, pageLinkForPath } from "./nav";
 
 const byLabel = (ja: string) => {
   const item = NAV.find((i) => i.ja === ja);
@@ -51,13 +51,14 @@ describe("PAGE_LINKS", () => {
   });
 });
 
-describe("offHubHref", () => {
-  it("leads to the dedicated page for the area", () => {
-    expect(offHubHref(byLabel("自己紹介"))).toBe("/about");
-    expect(offHubHref(byLabel("制作実績"))).toBe("/products");
-    expect(offHubHref(byLabel("技術スタック"))).toBe("/skills");
-    expect(offHubHref(byLabel("経歴・活動"))).toBe("/experience");
-    expect(offHubHref(byLabel("お問い合わせ"))).toBe("/contact");
+describe("an area's page", () => {
+  it("is its own page, not the hub", () => {
+    expect(byLabel("自己紹介").page).toBe("/about");
+    expect(byLabel("制作実績").page).toBe("/products");
+    expect(byLabel("技術スタック").page).toBe("/skills");
+    expect(byLabel("経歴・活動").page).toBe("/experience");
+    expect(byLabel("お問い合わせ").page).toBe("/contact");
+    for (const item of NAV) expect(leadsToHub(item.page)).toBe(false);
   });
 });
 

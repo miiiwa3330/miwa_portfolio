@@ -14,6 +14,6 @@ export type Stop = NonNullable<SectionType> | "desk";
 /**
  * What the camera has stepped in to, if anything: one of the areas, or the
  * desk. The desk is focused like an area — the camera steps in, sits down at
- * it — but it has no detail page and no card.
+ * it — but it has no page of its own and no card.
  */
 export type Focus = Stop | null;

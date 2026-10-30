@@ -43,13 +43,6 @@ export function navKey(item: NavEntry): string {
   return "section" in item ? item.section : item.page;
 }
 
-/**
- * Where an area leads: its dedicated static reading page.
- */
-export function offHubHref(item: NavItem): string {
-  return item.page;
-}
-
 /** Root-relative path for a section. */
 export function pathForSection(section: NonNullable<SectionType>): string {
   const item = NAV.find((i) => i.section === section);

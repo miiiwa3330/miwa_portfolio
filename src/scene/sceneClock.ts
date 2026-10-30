@@ -1,8 +1,9 @@
 /**
- * The diorama's own monotonic sense of time.
+ * The diorama's own sense of time: one number that only ever goes forward.
  *
- * Everything that moves on its own reads this instead of the renderer's clock,
- * keeping autonomous motion smooth across render-loop state transitions.
+ * Everything that moves on its own reads this instead of the renderer's clock.
+ * It used to be what the pause button stopped (removed 2026-10-29); what is
+ * left is the guard against the renderer's clock going backwards, below.
  *
  * Deliberately not React state. It is read inside `useFrame` by components
  * that must never re-render at 60Hz, the same reasoning as `markerScreen.ts`.
@@ -11,7 +12,7 @@
 export type SceneClock = {
   /** Scene time, given the renderer's own elapsed time for this frame. */
   time(elapsed: number): number;
-  /** This frame's step — always realDelta since diorama time only flows forward. */
+  /** This frame's step. The renderer's own: kept as the one place a step is taken from, as `time` is. */
   delta(realDelta: number): number;
 };
 
@@ -19,19 +20,14 @@ export function createSceneClock(): SceneClock {
   /**
    * The renderer's clock is not monotonic, so this carries the resets.
    *
-   * `frameloop` is switched to `"demand"` while the detail page covers the
-   * canvas and back to `"always"` when it starts to come off (see Scene.tsx and
-   * Hub's `sceneObscured`). R3F's `setFrameloop` does `clock.stop();
-   * clock.elapsedTime = 0; clock.start(); clock.elapsedTime = 0` — so
-   * `elapsedTime` **restarts from zero twice per visit to a detail page**, and
-   * everything whose position is a function of scene time teleports on that one
-   * frame: the clouds, the marker pulse and the strike the leader line is drawn
-   * from. The reveal happens while the reader is scrolling into a transparent
-   * spacer, so it is in view when it lands.
-   *
-   * Absorbed here rather than by giving up the `demand` throttle, which is the
-   * cheapest thing this page does for its battery. Everything downstream keeps
-   * reading one number that only ever goes forward.
+   * R3F's `setFrameloop` does `clock.stop(); clock.elapsedTime = 0;
+   * clock.start(); clock.elapsedTime = 0`, so every switch of `frameloop`
+   * restarts `elapsedTime` from zero, and everything whose position is a
+   * function of scene time would teleport on that one frame. Until 2026-10-30
+   * the canvas was switched to `"demand"` behind the detail sheet and back,
+   * twice per visit. Nothing switches it now; the guard stays, because it costs
+   * a comparison a frame and the throttle is the first thing to reach for
+   * again whenever the canvas is covered.
    */
   let lastElapsed = 0;
   let restarts = 0;

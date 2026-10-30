@@ -55,11 +55,12 @@ function fileName(key: FileKey, label: string): string {
 }
 
 /**
- * How much larger the window's contents are drawn than on the detail sheet.
+ * How much larger the window's contents are drawn than on their own pages
+ * (`/products`, …), where the same components are laid out.
  * **Provisional (仮).** At the seated zoom the GUI's px come out at about 0.7
  * of their size on a 1600px frame (measured on the first, 1240px screen;
  * the larger monitor keeps the same px to the metre, `DESK_SCREEN_PX`), so
- * the sheet's 16px body text is about 11px. The prototype read comfortably
+ * a page's 16px body text is about 11px. The prototype read comfortably
  * at 22px; 1.3 brings 16px to about 21px.
  */
 const WINDOW_ZOOM = 1.3;
@@ -99,8 +100,8 @@ export default function DeskScreen({
   openTerminal: () => void;
 }) {
   const [open, setOpen] = useState<FileKey | null>(null);
-  // The project an Experience milestone asked Products to open with — the
-  // same hand-off the detail sheet makes (`Sheet.tsx`).
+  // The project an Experience milestone asked Products to open with: the
+  // window switches to Products with that project's popup already open.
   const [project, setProject] = useState<string | null>(null);
 
   const openFile = (key: FileKey) => {

@@ -14,12 +14,12 @@ describe("sceneClock", () => {
     expect(clock.delta(1 / 60)).toBe(1 / 60);
   });
 
-  // R3F restarts `clock.elapsedTime` from zero every time `frameloop` changes,
-  // which this page does twice per visit to a detail page (see `restarts`).
+  // R3F restarts `clock.elapsedTime` from zero every time `frameloop` changes
+  // (see `restarts`).
   describe("when the renderer's clock restarts from zero", () => {
     it("does not send the scene back in time", () => {
       clock.time(40); // read the diorama for forty seconds
-      // The detail page opens, then closes: elapsedTime is back at zero.
+      // `frameloop` is switched: elapsedTime is back at zero.
       expect(clock.time(0)).toBe(40);
       expect(clock.time(0.5)).toBe(40.5);
     });

@@ -1,7 +1,7 @@
-import { Children, Fragment, isValidElement, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useMDXComponents } from "@/mdx-components";
 import CornerBrackets from "@/ui/CornerBrackets";
-import { groupProseByHeading } from "./groupProseByHeading";
+import { splitMdxBody } from "./splitMdxBody";
 
 type Props = {
   Body: (props: { components?: ReturnType<typeof useMDXComponents> }) => ReactNode;
@@ -9,21 +9,18 @@ type Props = {
 
 /**
  * Renders an MDX body grouped by its `h2` ("｜" bar) headings so each `｜`
- * prose unit displays corner brackets ("「」") when hovered/selected.
+ * prose unit displays corner brackets ("「」") when hovered.
+ *
+ * The body is called as a function rather than rendered as `<Body />`: the
+ * grouping needs its top-level blocks, and a rendered element only exposes
+ * itself. A compiled MDX body is a plain function (no hooks; its
+ * `useMDXComponents` is ours, which is not one either), so calling it on the
+ * server is safe. A `wrapper` in `mdx-components.tsx` would break the split
+ * silently (one frame round everything) — see `splitMdxBody`.
  */
 export default function ProseSections({ Body }: Props) {
   const components = useMDXComponents();
-  const root = Body({ components });
-  const rawNodes: ReactNode[] =
-    isValidElement<{ children?: ReactNode }>(root) && root.type === Fragment
-      ? Children.toArray(root.props.children)
-      : Children.toArray(root);
-
-  const sections = groupProseByHeading(
-    rawNodes,
-    (node) => isValidElement(node) && (node.type === components.h2 || node.type === "h2"),
-    (node) => typeof node === "string" && node.trim() === "",
-  );
+  const sections = splitMdxBody(Body({ components }), components.h2);
 
   return (
     <div className="space-y-8 sm:space-y-10">

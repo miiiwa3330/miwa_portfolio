@@ -13,8 +13,8 @@
  * wheel's slow-down and catch-up, which existed only so the camera driven by
  * `scrollTop` would not judder.
  *
- * The arithmetic lives here rather than inline for the same reason the sheet's
- * does: the awkward cases are all about numbers, and they are worth pinning
+ * The arithmetic lives here rather than inline for the same reason the
+ * camera's does: the awkward cases are all about numbers, and they are worth pinning
  * down without a DOM.
  */
 
