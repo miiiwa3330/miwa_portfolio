@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import Image from "next/image";
+import { Outfit } from "next/font/google";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
@@ -10,6 +11,12 @@ import DetailSection from "./DetailSection";
 import { buildTimelineRows } from "./experienceTimeline";
 import { useLanguage } from "@/state/LanguageContext";
 import { EXPERIENCE, PROJECTS, localizeProjects, productPath, type Project } from "@/data";
+
+const timelineNumberFont = Outfit({
+  subsets: ["latin"],
+  weight: ["700", "800"],
+  display: "swap",
+});
 
 type Props = {
   /** Switch to Products with this project's modal open (optional). */
@@ -71,14 +78,16 @@ export default function Experience({ onOpenProject }: Props = {}) {
               className="group relative flex items-stretch"
             >
               {/* Left column: Outlined 4-digit year (shown only on the first milestone of each year) */}
-              <div className="w-16 sm:w-28 md:w-32 shrink-0 text-right pr-3 sm:pr-6 pt-3.5 sm:pt-4">
-                {showYear && (
-                  <span
-                    className="inline-block text-2xl sm:text-4xl md:text-[2.75rem] font-black leading-none tracking-tight select-none tabular-nums text-transparent [-webkit-text-stroke:1.5px_#ea580c] sm:[-webkit-text-stroke:2px_#ea580c]"
-                  >
-                    {year}
-                  </span>
-                )}
+              <div className="w-16 sm:w-28 md:w-32 shrink-0 pr-3 sm:pr-6">
+                <div className="mt-4 sm:mt-5 h-9 flex items-center justify-end">
+                  {showYear && (
+                    <span
+                      className={`${timelineNumberFont.className} inline-block text-2xl sm:text-4xl md:text-[2.6rem] font-extrabold leading-none tracking-tight select-none tabular-nums text-background [paint-order:stroke_fill] [-webkit-text-stroke:3px_#ea580c] sm:[-webkit-text-stroke:3.5px_#ea580c]`}
+                    >
+                      {year}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Axis column: Vertical dashed line + vermilion node */}
@@ -86,35 +95,41 @@ export default function Experience({ onOpenProject }: Props = {}) {
                 {!isFirst && (
                   <div
                     aria-hidden="true"
-                    className="absolute top-0 h-7 left-1/2 -translate-x-1/2 border-l-2 border-dashed border-neutral-500/70"
+                    className="absolute top-0 h-[34px] sm:h-[38px] left-1/2 -translate-x-1/2 border-l-2 border-dashed border-neutral-500/70"
                   />
                 )}
                 {!isLast && (
                   <div
                     aria-hidden="true"
-                    className="absolute top-7 bottom-0 left-1/2 -translate-x-1/2 border-l-2 border-dashed border-neutral-500/70"
+                    className="absolute top-[34px] sm:top-[38px] bottom-0 left-1/2 -translate-x-1/2 border-l-2 border-dashed border-neutral-500/70"
                   />
                 )}
-                <div
-                  aria-hidden="true"
-                  className="mt-5 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-[#ea580c] relative z-10 shrink-0 transition-transform duration-200 group-hover:scale-125"
-                />
+                <div className="mt-4 sm:mt-5 h-9 flex items-center justify-center relative z-10">
+                  <div
+                    aria-hidden="true"
+                    className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-[#ea580c] shrink-0 transition-transform duration-200 group-hover:scale-125"
+                  />
+                </div>
               </div>
 
               {/* Month column */}
-              <div className="w-11 sm:w-16 shrink-0 pl-2 sm:pl-3.5 pt-4 select-none tabular-nums">
-                {monthNumber !== null && (
-                  isJa ? (
-                    <span className="inline-flex items-baseline text-neutral-900">
-                      <span className="text-xl sm:text-2xl font-black leading-none">{monthNumber}</span>
-                      <span className="text-xs sm:text-sm font-bold ml-0.5">月</span>
-                    </span>
-                  ) : (
-                    <span className="text-sm sm:text-base font-black uppercase tracking-wider text-neutral-900">
-                      {monthLabelEn}
-                    </span>
-                  )
-                )}
+              <div className="w-11 sm:w-16 shrink-0 pl-2 sm:pl-3.5 select-none tabular-nums">
+                <div className="mt-4 sm:mt-5 h-9 flex items-center">
+                  {monthNumber !== null && (
+                    isJa ? (
+                      <span className="inline-flex items-baseline text-neutral-900">
+                        <span className={`${timelineNumberFont.className} text-xl sm:text-2xl font-bold leading-none`}>
+                          {monthNumber}
+                        </span>
+                        <span className="text-xs sm:text-sm font-bold ml-0.5">月</span>
+                      </span>
+                    ) : (
+                      <span className={`${timelineNumberFont.className} text-sm sm:text-base font-bold uppercase tracking-wider text-neutral-900`}>
+                        {monthLabelEn}
+                      </span>
+                    )
+                  )}
+                </div>
               </div>
 
               {/* Right column: Milestone card */}
