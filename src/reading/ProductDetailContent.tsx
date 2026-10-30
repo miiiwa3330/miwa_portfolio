@@ -158,3 +158,4 @@ export default function ProductDetailContent({ slug, bodyJa, bodyEn }: Props) {
     </ArticlePager>
   );
 }
+

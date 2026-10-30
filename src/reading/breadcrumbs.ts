@@ -55,6 +55,8 @@ export function bottomNavForPath(pathname: string, isJa: boolean): BottomNavInfo
   const matched = allEntries.find((entry) => pathname === entry.page || pathname === `${entry.page}/`);
   if (matched) {
     breadcrumbs.push({ label: isJa ? matched.ja : matched.en });
+  } else if (pathname !== "/") {
+    breadcrumbs.push({ label: "404 Not Found" });
   }
 
   return {

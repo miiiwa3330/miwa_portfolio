@@ -40,10 +40,10 @@
 
 | 置き場 | 何が入るか |
 | --- | --- |
-| `app/(reading)/` | ルートグループ。`layout.tsx`（共通のヘッダー・フッター）と `about/`・`products/`・`skills/`・`experience/`・`contact/`・`notes/` の一覧と個別ページ。**グループ名は URL に出ない** |
-| `reading/` | 読み物のページだけが使う部品（`ReadingHeader`／`ReadingFooter`／`ReadingDock`／`ArticlePager`／`ProseSections`／`ProductActions`／`ProductList`／`NoteList`）と、その純粋関数（メタデータ `pageMeta.ts`・パンくず `breadcrumbs.ts`・前後の記事 `adjacentEntry.ts`・本文の区切り `groupProseByHeading.ts`／`splitMdxBody.ts`）。**`ProseSections.tsx` と `splitMdxBody.ts` のように、大文字小文字だけが違う名前を同じディレクトリに置かない**（macOS のファイルシステムは区別せず、`tsc` が「同じファイル」として落ちる。2026-10-30 に踏んだ） |
-| `content/products/<slug>.mdx` | 制作実績の本文。**`data/projects.ts` の全 slug に1つずつ**（テストが両方向の過不足を見る） |
-| `content/notes/<slug>.mdx` | ノートの本文。事実（題・日付・要約）は `data/notes.ts` 側に書き、MDX には `#` の見出しを書かない |
+| `app/(reading)/` | ルートグループ。`layout.tsx`（共通のヘッダー・フッター）と `about/`・`products/`・`skills/`・`experience/`・`contact/`・`notes/` の一覧と個別ページ。**グループ名は URL に出ない**。404 ページは App Router 規約によりルート直下の `app/not-found.tsx` に置き、同じヘッダー・フッターの殻を使う |
+| `reading/` | 読み物のページだけが使う部品（`ReadingHeader`／`ReadingFooter`／`ReadingDock`／`ArticlePager`／`ProseSections`／`ProductActions`／`ProductList`／`NoteList`／`ProductDetailContent`／`NoteDetailContent`／`NotFoundView`）と、その純粋関数（メタデータ `pageMeta.ts`・パンくず `breadcrumbs.ts`・前後の記事 `adjacentEntry.ts`・本文の区切り `groupProseByHeading.ts`／`splitMdxBody.ts`）。**`ProseSections.tsx` と `splitMdxBody.ts` のように、大文字小文字だけが違う名前を同じディレクトリに置かない**（macOS のファイルシステムは区別せず、`tsc` が「同じファイル」として落ちる。2026-10-30 に踏んだ） |
+| `content/products/<slug>.mdx` | 制作実績の本文（英語版は `content/products/en/<slug>.mdx`）。**`data/projects.ts` の全 slug に1つずつ**（テストが両方向の過不足を見る） |
+| `content/notes/<slug>.mdx` | ノートの本文（英語版は `content/notes/en/<slug>.mdx`）。事実（題・日付・要約）は `data/notes.ts` 側に書き、MDX には `#` の見出しを書かない |
 | `mdx-components.tsx` | MDX の本文の型。`@next/mdx` が `app/` と同じ階層を要求するので `src/` 直下に置く（ここだけ `src/` 直下のファイル） |
 | `data/site.ts` | サイトの URL と AdSense の発行者 ID。`https://miiiwa.com` を直書きしない |
 

@@ -106,3 +106,4 @@ export default function NoteDetailContent({ slug, bodyJa, bodyEn }: Props) {
     </ArticlePager>
   );
 }
+

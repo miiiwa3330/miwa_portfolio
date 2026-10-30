@@ -39,5 +39,22 @@ describe("bottomNavForPath", () => {
     expect(note.backHref).toBe("/notes");
     expect(note.backLabel).toBe("ノートの一覧に戻る");
   });
-});
 
+  it("builds breadcrumbs and back link for unmatched 404 routes", () => {
+    const unknownJa = bottomNavForPath("/unknown-page", true);
+    expect(unknownJa.breadcrumbs).toEqual([
+      { label: "トップ", href: "/" },
+      { label: "404 Not Found" },
+    ]);
+    expect(unknownJa.backHref).toBe("/");
+    expect(unknownJa.backLabel).toBe("トップへ戻る");
+
+    const unknownEn = bottomNavForPath("/unknown-page", false);
+    expect(unknownEn.breadcrumbs).toEqual([
+      { label: "Home", href: "/" },
+      { label: "404 Not Found" },
+    ]);
+    expect(unknownEn.backHref).toBe("/");
+    expect(unknownEn.backLabel).toBe("Back to Home");
+  });
+});
