@@ -75,14 +75,19 @@ export default function Experience({ onOpenProject }: Props = {}) {
                   has no hover to discover a smaller target with. */}
               <div
                 {...buttonProps}
-                className={`relative group/card w-[calc(100%-3.5rem)] md:w-[calc(50%-2.5rem)] p-5 sm:p-6 rounded-none bg-white border border-black/20 hover:border-black shadow-none transition-all duration-200 ${open
-                    ? "cursor-pointer select-none focus-visible:outline-none"
-                    : ""
-                  }`}
+                className={`relative group/card w-[calc(100%-3.5rem)] md:w-[calc(50%-2.5rem)] p-5 sm:p-6 rounded-none bg-white border border-black/20 shadow-none transition-all duration-200 ${
+                  open
+                    ? "hover:border-[#ea580c] cursor-pointer select-none focus-visible:outline-none"
+                    : "hover:border-black"
+                }`}
               >
-                {project && (
-                  <CornerBrackets size="sm" offset="tight" strokeWidth="2" colorClass="border-neutral-900" className="opacity-0 group-hover/card:opacity-100 transition-opacity" />
-                )}
+                <CornerBrackets
+                  size="sm"
+                  offset="tight"
+                  strokeWidth="2"
+                  colorClass={open ? "border-[#ea580c]" : "border-neutral-900"}
+                  className="opacity-0 group-hover/card:opacity-100 transition-opacity"
+                />
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
                   <h3 className="font-bold text-neutral-950 text-lg sm:text-xl">
                     {title}

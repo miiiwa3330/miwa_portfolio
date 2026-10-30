@@ -181,10 +181,10 @@ export const EXPERIENCE: ExperienceSource[] = [
   },
   {
     period: "2026.10",
-    title: { ja: "ポートフォリオの刷新", en: "Rebuilt the Portfolio as a 3D Room (v2)" },
+    title: { ja: "ポートフォリオの刷新（現ポートフォリオ）", en: "Rebuilt This Portfolio (Current Site)" },
     description: {
-      ja: "ポートフォリオサイトを「3Dの惑星（v1）」から、Three.js で手続き的に生成した「ロケットのコロニーの中の部屋（v2）」へ全面刷新。部屋の中央に立って見渡し、PCの画面やホログラムにも本物のHTMLを組み込む構成へと進化させる。",
-      en: "Completely rebuilt the portfolio from the 3D planet (v1) into a procedurally generated room inside a rocket colony (v2) with Three.js, combining a 3D room with real HTML inside the desktop PC and hologram.",
+      ja: "現在ご覧いただいているこのポートフォリオサイトへ全面刷新。「3Dの惑星（v1）」から、Three.js で手続き的に生成した「ロケットのコロニーの中の部屋」へ作り替え、部屋の中央に立って見渡し、PCの画面やホログラムにも本物のHTMLを組み込む構成へと進化させる。",
+      en: "Completely rebuilt this portfolio into the current site you are viewing now. Transitioned from the 3D planet (v1) to a procedurally generated room inside a rocket colony with Three.js, combining a 3D room with real HTML inside the desktop PC and hologram.",
     },
   },
   {
