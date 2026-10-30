@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import Image from "next/image";
-import { Poppins } from "next/font/google";
+import { Monoton } from "next/font/google";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
@@ -12,9 +12,9 @@ import { buildTimelineRows } from "./experienceTimeline";
 import { useLanguage } from "@/state/LanguageContext";
 import { EXPERIENCE, PROJECTS, localizeProjects, productPath, type Project } from "@/data";
 
-const timelineNumberFont = Poppins({
+const timelineYearFont = Monoton({
   subsets: ["latin"],
-  weight: ["700"],
+  weight: "400",
   display: "swap",
 });
 
@@ -77,16 +77,12 @@ export default function Experience({ onOpenProject }: Props = {}) {
               transition={{ duration: 0.35, delay: Math.min(index * 0.04, 0.25) }}
               className="group relative flex items-stretch"
             >
-              {/* Left column: Outlined 4-digit year (shown only on the first milestone of each year) */}
-              <div className="w-16 sm:w-28 md:w-32 shrink-0 pr-3 sm:pr-6">
+              {/* Left column: 4-digit year in Monoton inline font (shown only on the first milestone of each year) */}
+              <div className="w-20 sm:w-32 md:w-36 shrink-0 pr-3 sm:pr-6">
                 <div className="mt-4 sm:mt-5 h-9 flex items-center justify-end">
                   {showYear && (
                     <span
-                      style={{
-                        WebkitTextStroke: "2.5px #ea580c",
-                        paintOrder: "stroke fill",
-                      }}
-                      className={`${timelineNumberFont.className} inline-block text-2xl sm:text-4xl md:text-[2.4rem] font-bold leading-none tracking-wider select-none tabular-nums text-background`}
+                      className={`${timelineYearFont.className} inline-block text-xl sm:text-3xl md:text-4xl font-normal leading-none tracking-wider select-none text-[#ea580c]`}
                     >
                       {year}
                     </span>
@@ -122,13 +118,13 @@ export default function Experience({ onOpenProject }: Props = {}) {
                   {monthNumber !== null && (
                     isJa ? (
                       <span className="inline-flex items-baseline text-neutral-900">
-                        <span className={`${timelineNumberFont.className} text-xl sm:text-2xl font-bold leading-none`}>
+                        <span className="text-xl sm:text-2xl font-bold leading-none">
                           {monthNumber}
                         </span>
                         <span className="text-xs sm:text-sm font-bold ml-0.5">月</span>
                       </span>
                     ) : (
-                      <span className={`${timelineNumberFont.className} text-sm sm:text-base font-bold uppercase tracking-wider text-neutral-900`}>
+                      <span className="text-sm sm:text-base font-bold uppercase tracking-wider text-neutral-900">
                         {monthLabelEn}
                       </span>
                     )
