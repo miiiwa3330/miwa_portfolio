@@ -30,3 +30,4 @@ export function adjacentEntries<T extends { slug: string }>(
     total,
   };
 }
+

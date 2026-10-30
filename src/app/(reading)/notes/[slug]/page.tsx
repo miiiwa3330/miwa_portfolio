@@ -45,17 +45,11 @@ export default async function NotePage({ params }: Params) {
     <ArticlePager
       prev={{
         href: notePath(prev.slug),
-        shortLabel: "前のノート",
         title: prev.title,
-        subtitle: prev.description,
-        badge: formatNoteDate(prev.date),
       }}
       next={{
         href: notePath(next.slug),
-        shortLabel: "次のノート",
         title: next.title,
-        subtitle: next.description,
-        badge: formatNoteDate(next.date),
       }}
     >
       <article>

@@ -36,3 +36,4 @@ describe("adjacentEntries", () => {
     expect(adjacentEntries([], "first")).toBeNull();
   });
 });
+

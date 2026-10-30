@@ -57,17 +57,11 @@ export default async function ProductPage({ params }: Params) {
     <ArticlePager
       prev={{
         href: productPath(prev.slug),
-        shortLabel: prev.title,
         title: prev.title,
-        subtitle: prev.description,
-        badge: prev.category.toUpperCase(),
       }}
       next={{
         href: productPath(next.slug),
-        shortLabel: next.title,
         title: next.title,
-        subtitle: next.description,
-        badge: next.category.toUpperCase(),
       }}
     >
       <article>

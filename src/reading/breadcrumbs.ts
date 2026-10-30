@@ -63,3 +63,4 @@ export function bottomNavForPath(pathname: string, isJa: boolean): BottomNavInfo
     backLabel: isJa ? "トップへ戻る" : "Back to Home",
   };
 }
+

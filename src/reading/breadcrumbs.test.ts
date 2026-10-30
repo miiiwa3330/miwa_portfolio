@@ -40,3 +40,4 @@ describe("bottomNavForPath", () => {
     expect(note.backLabel).toBe("ノートの一覧に戻る");
   });
 });
+
