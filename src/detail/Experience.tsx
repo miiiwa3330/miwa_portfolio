@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import Image from "next/image";
-import { Outfit } from "next/font/google";
+import { Poppins } from "next/font/google";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
@@ -12,9 +12,9 @@ import { buildTimelineRows } from "./experienceTimeline";
 import { useLanguage } from "@/state/LanguageContext";
 import { EXPERIENCE, PROJECTS, localizeProjects, productPath, type Project } from "@/data";
 
-const timelineNumberFont = Outfit({
+const timelineNumberFont = Poppins({
   subsets: ["latin"],
-  weight: ["700", "800"],
+  weight: ["700"],
   display: "swap",
 });
 
@@ -82,7 +82,11 @@ export default function Experience({ onOpenProject }: Props = {}) {
                 <div className="mt-4 sm:mt-5 h-9 flex items-center justify-end">
                   {showYear && (
                     <span
-                      className={`${timelineNumberFont.className} inline-block text-2xl sm:text-4xl md:text-[2.6rem] font-extrabold leading-none tracking-tight select-none tabular-nums text-background [paint-order:stroke_fill] [-webkit-text-stroke:3px_#ea580c] sm:[-webkit-text-stroke:3.5px_#ea580c]`}
+                      style={{
+                        WebkitTextStroke: "2.5px #ea580c",
+                        paintOrder: "stroke fill",
+                      }}
+                      className={`${timelineNumberFont.className} inline-block text-2xl sm:text-4xl md:text-[2.4rem] font-bold leading-none tracking-wider select-none tabular-nums text-background`}
                     >
                       {year}
                     </span>
