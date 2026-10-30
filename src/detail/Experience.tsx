@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
 import CornerBrackets from "@/ui/CornerBrackets";
 import DetailSection from "./DetailSection";
+import { buildTimelineRows } from "./experienceTimeline";
 import { useLanguage } from "@/state/LanguageContext";
 import { EXPERIENCE, PROJECTS, localizeProjects, productPath, type Project } from "@/data";
 
@@ -25,10 +26,15 @@ export default function Experience({ onOpenProject }: Props = {}) {
     [language]
   );
 
+  const rows = useMemo(() => buildTimelineRows(EXPERIENCE), []);
+
   return (
     <DetailSection id="experience" title="Experience">
-      <div className="space-y-8 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-orange-500 before:via-orange-300 before:to-gray-200">
-        {EXPERIENCE.map((exp, index) => {
+      <div className="max-w-5xl mx-auto">
+        {rows.map((row, index) => {
+          const { entry: exp, year, showYear, monthNumber, monthLabelEn } = row;
+          const isFirst = index === 0;
+          const isLast = index === rows.length - 1;
           const title = exp.title[language];
           const project = exp.project ? projects.get(exp.project) : undefined;
           const open = project
@@ -54,70 +60,104 @@ export default function Experience({ onOpenProject }: Props = {}) {
                 "aria-label": `${title} - ${isJa ? `${project.title} の紹介を開く` : `Open ${project.title}`}`,
               }
             : {};
+
           return (
             <motion.div
               key={`${exp.period} ${exp.title.en}`}
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-40px" }}
-              transition={{ duration: 0.4, delay: Math.min(index * 0.05, 0.3) }}
-              className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group"
+              transition={{ duration: 0.35, delay: Math.min(index * 0.04, 0.25) }}
+              className="group relative flex items-stretch"
             >
-              {/* Timeline node */}
-              <div
-                className="flex items-center justify-center w-6 h-6 rounded-none border-2 border-[#fffdf7] shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 relative z-10 shadow-none transition-transform duration-200 group-hover:scale-110 bg-neutral-900"
-              >
-                <div className="w-1.5 h-1.5 bg-white rounded-none" />
+              {/* Left column: Outlined 4-digit year (shown only on the first milestone of each year) */}
+              <div className="w-16 sm:w-28 md:w-32 shrink-0 text-right pr-3 sm:pr-6 pt-3.5 sm:pt-4">
+                {showYear && (
+                  <span
+                    className="inline-block font-mono text-2xl sm:text-4xl md:text-[2.75rem] font-black leading-none tracking-tight select-none tabular-nums text-transparent [-webkit-text-stroke:1.5px_#ea580c] sm:[-webkit-text-stroke:2px_#ea580c]"
+                  >
+                    {year}
+                  </span>
+                )}
               </div>
 
-              {/* Timeline card. A milestone tied to a project is itself the way
-                  to that project, so the whole card takes the tap — a phone
-                  has no hover to discover a smaller target with. */}
-              <div
-                {...buttonProps}
-                className={`relative group/card w-[calc(100%-3.5rem)] md:w-[calc(50%-2.5rem)] p-5 sm:p-6 rounded-none bg-white border border-black/20 shadow-none transition-all duration-200 ${
-                  open
-                    ? "hover:border-[#ea580c] cursor-pointer select-none focus-visible:outline-none"
-                    : "hover:border-black"
-                }`}
-              >
-                <CornerBrackets
-                  size="sm"
-                  offset="tight"
-                  strokeWidth="2"
-                  colorClass={open ? "border-[#ea580c]" : "border-neutral-900"}
-                  className="opacity-0 group-hover/card:opacity-100 transition-opacity"
+              {/* Axis column: Vertical dashed line + vermilion node */}
+              <div className="relative flex flex-col items-center w-5 sm:w-6 shrink-0">
+                {!isFirst && (
+                  <div
+                    aria-hidden="true"
+                    className="absolute top-0 h-7 left-1/2 -translate-x-1/2 border-l-2 border-dashed border-neutral-500/70"
+                  />
+                )}
+                {!isLast && (
+                  <div
+                    aria-hidden="true"
+                    className="absolute top-7 bottom-0 left-1/2 -translate-x-1/2 border-l-2 border-dashed border-neutral-500/70"
+                  />
+                )}
+                <div
+                  aria-hidden="true"
+                  className="mt-5 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-[#ea580c] relative z-10 shrink-0 transition-transform duration-200 group-hover:scale-125"
                 />
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
-                  <h3 className="font-bold text-neutral-950 text-lg sm:text-xl">
+              </div>
+
+              {/* Month column */}
+              <div className="w-11 sm:w-16 shrink-0 pl-2 sm:pl-3.5 pt-4 font-mono select-none tabular-nums">
+                {monthNumber !== null && (
+                  isJa ? (
+                    <span className="inline-flex items-baseline text-neutral-900">
+                      <span className="text-xl sm:text-2xl font-black leading-none">{monthNumber}</span>
+                      <span className="text-xs sm:text-sm font-bold ml-0.5">月</span>
+                    </span>
+                  ) : (
+                    <span className="text-sm sm:text-base font-black uppercase tracking-wider text-neutral-900">
+                      {monthLabelEn}
+                    </span>
+                  )
+                )}
+              </div>
+
+              {/* Right column: Milestone card */}
+              <div className={`flex-1 min-w-0 pl-2 sm:pl-4 ${isLast ? "pb-2" : "pb-6 sm:pb-8"}`}>
+                <div
+                  {...buttonProps}
+                  className={`relative group/card p-5 sm:p-6 rounded-none bg-white border border-black/20 shadow-none transition-all duration-200 ${
+                    open
+                      ? "hover:border-[#ea580c] cursor-pointer select-none focus-visible:outline-none"
+                      : "hover:border-black"
+                  }`}
+                >
+                  <CornerBrackets
+                    size="sm"
+                    offset="tight"
+                    strokeWidth="2"
+                    colorClass={open ? "border-[#ea580c]" : "border-neutral-900"}
+                    className="opacity-0 group-hover/card:opacity-100 transition-opacity"
+                  />
+                  <h3 className="font-bold text-neutral-950 text-lg sm:text-xl mb-2">
                     {title}
                   </h3>
-                  <span className="text-neutral-100 font-mono text-[10px] font-bold bg-neutral-900 border border-neutral-700 px-2 py-0.5 rounded-none w-fit shrink-0 uppercase">
-                    {exp.period}
-                  </span>
-                </div>
-                <p className="text-neutral-600 text-sm sm:text-base leading-relaxed">
-                  {exp.description[language]}
-                </p>
+                  <p className="text-neutral-600 text-sm sm:text-base leading-relaxed">
+                    {exp.description[language]}
+                  </p>
 
-                {project && (
-                  <div className="mt-4 pt-4 border-t border-black/10 flex items-center gap-3">
-                    <div className="relative w-16 aspect-[1200/630] shrink-0 overflow-hidden rounded-none border border-black/15 bg-neutral-100">
-                      <Image src={project.image} alt="" fill sizes="64px" className="object-cover" />
+                  {project && (
+                    <div className="mt-4 pt-4 border-t border-black/10 flex items-center gap-3">
+                      <div className="relative w-16 aspect-[1200/630] shrink-0 overflow-hidden rounded-none border border-black/15 bg-neutral-100">
+                        <Image src={project.image} alt="" fill sizes="64px" className="object-cover" />
+                      </div>
+                      <div className="min-w-0 flex-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-0.5 sm:gap-3">
+                        <span className="min-w-0 text-sm font-bold text-neutral-900 leading-snug break-words">
+                          {project.title}
+                        </span>
+                        <span className="inline-flex items-center gap-0.5 shrink-0 text-xs font-mono font-bold text-neutral-900 group-hover/card:text-[#ea580c] group-hover/card:underline uppercase transition-colors">
+                          {isJa ? "紹介を見る" : "View"}
+                          <ChevronRight size={14} className="transition-transform duration-200 group-hover/card:translate-x-0.5" />
+                        </span>
+                      </div>
                     </div>
-                    {/* Stacked on a phone: side by side, the call to action
-                        left a one-word name like "Synesthesium" no room. */}
-                    <div className="min-w-0 flex-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-0.5 sm:gap-3">
-                      <span className="min-w-0 text-sm font-bold text-neutral-900 leading-snug break-words">
-                        {project.title}
-                      </span>
-                      <span className="inline-flex items-center gap-0.5 shrink-0 text-xs font-mono font-bold text-neutral-900 group-hover/card:underline uppercase">
-                        {isJa ? "紹介を見る" : "View"}
-                        <ChevronRight size={14} className="transition-transform duration-200 group-hover/card:translate-x-0.5" />
-                      </span>
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </motion.div>
           );
