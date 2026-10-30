@@ -1,7 +1,6 @@
-import type { ComponentType } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { NOTES, PROJECTS, formatNoteDate, localizeProjects, notePath, sortNotesNewestFirst, type NoteSource } from "@/data";
+import { NOTES, PROJECTS, formatNoteDate, localizeProjects, notePath, sortNotesNewestFirst } from "@/data";
 import SectionHeading from "@/detail/SectionHeading";
 import CornerBrackets from "@/ui/CornerBrackets";
 import { readingMetadata } from "@/reading/pageMeta";
@@ -28,28 +27,38 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   return readingMetadata({ path: notePath(note.slug), title: note.title, description: note.description });
 }
 
-function NoteArticleContent({
-  note,
-  Body,
-  isPreview = false,
-}: {
-  note: NoteSource;
-  Body: ComponentType;
-  isPreview?: boolean;
-}) {
+export default async function NotePage({ params }: Params) {
+  const { slug } = await params;
+  const sortedNotes = sortNotesNewestFirst(NOTES);
+  const pair = adjacentEntries(sortedNotes, slug);
+  if (!pair) notFound();
+
+  const { current: note, prev, next } = pair;
+  const { default: Body } = await import(`@/content/notes/${slug}.mdx`);
   const products = localizeProjects(
     PROJECTS.filter((p) => note.products.includes(p.slug)),
     "ja"
   );
-  const ArticleTag = isPreview ? "div" : "article";
-  const HeaderTag = isPreview ? "div" : "header";
-  const TitleTag = isPreview ? "div" : "h1";
+  const more = sortedNotes.filter((n) => n.slug !== slug).slice(0, MORE_NOTES);
 
   return (
-    <>
-      <ArticleTag>
+    <ArticlePager
+      prev={{
+        href: notePath(prev.slug),
+        title: prev.title,
+        subtitle: prev.description,
+        badge: formatNoteDate(prev.date),
+      }}
+      next={{
+        href: notePath(next.slug),
+        title: next.title,
+        subtitle: next.description,
+        badge: formatNoteDate(next.date),
+      }}
+    >
+      <article>
         {/* Title header card matching full max-w-6xl width and industrial style */}
-        <HeaderTag className="relative rounded-none bg-white border border-black/20 p-6 sm:p-8 md:p-10">
+        <header className="relative rounded-none bg-white border border-black/20 p-6 sm:p-8 md:p-10">
           <CornerBrackets size="lg" offset="card" strokeWidth="2" colorClass="border-neutral-900" />
 
           <time
@@ -58,9 +67,9 @@ function NoteArticleContent({
           >
             {formatNoteDate(note.date)}
           </time>
-          <TitleTag className="mt-5 text-[1.75rem] sm:text-4xl md:text-[2.625rem] font-black leading-[1.35] tracking-tight text-neutral-950 [overflow-wrap:anywhere]">
+          <h1 className="mt-5 text-[1.75rem] sm:text-4xl md:text-[2.625rem] font-black leading-[1.35] tracking-tight text-neutral-950 [overflow-wrap:anywhere]">
             {note.title}
-          </TitleTag>
+          </h1>
           <p className="mt-5 text-base sm:text-lg leading-[1.9] text-neutral-600">{note.description}</p>
           <p className="mt-6 pt-5 border-t border-black/10 flex flex-wrap gap-x-3 gap-y-1 font-mono text-xs text-neutral-500">
             {note.tags.map((tag) => (
@@ -69,7 +78,7 @@ function NoteArticleContent({
               </span>
             ))}
           </p>
-        </HeaderTag>
+        </header>
 
         {/* Note body aligned to the full width container */}
         <div className="mt-10 bg-white border border-black/20 p-6 sm:p-8 md:p-12 relative">
@@ -78,48 +87,16 @@ function NoteArticleContent({
             <Body />
           </div>
         </div>
-      </ArticleTag>
+      </article>
 
       {products.length > 0 && (
-        <section aria-labelledby={isPreview ? undefined : "products-heading"} className="mt-20">
-          <SectionHeading id={isPreview ? undefined : "products-heading"} size="md" className="mb-8">
+        <section aria-labelledby="products-heading" className="mt-20">
+          <SectionHeading id="products-heading" size="md" className="mb-8">
             このノートに出てくるプロダクト
           </SectionHeading>
           <ProductList projects={products} titleAs="h3" columns={3} />
         </section>
       )}
-    </>
-  );
-}
-
-export default async function NotePage({ params }: Params) {
-  const { slug } = await params;
-  const sortedNotes = sortNotesNewestFirst(NOTES);
-  const pair = adjacentEntries(sortedNotes, slug);
-  if (!pair) notFound();
-
-  const { current: note, prev, next } = pair;
-  const [{ default: Body }, { default: PrevBody }, { default: NextBody }] = await Promise.all([
-    import(`@/content/notes/${slug}.mdx`),
-    import(`@/content/notes/${prev.slug}.mdx`),
-    import(`@/content/notes/${next.slug}.mdx`),
-  ]);
-  const more = sortedNotes.filter((n) => n.slug !== slug).slice(0, MORE_NOTES);
-
-  return (
-    <ArticlePager
-      prev={{
-        href: notePath(prev.slug),
-        title: prev.title,
-        content: <NoteArticleContent note={prev} Body={PrevBody} isPreview />,
-      }}
-      next={{
-        href: notePath(next.slug),
-        title: next.title,
-        content: <NoteArticleContent note={next} Body={NextBody} isPreview />,
-      }}
-    >
-      <NoteArticleContent note={note} Body={Body} />
 
       {more.length > 0 && (
         <section aria-labelledby="more-heading" className="mt-20">
