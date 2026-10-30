@@ -74,7 +74,7 @@ export default function Experience({ onOpenProject }: Props = {}) {
               <div className="w-16 sm:w-28 md:w-32 shrink-0 text-right pr-3 sm:pr-6 pt-3.5 sm:pt-4">
                 {showYear && (
                   <span
-                    className="inline-block font-mono text-2xl sm:text-4xl md:text-[2.75rem] font-black leading-none tracking-tight select-none tabular-nums text-transparent [-webkit-text-stroke:1.5px_#ea580c] sm:[-webkit-text-stroke:2px_#ea580c]"
+                    className="inline-block text-2xl sm:text-4xl md:text-[2.75rem] font-black leading-none tracking-tight select-none tabular-nums text-transparent [-webkit-text-stroke:1.5px_#ea580c] sm:[-webkit-text-stroke:2px_#ea580c]"
                   >
                     {year}
                   </span>
@@ -102,7 +102,7 @@ export default function Experience({ onOpenProject }: Props = {}) {
               </div>
 
               {/* Month column */}
-              <div className="w-11 sm:w-16 shrink-0 pl-2 sm:pl-3.5 pt-4 font-mono select-none tabular-nums">
+              <div className="w-11 sm:w-16 shrink-0 pl-2 sm:pl-3.5 pt-4 select-none tabular-nums">
                 {monthNumber !== null && (
                   isJa ? (
                     <span className="inline-flex items-baseline text-neutral-900">
