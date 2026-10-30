@@ -66,16 +66,12 @@ export default function ArticlePager({ prev, next, children }: Props) {
         </svg>
       </Link>
 
-      {/* Left peeking card on desktop viewports */}
+      {/* Left peeking card on desktop viewports — top-aligned with main card (`top-4 sm:top-6`) and non-clickable */}
       <div
         aria-hidden="true"
-        className="hidden xl:block absolute right-[calc(50%+41rem)] top-4 w-[32rem] pointer-events-auto opacity-60 hover:opacity-95 transition-opacity"
+        className="hidden xl:block absolute right-[calc(50%+41rem)] top-4 sm:top-6 w-[32rem] pointer-events-none select-none opacity-60"
       >
-        <Link
-          href={prev.href}
-          tabIndex={-1}
-          className="block rounded-none bg-white border border-black/25 p-8 shadow-none"
-        >
+        <div className="block rounded-none bg-white border border-black/25 p-8 shadow-none">
           {prev.badge && (
             <span className="inline-block font-mono text-xs font-bold text-neutral-100 bg-neutral-900 px-2.5 py-0.5 mb-3">
               {prev.badge}
@@ -89,19 +85,15 @@ export default function ArticlePager({ prev, next, children }: Props) {
               {prev.subtitle}
             </p>
           )}
-        </Link>
+        </div>
       </div>
 
-      {/* Right peeking card on desktop viewports */}
+      {/* Right peeking card on desktop viewports — top-aligned with main card (`top-4 sm:top-6`) and non-clickable */}
       <div
         aria-hidden="true"
-        className="hidden xl:block absolute left-[calc(50%+41rem)] top-4 w-[32rem] pointer-events-auto opacity-60 hover:opacity-95 transition-opacity"
+        className="hidden xl:block absolute left-[calc(50%+41rem)] top-4 sm:top-6 w-[32rem] pointer-events-none select-none opacity-60"
       >
-        <Link
-          href={next.href}
-          tabIndex={-1}
-          className="block rounded-none bg-white border border-black/25 p-8 shadow-none"
-        >
+        <div className="block rounded-none bg-white border border-black/25 p-8 shadow-none">
           {next.badge && (
             <span className="inline-block font-mono text-xs font-bold text-neutral-100 bg-neutral-900 px-2.5 py-0.5 mb-3">
               {next.badge}
@@ -115,7 +107,7 @@ export default function ArticlePager({ prev, next, children }: Props) {
               {next.subtitle}
             </p>
           )}
-        </Link>
+        </div>
       </div>
 
       {/* Main container — exact same width (`max-w-6xl`) as the index pages */}
