@@ -1,0 +1,69 @@
+At the end of July, I decided to rebuild the foundation of my portfolio. Until then, the top page featured buildings standing on a flat island floating in the sky, with the camera orbiting around it at a constant height. I wanted to transform this into **buildings standing 360 degrees around a sphere floating in space**.
+
+Put into words, it sounds like "just changing the ground from flat to round." In practice, however, things that had been completely self-evident on flat ground broke one after another. This note is a record of that migration.
+
+## Almost Getting Pulled Off Course by the Word "Planet"
+
+I build this site in conversation with the AI assistant Claude Code. The first thing I stumbled over wasn't implementation—it was words. When I said "I want to make it a planet," Claude nearly interpreted that as building an actual astronomical body complete with an atmosphere, oceans, and drifting clouds.
+
+What I had in mind was slightly different. **The sphere is strictly a stage, what I want from "space" is the atmosphere, and the camera flying around it is an artificial satellite.** Clarifying it that way immediately settled three design decisions:
+
+- Remove the fog that used to blur distant scenery, because fog is an atmospheric effect. Instead, let distant objects sink into darkness
+- Confetti falling from the sky doesn't fall in space. Replace it with drifting stardust
+- The existing behavior where "the camera orbits at a constant altitude" gained a physical justification for the first time: it is the orbital altitude of a satellite
+
+Aligning on the definition of a single word locked multiple design choices into place. The most impactful part of this whole phase wasn't any line of code, but that conversation.
+
+## Why I Didn't Make "Free Flight" a Separate Mode
+
+Once the world becomes a sphere, you naturally want to orbit not just horizontally, but vertically over the poles as well. Early in the design process, a proposal came up to create a dedicated "free camera mode" for that: while flying freely, the info card on the left side of the screen and the floating markers above the buildings would tuck themselves away.
+
+My answer was: "Just let it rotate. Keep showing the cards and markers as usual." **If you don't create a mode, you don't add state.** And if you don't add state, the rule we had maintained all along—"the cards and the camera never overwrite each other"—stays intact without any extra effort.
+
+I also chose not to make "returning to the original orbit when left alone" a separate feature. Even if you fly freely and leave the tour orbit, as soon as you let go and stop interacting, the usual automatic orbit resumes and gently pulls the camera back toward the standard path as it continues turning. **Idle orbiting and returning to the track become the exact same mechanism**, eliminating any need to switch states with a timer.
+
+## Measuring the Reference Photo Invalidated Two Numbers I Had Just Decided On
+
+Midway through, I brought in a reference image showing the visual look I was aiming for: a miniature-style planet where a dense little city covers a small sphere, with buildings jutting radially outward in every direction.
+
+Instead of just eyeballing the photo, I decided to **measure** it. Tracing 720 rays outward from the center of the planet and scanning from the outside in, I looked for the boundary where the background switches to an object. Because the background had a gradient that grew brighter toward the center, the threshold segmentation failed twice before the third method finally gave clean measurements.
+
+Here is what the numbers showed:
+
+| Metric | Measured Value |
+| --- | --- |
+| Building height (median) | +17% of surface radius |
+| Building height (maximum) | +30% of surface radius |
+| Directions with bare ground exposed | 26% |
+
+Those measurements immediately invalidated two numbers we had just settled on.
+
+First, our buildings were too tall. We had reasoned that setting the planet's radius to 22 would make the tallest tower 46% of the radius, which ought to look like "a tower standing on a planet." In the reference photo, however, even the tallest building was at most 30%. At 46%, our tower stuck out higher than any skyscraper in the reference image. We revised the planet's radius to 34 so that the tower landed right at 30%.
+
+Second, five landmark buildings alone could never produce that silhouette. In the reference photo, something is standing along 74% of all radial directions. With only five buildings, the planet looked almost completely bald. To fix that, we decided to populate the surface with clusters of unnamed filler buildings.
+
+Had we just adjusted things by eye until they "felt right," I doubt we would have noticed either issue. Extracting concrete numbers from a reference photo and checking our own numbers against them remains a core rule of how we build this site today.
+
+## Why We Stopped at 290 Filler Buildings
+
+Originally, we planned to place enough filler buildings to match the reference photo's 26% bare-ground ratio. We even built a tool to cast those same 720 rays inside the 3D scene and measure the silhouette coverage directly.
+
+When we actually measured it, however, reaching 26% required 1,000 to 1,400 buildings—roughly 100,000 to 160,000 individual cubes. Covering three-quarters of a large sphere with small buildings simply demands that much volume. It wasn't a math bug; geometry itself was demanding that quantity.
+
+And that quantity was far too heavy. Verification screenshots that took about 5 seconds without filler buildings ballooned to 20–30 seconds with 1,351 buildings. We stepped the count down while re-measuring performance and ultimately stopped at 290 buildings. That left bare ground along roughly 75% of directions instead of the target 26%—landing almost at the opposite end from our initial goal.
+
+What mattered here was not hardcoding the reduced density as if it were the intended design. We kept the city-placement function itself independent of density and recorded the decision—"density was capped due to rendering cost"—in both code comments and tests. If we later find that real devices have plenty of headroom, changing a single number is enough to raise the density back up.
+
+## Switching the Ground from Voxels to a Smooth Sphere
+
+Our first version of the planet's ground was a hollow spherical shell built out of stacked little cubes, just like the buildings. Even when deciding how to construct that shell, we measured first. When the shell was only one cube thick, 3–4% of 20,000 rays cast from the center slipped straight through without hitting a single cube; viewed at an angle, you could see through the gaps between cube corners to the other side. Making the shell two cubes thick brought the leaked rays down to zero.
+
+After seeing that voxel shell on screen, however, I asked to cut the diameter in half and make the ground a smooth sphere instead of voxels. Because I wanted to see it before committing, I had a prototype built first, checked the screenshot, and decided to go forward with that direction: voxel buildings planted atop a smooth sphere.
+
+When we made that switch, we didn't delete the code or tests for generating the voxel terrain. They are simply unused right now, and swapping a single component would bring them back. In fact, we tried bringing back the voxel ground once more in September (before shelving it again because it looked too coarse). **Keeping discarded ideas in a state where they can still be run** saved us a tremendous amount of time whenever the same discussion came back around later.
+
+## What Broke Once the World Became Round
+
+Turning the ground into a sphere continued to break things even after that. The camera path that scrolled from building to building dove straight under the south pole, and zooming in on a building turned its signboard into mirror writing. I wrote about that latter bug in "[The Day the Signboard Turned Into Mirror Writing](/notes/mirrored-signboard)."
+
+Assumptions born from a flat world had soaked into every corner of the codebase. This migration was a continuous process of hunting those assumptions down one by one and rewriting them into forms that hold true on a sphere.

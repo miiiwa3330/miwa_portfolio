@@ -1,0 +1,56 @@
+## "Some Things Cannot Be Seen on Paper"
+
+The group discussion (GD) round in Japanese job hunting is a peculiar kind of interview. It is one of the rare places where companies can observe what a written resume or academic pedigree never shows: how you think on your feet, how you speak, and how you collaborate with others in real time. Yet students have almost nowhere to practice. Even when friends gather to run mock sessions, people cancel last minute, skill levels clash, or someone derails the conversation—and worst of all, when the session ends, **nobody gets objective feedback**.
+
+Companies face their own headaches on the other side of the table. Running GD rounds ties up multiple HR staff and engineers for hours, and scores vary wildly depending on which interviewer happens to be watching.
+
+Umoja is an online group-discussion evaluation platform built to solve both sides of this problem at once. Its tagline is "Some things cannot be seen on paper." *Umoja* is the Swahili word for "unity and harmony," chosen to reflect the spirit of a group working together toward a single conclusion. The project was originally called "GruDis" before we renamed it to Umoja in May 2026.
+
+I am building it with the team "Beyond GD.," where I lead the overall architecture and handle most of the implementation. The platform is not open to the general public yet.
+
+## How the Service Works
+
+Participants join an online room, turn on their cameras and microphones, and hold a group discussion. An AI facilitator presents the prompt and keeps time, and once the discussion finishes, an evaluation AI scores each participant's contributions individually.
+
+Three principles guide the product design:
+
+- **Strip academic background and written essays completely out of public profiles.** The only thing evaluated is what you demonstrate inside the discussion itself.
+- **Never hand evaluation data over to companies behind the user's back.** Participants decide for themselves whether to share a result with a company. A submission only goes through when the user explicitly enters a one-time code provided by that company.
+- **Include zero social network features like follows or likes.** Popularity and social graphs should never bleed into how a candidate is scored.
+
+We plan to offer five match types tailored to different goals: **Regular Match** for practicing with random peers, **Friend Match** for practicing with friends, **Ranked Match** where high scores connect directly to real recruiting, **Event Match** hosted by partnering companies, and **Private Match** for solo practice alongside AI participants. We are starting with a 4-person, single-topic discussion format.
+
+## Four Specialized AIs
+
+Four distinct AI roles work together inside Umoja:
+
+1. **GD Evaluation AI** — The core engine of the platform. It quantifies speaking time, logical structure, leadership, and collaboration, presenting the breakdown in visual charts.
+2. **Facilitator AI** — Introduces the topic, manages the clock, and advances discussion phases. Just like human HR proctors in a real interview, it never steps into the substance of the debate.
+3. **Personal AI** — A coaching assistant that looks across your accumulated evaluation history and helps you work on weak spots.
+4. **Bot AI** — AI participants that take on different discussion personas during solo Private Matches (currently an experimental feature we are actively prototyping and validating).
+
+To avoid locking ourselves into a single AI vendor, all model calls are routed through a thin abstraction layer so we can swap in newer models with a configuration change.
+
+## Under the Hood
+
+The frontend and lightweight API routes are built with Next.js (App Router) and hosted on Vercel. Authentication, the database, and the matchmaking queue run on Supabase, with clients subscribing to matchmaking state changes in real time. Video conferencing and server-side recording are handled by LiveKit over WebRTC. Because a GD room never exceeds 12 people by design, LiveKit's room-scoped architecture is a natural fit.
+
+### Running Evaluations Asynchronously After the Call Ends
+
+Evaluating a group discussion takes time: the audio recording has to be transcribed (using Whisper-family models) and the full transcript fed into an LLM to score each participant. Because that pipeline easily exceeds Vercel's 60-second serverless function timeout, we offloaded evaluation to a dedicated worker on Railway that runs on a 5-minute cron schedule.
+
+Instead of relying on a webhook notification to tell us "a meeting just ended," the worker polls the database every five minutes for rooms that have finished but have not been evaluated yet. If a webhook fails once, that room's evaluation is lost forever; with database polling, any transient failure is automatically picked up on the very next run. Audio recordings are stored temporarily in cloud object storage and deleted immediately once scoring completes.
+
+### Testing the Evaluation AI Against Scripted Scenarios
+
+To verify that the Evaluation AI grades fairly and consistently, we maintain a benchmark suite of 15 synthetic GD transcripts. They cover smooth textbook discussions, sessions monopolized by a single talker, rooms where everyone falls silent, groups that run out of time, and sessions derailed by a "crusher" who attacks other participants.
+
+In the crusher scenario, for instance, one of the four participants talks down to the others and nitpicks every suggestion. What we test here is not just whether the crusher receives a low score. Does the AI properly reward the other three participants for trying to steer the conversation back on track? If the crusher happens to make one sharp point, does the model get fooled into grading them too generously overall? Can it tell the difference between hostile dismissal and constructive disagreement? Each script defines expected score ranges and behavioral assertions that we check against the AI's actual output.
+
+### Nobody Touches the Production Database by Hand
+
+The very first rule we established when moving to team development was that nobody shares a development database or touches production directly. Every developer spins up an identical local Supabase stack via Docker, all schema changes are tracked as SQL migrations in code, and only reviewed changes are applied to production. This makes accidental data corruption or unreviewed schema drift structurally impossible. Production deployments are also gated behind manual approval rather than auto-deploying on push.
+
+## What's Next
+
+Right now we are focused on practice matches while iterating on the accuracy of the Evaluation AI. Our ultimate long-term goal is to prove with real data how strongly group-discussion evaluations correlate with on-the-job performance after hiring.

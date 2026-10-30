@@ -1,0 +1,56 @@
+## Concentration Played by Ear and Color Sense Instead of Sight
+
+Concentration (Memory) is one of the few games whose rules everyone already knows. Flip two face-down cards; if the pictures match, you keep the pair. What you are testing is spatial memory—remembering what was where.
+
+But what if flipping a card revealed a **sound** instead of a picture? You have to tell C apart from D by ear while remembering which pitch rang out from which card. Or what if you had to distinguish two nearly identical shades of blue by a tiny difference in brightness? Suddenly, Concentration transforms from a simple memory game into a game that sharpens your senses.
+
+Synesthesium is a collection of these sensory twists on Concentration. Everything runs right in the browser with no installation or sign-up required.
+
+## The Games
+
+Six games are playable right now. Every single one follows the classic rule—"flip two cards and match the pair"—but what you have to tell apart is completely different in each mode:
+
+- **Pitch Memory** — Flipping a card plays a piano-like tone. Note names stay hidden when you flip, forcing you to find matching pitches purely by ear. You can drag your finger across a 3-octave, 36-key keyboard to customize exactly which notes are included in the deck.
+- **Rhythm Memory** — Flipping a card plays a drum pattern. Listen closely to pair up identical beats drawn from a pool of 50 distinct rhythms.
+- **Color Memory** — Match pairs of unlabeled color swatches. You can choose from 10 color families (such as red or blue); because cards within the same family differ only slightly in lightness, adding more pairs makes the shades harder and harder to tell apart.
+- **Language Memory** — Pick any two languages from Japanese, English, Chinese, Spanish, French, and German, then match words that share the same meaning. Each flipped card is spoken aloud in its native language.
+- **Morse Memory** — Pair dot-and-dash Morse code patterns with the hiragana characters or digits they represent. Questions are drawn from all 58 Japanese Wabun Morse characters, complete with audio beeps.
+- **Veggie Memory** — The most traditional visual memory game in the lineup, played with eight leafy green vegetables—like spinach, komatsuna, and garland chrysanthemum—that look surprisingly alike when lined up side by side.
+
+A seventh mode, **Trivia Memory** (matching questions to their answers), is currently in the works.
+
+## Under the Hood
+
+The frontend is built with Next.js and React, exported as completely static files, and served from Cloudflare Workers. Nothing runs on a backend server—all game logic and audio synthesis happen entirely inside the browser.
+
+For styling, I chose plain CSS (CSS Modules) over Tailwind CSS. Each game has its own distinct visual personality, and writing dedicated CSS per game felt much cleaner than stringing together long utility class lists. Outside of React and Next.js, the app ships with zero runtime dependencies.
+
+### Synthesizing Every Sound on the Fly
+
+The pitch and rhythm modes do not load a single audio file. Instead, they synthesize waveforms in real time the instant you flip a card using the browser's built-in Web Audio API.
+
+For Pitch Memory, the synth starts from middle C (C4 = 261.63 Hz) and calculates frequencies across three octaves in semitone steps. Each note is a 0.3-second sine wave.
+
+For Rhythm Memory, each hit is a sine wave whose frequency drops rapidly from 150 Hz down to 40 Hz, producing a punchy, drum-like thump. The 50 rhythm patterns were not written by hand, either—they are generated combinatorially. A single bar is divided into 8 eighth-note slots: beat 1 always plays, and 2 to 4 additional hits are chosen from the remaining 7 slots. That combination alone yields 56 unique patterns, from which 50 are selected. Authoring rhythms by hand inevitably leads to accidental near-duplicates or exact copies, whereas combinatorial enumeration guarantees zero duplicates by construction.
+
+For spoken pronunciation in Language Memory, the game uses the browser's standard Web Speech API (`SpeechSynthesis`). On browsers that do not support speech synthesis, it fails silently and does nothing—voice playback is a nice bonus, and the matching game still works fine without it.
+
+### Sharing One Engine Across Six Games
+
+Originally, I built eight separate memory games as standalone projects. After merging them into a single site in July 2026, I noticed that the core "flip two cards and check for a match" logic had been copy-pasted across three different places in nearly identical form—and all three copies shared the exact same bug. If you started a new round while a mismatch timer from the previous round was still waiting to flip cards back over, that old timer would fire late and overwrite the cards in your brand-new round.
+
+To fix it once and for all, I consolidated the heart of Concentration—flipping two cards, judging matches, counting cleared pairs, and detecting victory—into a single shared hook. Each round is tagged with a monotonically increasing round ID so that stale timers from an old round can never touch the state of a new one. Today, every game in the collection runs on top of this single engine.
+
+I also unified the visual design around playing-card-style rectangular cards. Only the audio-based games hide the card face immediately after flipping, revealing the note name only after you successfully complete the pair.
+
+### Never Making the Player Scroll Mid-Game
+
+Nothing ruins a game of Concentration faster than cards overflowing the screen so you have to scroll up and down to hunt for pairs. In Synesthesium, the layout engine measures the actual viewport dimensions and the number of cards in play, then calculates the column count and card size that maximize card area without ever overflowing the screen. Rotate your phone or resize the browser window, and the grid reflows immediately.
+
+Vertical and horizontal margins are equalized only when doing so barely shrinks the cards. Forcing symmetric margins on a wide desktop monitor would make the cards far too small.
+
+## Where to Start
+
+Pitch Memory starts out with the 8 white keys of a single C-to-C octave selected by default. Play one round as-is first; if it feels too easy, try mixing in the black keys or increasing the number of pairs per note. Once semitone intervals enter the mix, the difficulty jumps dramatically.
+
+Color Memory likewise starts with 8 shades across two families (blue and green). Dropping down to a single color family while cranking up the number of shades makes adjacent colors almost indistinguishable.

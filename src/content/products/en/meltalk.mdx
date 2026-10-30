@@ -1,0 +1,51 @@
+## Melting Email Down into Conversation
+
+Scheduling an interview with a corporate recruiter during job hunting. Resubmitting a draft to your thesis advisor in the lab. Sending a quick confirmation to a client at your internship. Even while you're still a student, there are far more occasions that call for email than you might expect.
+
+Yet for those of us who spend our days talking on LINE and Slack, email feels like a heavy tool. The actual point of the message is sandwiched between formal salutations at the top and a signature block at the bottom, followed by a towering stack of quoted replies from earlier in the thread. When all you want to reply is a five-word "3:00 PM works for me," you still have to think of a subject line, write a seasonal or business greeting, and attach your signature. Meanwhile, your inbox mixes messages from actual humans right alongside newsletters and automated notifications in the same list.
+
+MelTalk is a mobile app built to melt away that heaviness. Its core concept is **"Melt email down into conversation."** It is currently in development and not yet open to the public.
+
+## What It Does
+
+### Read Emails Like a Chat Thread
+
+Emails exchanged with the same person are displayed as a chronological chat timeline—their messages in bubbles on the left, yours on the right. As it renders each message, MelTalk automatically strips away boilerplate salutations, recipient headers, trailing signatures, and quoted history, **showing only the newly written body of that single email** inside the chat bubble.
+
+Because the stripped-out parts occasionally contain something important, you can always view the full original email with a single tap. Conversations are grouped by contact, with a visual divider inserted whenever the subject line changes mid-history.
+
+### Separate Real People from Automated Notifications
+
+Incoming emails are automatically sorted into two separate tabs: "Conversations" and "Notifications & Newsletters." The main chat list shows only two-way exchanges with real humans. If the classifier ever gets one wrong, you can override the category for that sender and every future email from them will follow your rule.
+
+### Type Short, Send as Formal Business Email
+
+You can type replies as short, casual messages just like in a chat app. When you hit send, MelTalk wraps your message with the appropriate salutation, recipient name, self-introduction, closing, and signature block to format it as a proper Japanese business email. To the recipient's email client, it arrives as a completely normal email. Standard reply subjects and threading headers (`In-Reply-To` / `References`) are attached just like any conventional mail client, so threads never break on the other person's end.
+
+You can switch the formality level by choosing one of three relationship presets for each contact: "External Business," "Campus / Internal," or "First Contact." The app estimates the initial preset from incoming emails, and you can change it anytime. Because an email cannot be unsent once it leaves your outbox, **you always get to preview and edit the fully formatted text right before sending**. If casual slang like "Gotcha!" slips into your draft, the app flags it with a warning before you embarrass yourself.
+
+## Under the Hood
+
+The app is built with React Native (Expo) and TypeScript, targeting iOS first with Android support planned to follow.
+
+### On-Device Rule-Based Email Parsing
+
+To strip out greetings, signatures, and quotes, I first built a prototype to test just how far deterministic rules could go. I prepared 17 synthetic emails: 12 of them I used while writing and tuning the rules, and the remaining 5 **I created after freezing the rules to evaluate them blind without any tweaking**. Scoring against the same samples you used to write the rules always produces inflated numbers, which makes them useless as a measure of real accuracy.
+
+The result: all 12 training emails succeeded, while 3 of the 5 unseen emails failed. Structured patterns like quoted replies and newsletter headers were easy to catch with rules, but the parser struggled with phrasing variations in polite business greetings and ambiguous boundaries between body text and signatures. The scariest failure mode was when a bulleted list without periods was mistaken for a signature block, **accidentally deleting the main body of the email**.
+
+Because of that, while keeping on-device rules as the foundation, I enforced a strict **"when in doubt, leave it in"** policy. If stripping boilerplate would leave the message body empty, the app falls back to displaying the original text untouched. Leaving a bubble slightly long is infinitely better than erasing someone's actual message.
+
+Following the same principle, I stopped classifying emails as notifications solely because the sender address starts with something like `info@`. In my blind test set, a first-contact message sent by an actual human from an `info@` address got buried in the Notifications tab. Missing a real person's message in the notifications tab is the worst mistake MelTalk could make, so classification now relies on no-reply addresses combined with mailing-list headers (`List-Unsubscribe`, etc.).
+
+### Serverless by Design
+
+Fetching, parsing, and storing emails all happen entirely on your device so that your email bodies are never handed over to an external server of mine. For communicating with mail servers (IMAP, SMTP, and MIME parsing), I delegated only the encrypted TLS socket layer to a native library and wrote the protocol handling myself in TypeScript. That keeps native dependencies to an absolute minimum and lets me run fast unit tests against fixture email files and mock servers.
+
+For iCloud Mail, the app connects using Apple's app-specific passwords, which are stored exclusively inside the device's secure enclave (Keychain).
+
+### Current Status
+
+The initial iOS build is up and running against synthetic mail servers. I have implemented the chat-style timeline, greeting/signature/quote noise reduction, conversation-versus-notification splitting with manual overrides, smart composition for replies and new threads, original email inspection, deep-linking out to the system mail app, and push notifications for new messages.
+
+What remains is end-to-end verification against live Gmail and iCloud Mail accounts, followed by Android support. Because opening Gmail integration to the public requires passing Google's security verification review, I am prioritizing standard IMAP connections like iCloud Mail first.

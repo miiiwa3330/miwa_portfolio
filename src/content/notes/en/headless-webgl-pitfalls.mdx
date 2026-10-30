@@ -1,0 +1,62 @@
+I build this site in conversation with the AI assistant Claude Code. Whenever we change the look of the 3D scene, we take a screenshot on the spot to verify the result. That verification runs automatically inside a browser with no visible window (headless Chrome).
+
+Without this setup, the AI would have no way of knowing what the code it wrote actually looks like on screen. At the same time, the verification mechanism itself nearly led us to the **wrong conclusion** again and again. This note is a record of those pitfalls. I hope it proves useful to anyone else trying to automate visual checks for WebGL (3D rendering in the browser).
+
+## A Naive Screenshot Captures Only Blank White
+
+First off, the simplest way of taking a screenshot captures nothing at all. Fetching the page with `curl` or asking Chrome via a one-line CLI flag to snap a picture produces a **blank white screen**. The capture finishes before the 3D rendering even begins.
+
+Chrome also has a feature to fast-forward virtual time before taking a screenshot, but if you use it here, the command never finishes. Because the 3D render loop continuously schedules the next frame, virtual time permanently sees pending work and waits forever.
+
+In the end, we settled on driving Chrome with Puppeteer, opening the page, and waiting about seven seconds before taking the shot. Since headless environments have no hardware GPU, we launch Chrome with SwiftShader enabled—a software renderer that runs WebGL on the CPU.
+
+## A World Running at 3 Frames per Second
+
+Because SwiftShader emulates GPU work on the CPU, it is painfully slow. The planet scene on this site runs at only about **3 frames per second**—four frames over three seconds, with frame intervals fluctuating anywhere from 333 milliseconds to 1.2 seconds.
+
+As a result, anything driven by time takes many times longer than it does in reality.
+
+- A camera flight designed to take 1.1 seconds caps how far it can advance in a single frame, so it requires at least 11 frames to complete. At 3 frames per second, there were times when the camera still hadn't finished landing even after waiting 8 seconds. Capturing a screenshot before it lands leads to the false conclusion that "we changed the distance setting, but the camera barely moved"
+- A menu supposed to fade out in 0.14 seconds lingered on screen for over a second, nearly tricking us into diagnosing that "the close button doesn't work"
+
+Because of this, instead of guessing a single wait time, we now **take several snapshots a few seconds apart and check whether the values have settled**. We also accepted that you cannot measure whether motion feels smooth in headless mode. We lock down the quality of motion through math and unit tests, and verify the actual feel on real hardware.
+
+## A Tap That Takes 4 Seconds
+
+Waiting for us when verifying the mobile layout was another trap. Puppeteer's built-in `tap` command took a measured **4,083 milliseconds** between touching down and lifting the finger, due to slow round-trip communication between Puppeteer and Chrome.
+
+On this site, a touch is recognized as a tap only if the finger lifts within 350 milliseconds. A tap that takes four seconds will never register as a tap no matter how many times you try. That nearly led us to the false conclusion that "tapping is broken."
+
+When we instead dispatch the touch-start and touch-end events back-to-back directly inside the page context, they arrive with the same timing as a real human finger.
+
+## Always Firing at the Top-Left Corner
+
+There was an even subtler trap. Synthetic pointer events created inside the page never hit objects inside the 3D scene (like the floating markers above buildings). **They always shoot at the top-left corner of the screen.**
+
+React Three Fiber (the library we use to drive Three.js from React) reads the pointer position from the element-relative coordinates (`offsetX` / `offsetY`). When you construct a synthetic event yourself, however, you can only pass screen/client coordinates in the constructor, leaving the element-relative coordinates at `0`. So no matter where you aim, the raycast fires at `(0, 0)`.
+
+Because of this, we once nearly reported a **nonexistent bug**: "tapping a building marker also pauses the diorama at the same time." In reality, the test wasn't tapping the marker at all—it was tapping the empty sky that happened to be at the top-left corner of the screen. Now, we patch the correct element-relative coordinates onto the synthetic event before dispatching it.
+
+## Opening Another Tab Freezes the 3D Scene
+
+At one point, we opened a second tab in the same browser to analyze the screenshots we had just taken. Immediately, the 3D canvas stopped rendering altogether. Everything captured in screenshots was blank white except for the HTML overlay.
+
+The cause was that the original tab had moved to the background. In background tabs, the browser throttles and pauses the animation loop (`requestAnimationFrame`). We changed our workflow so the analysis tab is opened first, keeping the 3D tab in the foreground at all times.
+
+There is another trap of the exact same family. If you try to read the pixels of the 3D canvas directly from inside the page as an image, it comes back completely empty. By default, WebGL discards its drawing buffer as soon as the finished frame is composited onto the page. **Whenever we inspect pixels, we always read them from the captured screenshot file.**
+
+## Even When Measurement Is Broken, It Calmly Returns "0"
+
+Looking back, all the pitfalls described here share a common thread: **even when the measurement setup itself is broken, it never throws an error—it quietly returns a plausible-looking result.**
+
+- A white screen looks like "nothing is being drawn in 3D"
+- A camera captured before landing looks like "the new setting had no effect"
+- A 4-second tap looks like "tap gestures aren't working"
+- An event firing at `(0, 0)` manufactures a "bug that doesn't exist"
+- A backgrounded tab looks like "the 3D scene disappeared"
+
+Every single one masquerades as a bug in the application. Yet what was actually broken was the measuring instrument.
+
+That is why, before trusting any measurement, we always **capture one "control" shot where nothing is done**. For example, when verifying whether a gesture moves the camera, we first pause the diorama and take two screenshots without touching anything. If the scene is truly paused, the difference between those two frames will be 0%. Only then do we perform the gesture; if a difference appears, we can state with certainty that it came from the gesture.
+
+Every time we stumble into one of these traps, we add it to our verification guide so we never trip over the same stone twice.

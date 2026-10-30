@@ -1,0 +1,55 @@
+## Bringing Everyone's Memories from a Shared Season Together
+
+Reallog is a closed social app where a fixed group of people posts a photo, a short video, and a quick note **just once a day** over a set period of time, pooling everyone's memories into a single shared collection.
+
+Here are a few ways I envision people using it:
+
+- A couple creates a group counting down to their first anniversary, each dropping in one slice of everyday life per day, and looks back over the whole year when the day arrives.
+- Close friends in a school class or club post one snapshot of campus life each day, then revisit it together at graduation or retirement.
+- A project team at work sets up a group for the duration of a launch and captures small daily moments along the way.
+
+Posts are visible only inside the group, where members can like and comment on each other's updates. By the time the period wraps up, everyone's daily posts have naturally grown into a complete archive of that chapter—ready to be compiled into an album or a recap video.
+
+The idea originally started for school classrooms under the concept "a whole year of class memories, gathered in one place." As I refined it, I realized that "a fixed group of people sharing a defined season of life" applies far beyond classrooms, so I expanded the design to fit couples, families, and teams as well. The name combines parts of BeReal (the once-a-day photo app) and SetLog (an app that compiles daily clips into short videos).
+
+Right now the project is in the planning and architecture phase; I have not built the app itself yet.
+
+## "Constraints Make Creation Easier"
+
+At the center of Reallog's design is a single constraint: **once a day**.
+
+When a social app lets you post anything at any time, it paradoxically becomes harder to know what is worth sharing. I believe BeReal ("snap one photo the moment the notification hits") and SetLog ("turn one hour into a two-second clip") took off because strong constraints erase the hesitation over what to post and lower the bar to participating.
+
+Limiting posts to once a day brings three clear benefits:
+
+1. **"Just a little bit every day"** creates a sustainable rhythm that is easy to keep up.
+2. No single person can flood the timeline with dozens of posts.
+3. Because everyone contributes at the same pace over the period, the resulting material is uniform and easy to compile into an album or video at the end.
+
+On top of that, the app gives the group a shared daily prompt—like "Today's chalkboard" or "After school" for a class, or "Matching today" for a couple. Seeing everyone's photos lined up under the same theme on the same day strengthens the feeling of having lived that day together. Prompts are just a conversation starter, though; members can always ignore them and post freely.
+
+The once-a-day rule will be enforced by the data model itself rather than just the UI. By placing a uniqueness constraint in the database so that only one record can exist for `(group, user, date)`, a second post on the same day is structurally impossible even if a bug slips into the application layer.
+
+## Why "Fixed Group × Fixed Period"?
+
+Mainstream social networks are built around infinitely expanding friend graphs and feeds where posts wash away with time. Reallog goes in the exact opposite direction:
+
+- **Fix the membership.** If anyone can wander in, the cozy safety of an inner circle disappears; if it is too small, it never feels like a shared memory. Two people in a couple, a few dozen classmates, a family, or a team are natural human units of just the right size.
+- **Set an end date.** Without a finish line, keeping a daily log turns into homework that never ends. Having a clear milestone—an anniversary, the end of a school year, the last day of a trip—turns the collection into a cohesive chapter: "our memories from this time."
+- **Accumulate instead of streaming away.** Posts do not vanish down an endless feed; over the course of the period, they build up into a permanent archive.
+
+Just as importantly, this structure tackles the hardest problem any new social app faces: the cold-start problem of getting enough people into the room at the beginning. Because a couple, a class, or a team already exists as a complete group spending the same season together, they bring their own network with them from day one.
+
+## The Hardest Design Problem
+
+As I work through the specification, the toughest question I am wrestling with is **how to keep an admin-less group safe**.
+
+In Reallog, I want every member of a group to be on equal footing, with no designated administrator. The moment one person holds special power to delete others' posts, the casual, flat dynamic of a friend group changes. At the same time, in spaces where minors make up the core user base—like student groups—there has to be a fast, reliable way to remove a post if it makes someone uncomfortable.
+
+"Everyone is equal" and "everyone feels safe" sit in direct tension with each other. Are reporting, blocking, hiding, and deleting your own posts enough? Or does the system need a mechanism where a post is automatically hidden if several members flag it as inappropriate? I see this balance as the make-or-break question for the entire service, and it is the area I am focusing on most closely right now.
+
+## Evolving from thanks-log
+
+Reallog spun out of an earlier service I was designing called [thanks-log](/products/thanks-log). thanks-log was built around gathering "thank you" messages from a group ahead of a milestone like graduation or Mother's Day and presenting them to one special person as a digital album.
+
+When I stripped away the three pillars at the heart of thanks-log—a single recipient, the element of surprise, and a gift deadline—and replaced them with a fixed group, a once-a-day rhythm, and a shared time period, Reallog was born. Moving from a gift album to an inner-circle social archive changed almost every detail of the product, but the core philosophy that "constraints make creation easier" carried over unchanged.

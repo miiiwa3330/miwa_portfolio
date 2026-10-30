@@ -1,0 +1,58 @@
+In early August, when I had the portfolio codebase reviewed as a whole, the very first item listed at the top as "Critical" was this:
+
+> In the screenshots taken when zoomed in on buildings, the "PRODUCTS" and "GAME" signboards are rendered horizontally flipped (mirrored).
+
+The top page of this site is a small planet floating in space. Five buildings stand on its surface, and clicking a marker sends the camera flying toward that building to frame it from the front. Yet the signboard right in front of the camera was flipped backward, as if reflected in a mirror.
+
+What made it even trickier was that out of the five buildings, only three showed severe symptoms. The other two looked almost completely normal. The fact that the severity varied from building to building had delayed discovering the bug.
+
+## The Initial Diagnosis Was Wrong
+
+The review also included a diagnosis of the cause and how to fix it: in the formula computing the camera position, the `cos` and `sin` terms multiplying the "direction along the ground" and the "direction perpendicular to the ground" were swapped. Swap them back, it said, and the bug would be fixed.
+
+There was supporting evidence, too. The doc comment on the angle constant in that formula said "tilt 19.5 degrees from the ground normal," whereas the actual math computed "19.5 degrees from the horizon." Since the comment and the formula disagreed, the formula had to be wrong.
+
+Yet when we actually swapped `cos` and `sin`, the camera ended up looking straight down at the building from directly overhead. The reference photo we were aiming for had the horizon sitting low in the frame, looking slightly up at the signboard from the front. Swapping the terms moved us **further away** from the reference photo.
+
+What was wrong wasn't the formula—it was the comment describing the constant. The formula's value of "19.5 degrees from the horizon" closely matched the composition of the reference photo and was completely intentional. Because the comment had been written backwards, the reviewer trusted the prose and doubted the working math. **A single inaccurate comment had manufactured an entire misdiagnosis.**
+
+## The Real Cause Was the Camera's "Up"
+
+So what was actually flipping the signboards? The answer was which way the camera's "up" vector was pointing.
+
+A 3D camera's orientation isn't fully determined just by "where it is" and "what it is looking at." Even from the exact same spot looking at the exact same target, tilting your head rotates the subject inside the frame. What defines which way is the top of the frame is the camera's `up` direction.
+
+On flat ground, keeping the camera's `up` permanently pointed toward the sky (world up) works everywhere. This site had done exactly that ever since its flat-island days.
+
+Once we turned the ground into a sphere, however, that assumption collapsed. For a building standing near the equator, "up" relative to the building points **almost sideways** in world coordinates. Despite that, we were composing the camera shot in the building's local frame while leaving the camera's `up` locked to world up. That mismatch caused two things to happen at the same time:
+
+1. **Buildings appeared tipped on their sides.** Measuring the rendered image showed that the buildings' vertical axis was tilted 84 degrees away from the vertical axis of the screen
+2. **Signboards turned into mirror writing.** The camera's line of sight was only 10 to 18 degrees away from the camera's vertical axis (world up and its opposite, world down). When the line of sight becomes nearly parallel to the `up` axis, the camera's roll becomes mathematically ill-conditioned (degenerate) and can flip unpredictably to either side. The result was mirror writing
+
+This also explained why the severity differed from building to building. How far the line of sight sits from the world vertical axis depends on the latitude where each building stands. Buildings where that angle was 37 or 63 degrees stayed on the safe side, while the three buildings sitting at 10 to 18 degrees were right inside the degeneracy zone.
+
+The fix was to align the camera's `up` with the surface normal of the ground where the building stands whenever the camera is zoomed in on a building. When zooming back out to view the whole planet, it returns to world up as before, smoothly interpolating between the two directions during flight. Once fixed, every signboard became cleanly readable from the front.
+
+## The Tests Were "Guarding" the Bug
+
+What gave me the most pause about this whole incident was that **every single test had been passing** before the fix.
+
+There were unit tests covering the camera position math. However, those tests were written in the form: "the camera angle equals 90 degrees minus the tilt constant"—a direct restatement of the implementation formula. When a test and the implementation look at the exact same formula, even if both are wrong together, the test stays green.
+
+There was an even more ironic test: an assertion checking that "the camera looks down at the subject (never up from below)." For buildings near the equator, that test was passing only because the direction along the ground happened to align with world up. **A test that passed only because the camera was degenerate** had been standing guard over the bug.
+
+In this project, whenever we write tests, we also practice mutation testing—deliberately injecting bugs into the code to verify that the test suite actually fails. However, all mutation testing can prove is whether the tests and the implementation disagree. **When both the tests and the implementation stray from the true specification together**, mutation testing cannot catch it in principle.
+
+So we changed how we write camera orientation tests:
+
+- Write the specification value itself (19.5 degrees) directly in the test without restating the implementation formula
+- Test **what goes wrong when it breaks** directly: assert that "the line of sight and the camera's `up` vector are separated by at least 30 degrees at every building"
+- Lock down the bug itself in a test: assert that "using world up causes degeneracy at three of the buildings"
+
+We deleted the test that had only passed because of the degeneracy, and left a comment explaining why it was removed.
+
+## All the Numbers Can Be Right While the Picture Alone Breaks
+
+Since this incident, I have kept one principle in mind whenever debugging 3D scenes: **all the coordinates can be right while the rendered picture is still broken.** The camera position and look-at target were both computed as intended. Yet without a properly defined `up`, signboards turn into mirror writing and buildings tip onto their sides.
+
+You will never spot that kind of failure just by staring at numbers. That is why, whenever we make a change that affects visuals on this site, we always render the scene and verify it with an actual screenshot. And when we find a visual failure mode, we encode "what happens when it breaks" into a unit test—so the same failure can never slip past silently again.

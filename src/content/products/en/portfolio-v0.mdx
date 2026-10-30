@@ -1,0 +1,59 @@
+## My First Portfolio
+
+Miiiwa Portfolio v0 is the original version of this site. For roughly eight weeks—from July 13 to September 9, 2026—it served as the live homepage at miiiwa.com.
+
+It is a single-page vertical scroller built on a black background layered with neon gradients. From top to bottom, it walks through the Hero section, About Me, Products, Tech Stack, Career, and Contact. I built it with Next.js and React, styled it with Tailwind CSS, and used Framer Motion for the scroll-triggered fade-in animations.
+
+You can launch and interact with the exact build that was live back then via the "Try It Out" button on this page.
+
+## Fleeing Light, Gathering Light
+
+The defining feature of v0 is the field of glowing particles spread across the entire background. Drawn on an HTML Canvas, they react directly to your mouse movements:
+
+- **Flee when approached.** Any particle within 90 pixels of the cursor is pushed away as if repelled. Once the cursor moves on, it slowly drifts back to its original spot.
+- **Gather on long press.** While you hold the mouse button down, the radius of influence triples and surrounding particles are pulled toward the cursor.
+- **Scatter on click.** Clicking sends every particle within 250 pixels bursting outward like an explosion.
+
+Each particle remembers its "home" position and tries to return there whenever no external force is acting on it. Simply balancing this push-away force against the pull back home was enough to make the canvas genuinely satisfying to play with.
+
+## Hidden Easter Egg: Terminal Mode
+
+As a playful touch, I hid a terminal mode inside v0. Clicking `>_ TERMINAL` in the header plays a hacker-movie boot sequence and opens a black screen where you can type real commands.
+
+The available commands mimic a standard UNIX shell:
+
+- `ls` to list files
+- `cd products` to change directories
+- `cat about.txt` to print my bio alongside ASCII art
+- `whoami` to display the current user
+- `help` to see usage instructions, and `exit` to return to the normal view
+
+You can also just type shortcuts like `about` or `products` to read each section directly. I liked this terminal mode enough that I carried it forward into both v1 and the current site.
+
+## Products Featured at the Time
+
+The Products section in v0 listed eight projects. Comparing it with today's lineup shows just how much changed over those two months:
+
+- **"mesen"** — The predecessor to [Michaw](/products/michaw). Back then, it was a web app that exported gaze-estimation and face-recognition results as GIF or MP4 videos. It only evolved into a game that times how long you can resist looking later on.
+- **"Pitch Memory" and "Veggie Memory"** — Two concentration (memory match) games that I originally launched as standalone sites. Later in July, I merged all of my memory games into a single collection called [Synesthesium](/products/synesthesium).
+- **imadoko, gashaan, Umoja, Reallog, thanks-log** — All five of these are still listed under the same names today.
+
+If you open v0 and scroll down to Products, you can read the original lineup with the exact descriptions I wrote at the time.
+
+## Why I Rebuilt It in 3D
+
+On July 18—just five days after launching v0—inspired by a reference site I admired, I decided to rebuild the entire portfolio as a "voxel city with an orbiting camera." It was a major pivot from a single-page vertical scroller to a 3D space you fly around.
+
+Because I worked on the rebuild in a separate branch, v0 remained the live site the entire time. There was an intermediate "flat floating island" phase along the way, but it only ever existed on that working branch and was never deployed publicly. That is why the site history jumps straight from v0 to the voxel planet ([v1](/products/portfolio-v1)).
+
+## Preserving It As It Was
+
+When archiving v0, I made deliberate decisions about what to keep untouched and what to clean up.
+
+**Which state to preserve.** The last content change to v0 was on July 18, but in September I had added a single line for an ad script to the live site. I decided that the archive should capture "the exact state being served right before it was replaced," so that is the version preserved here.
+
+**Do not recompress the images.** The build includes my original screenshots as-is, the largest of which is about 7 MB on its own. Recompressing it would shrink it to a few hundred kilobytes, but then it would no longer be the original file from that era. Because the images are configured to lazy-load on demand, simply opening the top page does not download them—matching the exact production experience from back then.
+
+**Strip out unused files.** On the other hand, I removed photos, videos, and default template images that were already completely unreferenced at the time. Before deleting anything, I verified in two stages that the filename never appeared anywhere in the built output and was never dynamically constructed in the original source code. Trimming those dead assets brought the archived build down from 22.9 MB to 19.0 MB.
+
+With its black-and-neon aesthetic, v0 has a completely different vibe from the current site. Give it a spin, and try holding down your mouse button to gather the background particles.

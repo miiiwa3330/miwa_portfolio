@@ -1,0 +1,61 @@
+> This page **contains spoilers.** If someone is planning to prank you with Michaw, you'll have a lot more fun playing it first before reading on.
+
+## Your Eyes Are More Honest Than You Are
+
+When someone shows you a photo, your eyes dart to "the spot you can't help looking at" far faster and far more directly than you think. Michaw (from the Japanese *michau*, "can't help looking") is a game that measures that exact elapsed time.
+
+All you do is have someone look at a photo in front of a camera, and a stopwatch-style timer records how many seconds it takes for their gaze to enter the target zone. The easiest way to picture it is as an undeniable, numbers-don't-lie test of "how many seconds can my boyfriend last before looking?"
+
+That said, the real magic of the game isn't the time itself—it's **the moment of the reveal**.
+
+## Two Ways to Play
+
+**Set a trap for a friend right in front of you.** Pick a photo, place a hidden "gaze zone" over the spot you don't want them to look at (or know they will look at), hand them your device, and say, "Hey, try this dynamic visual acuity test." From start to finish, their screen says nothing but "Dynamic Visual Acuity Test." They play through 4 stages of following glowing targets with their eyes, and then the photo appears as the final stage. Only on the results screen do they discover what they were actually being timed on—and how many seconds they lasted.
+
+**Send a URL to a friend far away.** You can also generate a shareable link. Each link is valid for 72 hours and can be played once per device. The sender gets notified automatically when the link is played, but **the recorded time is only sent if the player chooses to "Share Result" after seeing the reveal**. It's deliberately ordered so the player finds out what was being measured before deciding whether to hand over their score.
+
+On the results screen, players can watch a replay of the exact path their gaze traced across the photo. They can also post their name to the weekly leaderboard, and any posted record can be deleted at any time using a passphrase they set when submitting.
+
+## Merely Hiding the Purpose Wasn't Enough
+
+In the earliest prototype, I simply told the player on screen: "Keep your head still and look at the 9 dots in order." I didn't say why. That prevented spoilers, sure—but watching people actually play it, I could see them tensing up through the screen, thinking, "Something is about to happen to me." When someone looks at a photo with their guard up, their eye movements stop being natural. **The very thing you're trying to measure gets contaminated.**
+
+So I flipped my approach: instead of leaving a mysterious blank, **I filled it with a harmless cover story**. I turned the calibration step required for gaze estimation directly into a game called the "Dynamic Visual Acuity Test."
+
+Right from the start, the top of the screen displays "STAGE 1 / 5" and walks the player through 4 rounds of chasing moving targets. After about 25 seconds of playing an innocent reflex game, their guard drops almost completely. Then the photo appears as the 5th stage. A crucial detail here was **not** inserting a "Calibration Complete!" interstitial before the photo. Whenever there's a break between sections, people lean back in their chair and change their posture. Because webcam gaze estimation only stays accurate relative to the head position where it was calibrated, a shift in posture doesn't throw an error—it **silently produces a wrong time**.
+
+That is also why the banner for the fifth round says "LAST STAGE" instead of "STAGE 5." A plain number leaves room for players to relax thinking "almost done," whereas calling it the last stage keeps them locked in until the very end of the round.
+
+## Under the Hood
+
+The app is built with Next.js and React, exported as static files, and served from Cloudflare Workers. Data for the weekly leaderboard and shareable trap links is stored in Cloudflare D1 (SQLite) through a lightweight API running on the same Worker.
+
+### Gaze Estimation Happens Entirely Inside the Browser
+
+To extract facial landmarks from the webcam feed, Michaw uses Google's MediaPipe (Face Landmarker). **Neither the camera video nor the extracted facial coordinates ever leave the device.** The only times anything is saved to the server are when a player opts into the leaderboard or when a host creates a shareable link—and in both cases, the only image stored is the photo chosen by the host. Photos uploaded for shareable links are automatically purged after 72 hours.
+
+Rather than tracking a single point for the center of the iris, the estimator averages 5 points—the 4 points around the iris contour plus the center point. That alone visibly reduced frame-to-frame jitter. For the reference anchor points of the eye, I originally used the upper and lower eyelids, but because eyelids move along with your gaze (when you look down, your upper eyelid drops), vertical accuracy fell apart. Now the estimator anchors against the inner and outer corners of the eye, which remain stationary relative to the skull.
+
+### 16-Point Calibration and an Honest Way to Measure Accuracy
+
+The "Dynamic Visual Acuity Test" uses 16 targets placed across a 4×4 grid on the screen, appearing in **random order**. If the order were predictable, a player's eyes would anticipate the next spot and start moving early, contaminating the calibration samples. From the collected pairs of eye positions and on-screen coordinates, the app fits a mapping function via ordinary least squares.
+
+Measuring how accurate that function is by testing it on the same points used to train it would be meaningless—any curve can fit the points it was trained on. Instead, Michaw evaluates accuracy using leave-one-out cross-validation: it holds out 1 of the 16 points, fits the model on the remaining 15, tests how closely it predicts the held-out point, and repeats that across all 16 points. In practice, the average error is roughly 10% of the screen width, with vertical tracking being noticeably harder than horizontal. Human eyes are wide horizontally and narrow vertically, so the iris moves across a much smaller pixel range when looking up and down.
+
+Incidentally, the "Dynamic Visual Acuity Score" displayed at the end of the results screen isn't a random number—it's calculated directly from this cross-validation accuracy. The more accurately you tracked the targets, the higher your score. So even though the test is a cover story, what it measures under the hood really is "how precisely your eyes tracked moving targets," which isn't far off from its name at all.
+
+### High Praise for Anyone Who Lasts 40 Seconds
+
+If 40 seconds pass without the player's gaze ever entering the target zone, the timer stops and advances to the results screen. Instead of a time, the screen displays a randomly selected compliment like "You are a person of true integrity" or "You are a sage." It's a punchline that only works because it comes right after the reveal.
+
+## One Hypothesis I Want to Test Behind the Scenes
+
+On the results screen, after the reveal, the app asks whether the player is willing to contribute their anonymized record for research. For those who consent, it logs only four fields—gender, elapsed time, which preset trap was used, and calibration accuracy—without ever saving photos, video, or personally identifiable information.
+
+The hypothesis I want to test is whether "not being able to help looking" actually has nothing to do with gender, and simply reflects human eyes being drawn to anything unusual. A sculpted six-pack and a boss's shiny bald head might pull our gaze in the exact same way. And because a run where someone never looked is valuable data in itself ("lasted 40 seconds without looking"), timed-out runs are preserved right alongside the rest.
+
+## The Story Behind the Name
+
+I originally launched the project in April 2026 as "mesen," a utility tool for exporting gaze-tracking overlays as GIFs and videos. From there, I pivoted the concept into a game that times how long it takes before you cave and look, passing through the working title "Gaze Stopwatch" before settling on "Michaw." For a few hours along the way I spelled it "Michow," until I noticed that spelling collided with an overseas surname and got buried in search results, prompting a quick rename.
+
+No installation or account is needed—all it takes is a device with a camera and a browser. A larger screen makes gaze tracking much more stable, so if you're setting a trap for someone, I recommend running it on a PC or an iPad.

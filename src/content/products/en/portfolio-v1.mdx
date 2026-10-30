@@ -1,0 +1,57 @@
+## A Voxel Planet Floating in Space
+
+Miiiwa Portfolio v1 is the second generation of this site. When you open the top page, a tiny planet floats in space with five landmarks standing on its surface—About Me, Products, Tech Stack, Career, and Contact—alongside clusters of unnamed little buildings and a plaza with a Ferris wheel. The camera orbits the planet continuously like a satellite, flying from landmark to landmark as you scroll.
+
+Every building, the Ferris wheel, and even the tiny residents walking around are built by stacking small cubes (voxels). Better yet, it uses zero external 3D model files—**everything is procedurally generated in code**. Even the lettering on the signboards is created by rendering font text onto an offscreen canvas first and replacing each pixel with a 3D cube.
+
+You can run the exact build from that era via the "Try It Out" button on this page.
+
+## From a Flat Island to a Spherical Planet
+
+It did not start out as a sphere. In mid-July 2026, I decided to replace my original single-page HTML site ([v0](/products/portfolio-v0)) with a 3D diorama. The first version I built was a **flat island** floating in the sky, with the camera orbiting around it at a constant altitude.
+
+At the end of July, I decided to turn that island into a sphere floating in space. Buildings stand 360 degrees around the globe in every direction, and the camera becomes an orbiting satellite. It sounds simple in words, but assumptions that were completely natural on a flat ground plane broke one after another on a sphere.
+
+### Great Circles Bulge Toward the Poles
+
+At first, the scroll path connecting one landmark to the next followed a "great circle"—the shortest path between two points on a sphere. Mathematically that is the right answer, but in practice it sent the camera diving toward the South Pole. Great circles curve toward the nearer pole relative to their endpoints. Connecting two points at 40°S latitude separated by 144° of longitude deflects the path 29.8° closer to the pole mid-flight. At one point, the camera actually plunged all the way down to 71°S.
+
+To fix this, I rewrote the trajectory to interpolate smoothly in latitude-longitude space instead. Rather than the path that is geometrically "shortest" on a sphere, I chose the path that feels natural to a human viewer.
+
+### The Signboards Turned into Mirror Writing
+
+Another headache was the camera's "up" vector. On flat ground, the camera's up direction can stay locked to the sky (world up) forever. On a sphere, however, "up" for a building standing near the equator is nearly sideways in world coordinates. Keeping the camera's up vector locked to world up while zooming in on an equatorial building caused the building to appear tipped on its side—and rendered its signboard in mirror writing.
+
+Now, whenever the camera approaches a building, its up vector aligns with the surface normal of the ground that building stands on. I wrote the full story of this bug in the note "[The Day the Signboard Turned into Mirror Writing](/notes/mirrored-signboard)."
+
+## Drawing Thousands of Cubes in a Single Call
+
+Thousands of cubes sit on the surface of the planet. Drawing them one by one would tank frame rates immediately, so I used Three.js's `InstancedMesh`—which batches identical geometries together—and strictly enforced the rule that **one model is drawn in a single draw call**. Even the clusters of multi-tenant buildings, where every building faces a different surface normal, give each individual cube its own position and orientation matrix so the entire cluster renders in a single pass.
+
+Beyond batching, I built several touches tailored specifically to a spherical world:
+
+- **A sun you can drag by hand.** No matter where the sun shines on a sphere, the opposite hemisphere is always in night. After proving mathematically that no fixed light direction could brightly illuminate all five landmarks at once, I made it possible for visitors to grab the sun and drag it wherever they like.
+- **An opening-crawl bio.** The About Me text tilts and scrolls into the depth of the screen like a movie opening crawl, built purely with HTML and CSS. Buildings render in front of the text and occlude it naturally.
+- **Mobile designed as its own scene.** Instead of shrinking the desktop layout, I rebuilt both the camera framing and the card placement around touch interaction. Cards line up along a bottom rail, and pinching with two fingers adjusts the camera altitude.
+
+## Guarding 3D with Tests
+
+3D scenes break silently. Every number can be valid while the picture on screen is completely wrong. To catch regressions, I extracted all math for camera positions, orientations, paths, and spherical geometry into pure functions decoupled from rendering, and tested them headlessly. By the time v1 wrapped up, the suite had around 480 tests.
+
+However, a test is useless if it merely restates the implementation formula. Even when the signboard was rendering in mirror writing, every single test was passing—because the tests simply copied the same math as the implementation. Since then, I write assertions directly in terms of **what breaks visually**, such as requiring that "the camera's up vector and viewing ray stay at least 30 degrees apart."
+
+## Why v1 Came to an End
+
+In September 2026, I decided to overhaul the site's world and aesthetic from the ground up. The new direction was a space station interior with a neon-lit cyberpunk atmosphere. After experimenting with several prototypes, I concluded that blocky voxels clashed with that mood and decided to retire the voxel style altogether.
+
+Before tearing it down, I wanted to preserve v1 exactly as it was while it still ran cleanly. Digging up old code months later often means fighting dependency rot in newer environments. What I archived here is not a video or a set of screenshots, but the live interactive build itself.
+
+## How It Was Archived
+
+The historical build lives directly under `/archive/v1` on this site. Simply copying the build folder over, however, was not enough to make it work:
+
+- **Asset paths shifted.** The exported HTML references JavaScript and CSS bundles from the root of the domain (`/`). Dropping those files into a subfolder caused them to request the current site's bundles and crash. I configured the build to know it lives under `/archive/v1` and ran a fresh export.
+- **Images still ignored the prefix.** Static image paths bypass Next.js's base path setting, so for two days after archiving, v1's product cards were silently borrowing identically named images from the current site. I fixed this by rewriting the asset paths in the exported output and added a test so it can never happen again.
+- **Excluded from search indexing.** I configured the archive so that an outdated "Miiiwa | Portfolio" page does not compete with the current site in search results.
+
+Whether you scroll from landmark to landmark or drag to fly wherever you please, take a lap around the planet.

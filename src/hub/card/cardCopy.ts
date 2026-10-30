@@ -13,7 +13,7 @@ export const CARD_COPY: Record<
 > = {
   about: {
     jaTitle: "自己紹介",
-    enTitle: "About",
+    enTitle: "About me",
     sub: "About Me",
     ja: "「面白いを最優先！」がモットー。新規性を重視し、まだこの世にないものを探し求めている27卒の学生エンジニアです。",
     en: "My motto is \"Fun First!\" A Class-of-'27 student engineer who values novelty and searches for things that don't exist yet.",

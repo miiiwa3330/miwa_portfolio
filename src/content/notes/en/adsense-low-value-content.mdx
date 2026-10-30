@@ -1,0 +1,57 @@
+In September 2026, I applied for Google AdSense on miiiwa.com and was rejected. The reason given was "Low value content."
+
+> To be eligible for ad serving, your site must offer unique value, establish a consistent presence on the web, and attract a level of user interest capable of sustaining commercial ad partnerships.
+
+This site features a 3D planet built entirely from scratch in code. I put a lot of care and effort into creating it. However, once I actually measured the numbers, it became crystal clear what this site looked like from the reviewer's perspective.
+
+## What It Looked Like to the Reviewer
+
+I fetched the HTML of the live top page and measured the amount of text inside it.
+
+| Metric Measured | Value |
+| --- | --- |
+| Body text contained in the HTML | Approx. 3,200 characters |
+| Portion of that text not displayed on screen | Approx. 3,100 characters (96%) |
+| Visible text on the initial screen | Approx. 120 characters |
+| Pages listed in the sitemap | 2 (Top page and Privacy Policy) |
+
+Almost the entire top page of this site is a 3D planet. The names and descriptions of the buildings are either drawn inside the 3D scene or only appear when you click on them. The text readable on the initial screen—combining the navigation, a single card, and the footer—came out to only about 120 characters.
+
+Although the HTML contained roughly 3,200 characters of text, 96% of it was never displayed on the screen. Because text rendered inside a 3D canvas cannot be read by screen readers or search engines, I had placed the same content inside "invisible HTML."
+
+Furthermore, my projects and background were simply toggled within that single page rather than existing as separate pages. From the reviewer's perspective, this site was "**a site with only two pages and almost no visible text**."
+
+## Invisible Text Doesn't Count as Value
+
+Some might think that adding more hidden text would help pass the review. In reality, that can backfire.
+
+Alternative text for screen readers is completely legitimate on its own. However, what a review evaluates is the value visible to human visitors. Invisible text does not count toward the value of the site. Worse yet, hiding text solely for search engines risks violating Google's spam policies regarding "hidden text."
+
+In fact, the file holding that invisible text even had a comment reading "For AdSense review bots." Framing its purpose that way makes it hard to argue that the text is meant as accessible alternative text. I rewrote that comment to explicitly state that it is alternative text for screen readers, and that we must never pile extra text in there to game reviews.
+
+## The Biggest Cause: Only Having a "Self-Introduction"
+
+Even more significant than the raw numbers was the nature of the site's content. A portfolio is fundamentally an introduction to the person who made it. Someone who doesn't already know Miiiwa has no reason to find it through search and read it.
+
+What AdSense looks for is "reliable, high-quality information, tools, or services," "ongoing curation," and "genuine user interest." A page that only introduces its creator rarely fits any of those three criteria. No amount of technical tweaking can change that fundamental fact.
+
+## Building Proper, Visible Pages
+
+Instead of padding invisible text, I decided to build **visible, readable pages**.
+
+1. **Dedicated pages for each project.** Previously, each project only had a two-line description inside a popup. I created an independent page for every project and wrote several thousand characters explaining what I built, why I built it, how it works under the hood, and where I got stuck along the way. Next to the "View Code" and "Play Now" buttons in the popup, I placed a "Read More" button so visitors can jump straight to the article
+2. **These Notes.** A technical diary where I write about what I was thinking while building, where I stumbled, and the moments when things finally clicked. Rather than polished tutorials, I keep them as records of what I learned at each point in time
+
+Because this site is built with Next.js static export (`output: 'export'`), I cannot use a server at runtime. However, as long as I tell Next.js which pages to generate at build time, it exports each one as a standard HTML file. I set up the build to automatically generate pages from the lists of projects and notes.
+
+I also put a few safeguards in place to prevent silent failures.
+
+- **Each page declares its own URL as its canonical URL.** Because the site-wide configuration previously declared the top page as the canonical URL, any new page left untouched would claim to be a duplicate of the top page. When that happens, search engines largely ignore those pages. Since this failure leaves no visible trace on screen, I guard against it with automated tests
+- **Pages with body text that is too short cannot be published.** I added a test that fails if the body of any project page or note falls below a minimum length (2,000 characters). This prevents accidentally publishing rough drafts
+- **Placing the ad configuration file (ads.txt).** The file authorizing AdSense to serve ads on the domain had never been placed. I also added a test to verify that the publisher ID inside it matches the ID in the ad script
+
+## The More Handcrafted the 3D, the Less Readable It Is
+
+Measuring everything taught me a clear lesson: the more effort I poured into crafting the 3D world, the less readable it became to both machines and first-time visitors. Before someone even interacts with the scene, what communicates "what kind of site this is" is plain, readable prose.
+
+The project pages and these notes are the home for that plain, readable prose. I will be adding to them little by little from here on out.

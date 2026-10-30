@@ -42,7 +42,7 @@ export function bottomNavForPath(pathname: string, isJa: boolean): BottomNavInfo
     const notesLabel = isJa ? "ノート" : "Note";
     breadcrumbs.push({ label: notesLabel, href: "/notes" });
     if (note) {
-      breadcrumbs.push({ label: note.title });
+      breadcrumbs.push({ label: isJa ? note.title : (note.titleEn ?? note.title) });
     }
     return {
       breadcrumbs,

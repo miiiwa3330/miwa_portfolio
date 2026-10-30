@@ -97,7 +97,7 @@ export default function Hologram({
         <div aria-hidden className="h-[35%]" />
         <div ref={prose} className="px-10 text-[22px] leading-[1.8] [text-shadow:0_0_8px_rgba(47,232,255,0.85)]">
           <p className="font-mono text-[14px] tracking-[0.3em] text-[#2fe8ff]">ABOUT ME</p>
-          <h2 className="mt-1 mb-6 text-[30px] font-bold">{isJa ? "自己紹介" : "About"}</h2>
+          <h2 className="mt-1 mb-6 text-[30px] font-bold">{isJa ? "自己紹介" : "About me"}</h2>
           <div className="space-y-6">
             {aboutParagraphs(isJa).map((paragraph, i) => (
               <p key={i}>{paragraph}</p>

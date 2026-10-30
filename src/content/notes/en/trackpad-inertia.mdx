@@ -1,0 +1,60 @@
+On the top page of this site, scrolling over the info card on the left side of the screen advances the card one area at a time, and the camera flies to the corresponding building on the planet.
+
+In early August, I described something that had been bothering me while using it:
+
+> The scroll sensitivity when hovering over the card feels off. Sometimes the card switches and sometimes it doesn't, so please make it switch reliably. At the same time, please prevent it from jumping ahead to the next card before the current next card has even appeared.
+
+That single request actually contains two demands pointing in opposite directions: "make it respond more easily" and "don't let it go too far ahead." Turning a single sensitivity knob (threshold) up or down can never satisfy both at once. So we started by separating the two into independent bugs.
+
+## What Was Really Behind "Sometimes It Works, Sometimes It Doesn't"
+
+Card stepping was built around the rule of **one card per scroll gesture**. The moment accumulated scroll distance crosses 80 pixels, it advances one card and locks out further steps until the current gesture ends. The end of a gesture was detected by waiting for scroll events to stop arriving for 220 milliseconds.
+
+The culprit was **inertial scrolling** on Mac trackpads. When you flick two fingers across a trackpad and lift them off, the browser continues firing a decaying tail of scroll events for one to two seconds as momentum carries the scroll forward.
+
+Suppose you perform a second swipe while that inertial tail from the first swipe is still trickling in. Because the first event of your second swipe arrives less than 220 milliseconds after the previous tail event, the code treats it as a continuation of the first gesture—which is already locked. **Your entire second swipe was being thrown away.**
+
+If you waited for the tail to die out completely before swiping again, it worked fine. In other words, whether a swipe worked or was ignored depended entirely on whether it overlapped the invisible inertial tail of the previous swipe. To the person using the trackpad, that feels completely random. That was the true identity of "sometimes it works, sometimes it doesn't."
+
+## Telling Inertial Decay Apart from a Returning Finger
+
+The clue to fixing it lay in how the magnitude of each scroll event changes over time:
+
+- An inertial tail **decays monotonically**
+- A fresh finger swipe **ramps up in magnitude**
+
+So alongside "gesture ends after 220ms of silence," we added a second gesture-reset condition: **once event deltas have dropped below half of the peak delta seen in the current gesture, if an incoming event suddenly jumps to at least 2.5× the immediately preceding event**, treat that spike not as inertia, but as the user's fingers returning to the trackpad for a brand-new gesture.
+
+Neither half of that condition works on its own. Right at the start of a normal swipe, event deltas ramp up rapidly—say, `2, 5, 13, 34, 88, 240`. If you checked only for "a 2.5× jump over the previous event," the initial ramp-up of a single swipe would repeatedly trigger false resets. During that initial ramp-up, however, each event is the largest seen so far, so the first half of the condition—"having already fallen below half of the gesture's peak"—is never met. Combining the drop below half-peak with the 2.5× jump makes the detector immune to false triggers during the initial ramp. The two conditions work together as a single mechanism.
+
+Along the way, we briefly included a minimum floor delta below which the spike detector wouldn't run, worrying that at the very end of an inertial tail where deltas shrink to `1` or `2`, tiny quantization noise might look like a 2.5× jump. However, we couldn't write a single test demonstrating an actual user-facing failure caused by its absence: even if a false reset occurred at the very end of a tail, the remaining tail energy is tiny and never accumulates to the 80-pixel threshold needed to advance a card. **A constant whose failure mode cannot be expressed as a failing test is an ungrounded constant**, so we removed the floor.
+
+## Preventing Overshoot by Waiting, Not by Lowering Sensitivity
+
+The second half of the request—"don't jump to the card after next before the next card has even appeared"—was solved not by tweaking scroll sensitivity, but by **waiting**.
+
+Scrolling on the card isn't actually a command that mutates the displayed card directly; it is a **request asking the camera to fly toward the next building**. The card on screen only switches after the camera has moved far enough along its flight path that the next building becomes the closest one. If we accept another scroll request before that handover happens, the code computes "the next building" relative to the old card that is still on screen—causing the second swipe either to target the same building again (feeling like a dropped input) or to skip past a card that hasn't even finished arriving.
+
+So once a step request is issued, we **refuse new step requests until we confirm that the active card has actually switched**. We calculated the cooldown duration rather than eyeballing it: it takes roughly 0.13 seconds for the camera to cross the nearest-building boundary and about 0.16 seconds for the new card's entrance animation to settle—roughly 0.3 seconds in total, capping card stepping at a comfortable maximum of about three cards per second.
+
+Any scroll events rejected during that cooldown window are discarded rather than queued. If you queued them, residual inertial tail events would fire a phantom card step the instant the cooldown expired, even though the user's fingers had long since left the trackpad. If the user genuinely wants to advance another card, their next swipe will go right through.
+
+## Leaving the Sensitivity Knob Alone
+
+During the discussion, a proposal came up to lower the scroll threshold from 80 pixels down to 50 so that even a light two-finger brush would advance a card. I chose to keep it at 80.
+
+Once we had isolated the missed swipes to the inertial-tail lock bug, there was no reason to touch the threshold. Had we turned the sensitivity knob first, we would have only increased accidental card steps while leaving the real bug completely intact.
+
+While inspecting the wheel handler, we also uncovered a browser discrepancy with physical mouse wheels. Chrome reports one notch of a mouse wheel as `100` pixels, whereas Firefox reports that exact same notch as `3` lines (`deltaMode = 1`). Comparing raw line counts against an 80-pixel threshold meant Firefox users had to spin their wheel 27 notches just to advance a single card—making it effectively broken rather than merely insensitive. We added unit normalization to convert line-based and page-based wheel deltas into pixels before comparing against the threshold.
+
+## Comparing Before and After on the Exact Same Gesture Stream
+
+To verify the fix end-to-end, we fed recorded sequences of wheel events directly into the live page:
+
+- A single wheel notch → advances **1 card**
+- A brisk flick followed by a 50-event inertial tail → advances **1 card**
+- **A second flick started right in the middle of the first flick's inertial tail → advances 2 cards**
+
+That third case was the exact scenario we set out to fix. Just to be certain, we temporarily reverted only the spike-reset logic and replayed the exact same event stream: the result dropped back to 1 card. Confirming a one-to-one correspondence between the symptom and the fix on the same input stream is where we called the task complete.
+
+When reporting "feel" bugs like scrolling, it is natural for a user to describe them as "the sensitivity feels off." Hidden inside that vague sense of unresponsiveness, however, was a sharp, deterministic boundary: whether or not your swipe overlapped the inertial tail of the one before it.

@@ -1,0 +1,61 @@
+In mid-September, I rebuilt the mobile version of this site. Originally, it was nothing more than the PC layout shrunk down using Tailwind CSS responsive breakpoints. In fact, there wasn't a single branch in the codebase designed specifically for viewing on a phone.
+
+My initial request was simply "I want to refine the mobile screen." Before jumping into fixes based on guesswork, however, I first had the site measured on an iPhone 14 viewport (390×844) to see what was actually happening.
+
+## Measuring Showed It Was More Broken Than Expected
+
+In a single sentence, the result was: "A shrunk-down PC layout does not work on a phone."
+
+- **The card completely hides the subject.** On PC, the info card sits on the left side of the screen, and the camera shifts slightly to the right to frame the building beside it—under the assumption that the card takes up only about 30% of the screen width. On a phone, however, the card occupied 86% of the width. Shifting the camera by 30% just moved the building behind a different part of the same card
+- **Buttons overlap along the bottom of the screen.** The external link buttons, the button to return home, and the footer text were all piled on top of one another in the same horizontal band
+- **The footer gets clipped.** "Privacy Policy" was cut off at the right edge of the screen as "Privacy Polic"
+- **The self-introduction text won't scroll with a finger.** Dragging a finger 500 pixels across the screen advanced the text by only 73 pixels
+
+That last issue was the nastiest. The self-introduction is staged like a movie opening crawl where text recedes into the distance; under the hood, it stores a "target scroll position" and smoothly chases it every frame. Mouse wheel events had a dedicated handler that updated that target position. Touch scrolling on a phone, however, lets the browser mutate the DOM scroll position directly—only for the per-frame chasing loop to immediately yank it back to the unchanged "target" on the very next frame. **No errors were thrown; the text simply refused to move**—a completely silent failure.
+
+## Deciding Whether It's a Phone in Exactly One Place
+
+From there, I asked for seven changes to kick off the rebuild: replace the pause button with "tap empty sky to pause," replace the zoom buttons with a two-finger pinch, and turn the card into a horizontal rail sliding along the bottom of the screen. In short, replacing on-screen buttons with touch gestures.
+
+Swapping buttons out for gestures isn't something you can express in CSS alone. We needed JavaScript to determine whether the visitor is currently using a handheld device. The condition we settled on requires **both** "a primary touch pointer (`pointer: coarse`)" **and** "a viewport width of 1023 pixels or less." Both halves were essential:
+
+- Checking only for touch input would strip the buttons away from laptops with touchscreens—leaving someone using a mouse with no buttons and no way to pinch
+- Checking only for a narrow window would strip the buttons away from desktop users who simply narrowed their browser window—where touch gestures aren't available in the first place
+
+Furthermore, we placed this predicate in **one single module** across the entire project and made it a strict rule never to create a second check. If the UI components and the camera logic each decided "is this a phone?" independently, you could end up in a split state where the card renders as a mobile bottom rail while the camera still frames shots using PC offsets.
+
+## Never Change PC Constants for the Sake of Mobile
+
+During the rebuild, the exact same category of mistake happened twice.
+
+The first time was with camera framing. Since the card sits at the bottom of the screen on a phone, we initially calculated an offset to "lift the planet upward to leave room at the bottom." The math itself was sound, but its premise was wrong. At the standard camera altitude on a phone, the planet isn't a small disk floating inside the frame—it is **a landscape filling the entire screen**. When we took a screenshot to check, the ground covered 94% of the viewport and the horizon had disappeared off the top edge of the screen. What we needed to decide wasn't where to center the disk of the planet, but **where to place the horizon**.
+
+The second time was when I asked: "Make the Overview altitude a bit higher, and at the Standard altitude make sure about one-third of the screen shows the space background." In my head I was talking about the mobile screen, but I hadn't written "on mobile" in my prompt. As a result, constants shared by both PC and mobile were modified. The PC numbers had been derived from reference photos and should never be moved for the convenience of mobile. I had the PC values restored and separate mobile-only constants added instead.
+
+What both mistakes had in common was losing track of **which frame we were talking about**. The first applied far-field thinking (treating the planet as a disk) to a close-up view where the planet behaves as a landscape; the second applied a mobile adjustment to PC as well. That left us with a firm rule: **always lock down which viewport a change targets before touching any numbers, even if the prompt doesn't state it explicitly.** PC is wide, while a phone is tall with a card rail occupying the bottom. When the shape of the frame differs, the numbers that produce a good composition differ too. In this project, we never overwrite PC constants because something looks off on a phone—we keep dedicated mobile constants alongside them.
+
+That "one-third background" request ultimately became a single geometric rule that solved both mobile camera altitudes at once: **place the limb (horizon) of the planet one-third of the way down from the top of the screen**. Solving backward from that rule moved the mobile Standard altitude from 50 to 77.9 and the Overview altitude from 100 to 122.8. When we measured the resulting screenshot at the Standard altitude, the sky occupied 33.3% of the screen—up from 15%, and right on the one-third mark.
+
+## The Same "Two Fingers" Arrive Through Completely Different Paths
+
+The most confusing part of the mobile work was two-finger gestures. The symptom I reported was that PC and actual phones behaved in exact opposite ways:
+
+- Two-finger pinch (zoom) worked on a real phone, but did nothing on a PC trackpad
+- Two-finger scroll (orbiting the planet and scrolling the self-introduction) worked on a PC trackpad, but did nothing on a real phone
+
+The cause was that even though the human motion is "two fingers" in both cases, the browser delivers them through completely different event pipelines:
+
+- **A two-finger pinch on a PC trackpad arrives not as touch pointer events, but as a `wheel` event** (specifically, a wheel event with the `ctrlKey` modifier set). Because our pinch handler was waiting for two touch pointers to go down, it never fired on a PC. Worse, the regular wheel handler caught those events instead, so pinching on a trackpad advanced the building tour—worse than doing nothing at all
+- **Phones do not fire `wheel` events.** Because both advancing the tour and scrolling the self-introduction were wired exclusively to `wheel` events, there was no way for a finger on a touchscreen to drive them
+
+The fix in both cases was to wire up the missing pathway. On PC, we intercept `ctrlKey` wheel events as zoom; on touchscreens, we watch two-finger touch gestures and classify them as zoom when the distance between the fingers changes, or as scroll when both fingers move together.
+
+Even that "zoom vs. scroll" classification had a subtle trap. When you hold a phone one-handed and pinch by moving your index finger while keeping your thumb anchored, as the distance between the two fingers changes, the midpoint between the two fingers simultaneously shifts by half as much. If you lock into whichever gesture crosses a fixed threshold first, a one-handed pinch gets misclassified mid-gesture as a scroll. Instead, we compare the change in finger separation directly against the midpoint travel distance and pick whichever is larger.
+
+## Mobile Is a Different Scene
+
+Going through this rebuild changed how I think about mobile layouts: a phone is not a shrunk-down PC screen, but **a separate scene with a different aspect ratio, different UI occupying the bottom edge, and different input pathways**.
+
+The PC composition was derived from reference photos and says nothing about a tall vertical screen. When something looks wrong on a phone, it isn't because the PC numbers were wrong—it is because those numbers were never meant for that frame. So instead of mutating PC constants, we give mobile its own constants.
+
+And whenever we add a gesture, we verify it across both the PC and mobile event pathways. Assuming a gesture is "done" after testing only one side is a sure way to ship something that stays completely unresponsive on the other—just as those two-finger gestures proved.

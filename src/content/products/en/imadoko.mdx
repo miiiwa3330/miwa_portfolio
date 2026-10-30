@@ -1,0 +1,63 @@
+## Ending "Where Are You?" in a Single Tap
+
+Every time I met up with friends, I got tired of the endless back-and-forth messages: "Where are you right now?" "I'm at the east exit." "Which way is the east exit?" Plenty of apps already let you share your location, but almost all of them assume that the other person has the same app installed, holds an account, and has added you as a friend. On top of that, once connected, most of them keep sharing your location indefinitely—which is way too heavy when all you want is to show where you are for the next 30 minutes today.
+
+I built imadoko to fill that exact gap. Using it takes just three steps:
+
+1. The person starting the share (the host) taps the button on the top screen
+2. They send the generated URL to the other person over LINE or any messaging app
+3. The moment the other person opens the link, everyone's live locations appear on the same map in real time
+
+There is no app to install and no account to register. The map opens the instant you tap the link, and once you've met up and the host stops sharing, that URL never shows anyone's location again. Location sharing is designed to be disposable, one session at a time.
+
+## What It's Like in Practice
+
+On the map, each participant appears as a differently colored circular pin. The host gets an "H" badge, you get "ME," and other participants get numbered badges, so even when three or more people are meeting up, you never lose track of who is who. Tapping someone's name in the participant list flies the map straight to their pin.
+
+You can switch between four map styles: the Geospatial Information Authority of Japan's pale map, OpenStreetMap Japan, CARTO Voyager, and Esri aerial imagery. In places where a street map doesn't help much—like inside a sprawling train station or a large park—simply flipping to aerial photos makes it much easier to orient yourselves.
+
+If location permission hasn't been granted or weak reception prevents the phone from getting a fix, a banner at the top of the screen explains the exact reason. Since the biggest frustration with any location-sharing app is "why isn't my pin showing up?", I prioritized never failing silently.
+
+## Under the Hood
+
+The frontend is built with Next.js (App Router) and React, and the map is rendered with Leaflet. Location updates pass through Supabase, with Supabase Realtime—which lets clients subscribe to Postgres database changes in real time—serving as the heart of the system.
+
+The data flow is simple. Each device grabs its own coordinates via the browser's Geolocation API and updates its participant row in the database. Other devices subscribe to those change notifications and move the corresponding pin whenever an update arrives. There is no custom backend server calculating or broadcasting coordinates in between.
+
+### Poll Every 3 Seconds, Skip Sending If Barely Moved
+
+The app checks your location every 3 seconds. However, even when you are standing completely still, GPS readings jitter by a few meters. Sending every single reading raw would rack up constant network traffic when nobody is moving. To prevent that, if neither latitude nor longitude has shifted by at least roughly 3 meters (0.000027 degrees) from the last transmitted position, the database write is skipped.
+
+On the flip side, if writes stop completely, it becomes impossible to tell the difference between someone standing still waiting for you and someone who closed the app and vanished. So even when a user isn't moving, the app sends a lightweight heartbeat every 20 seconds just to say "I'm still here." Any participant whose signal hasn't been heard for over 1 minute turns into a semi-transparent gray pin labeled "X min ago." I chose to dim the pin rather than delete it because if someone briefly loses signal in an underground subway section and vanishes from the map entirely, it only makes everyone else anxious.
+
+### Glide Pins Over 600 ms Instead of Teleporting
+
+If you snap a pin directly to each new coordinate that arrives every 3 seconds, the pin jerks across the screen in sudden teleports. Watching from the other side, that jerky motion surprisingly makes you wonder whether the tracking is actually working. So whenever a new position arrives, the pin linearly interpolates from its previous spot over 600 milliseconds. That small touch alone makes people on the map look like they are actually walking.
+
+For your own pin, the screen updates immediately without waiting for the database write to return (optimistic UI). Waiting for the server's confirmation before moving your own marker makes it feel like your pin is lagging a beat behind you.
+
+### Cleanly Removing People Who Just Close the Tab
+
+One deceptively tricky part of location sharing is cleaning up after people who leave. It's easy if they tap the Leave button, but in reality almost everyone just closes the browser tab. In imadoko, the instant a page closes (`pagehide`), the browser fires a leave notification via `navigator.sendBeacon`. Regular fetch requests get aborted the moment a tab closes, but `sendBeacon` guarantees delivery even after the page is gone.
+
+The headache this created was page reloads. Reloading a page also triggers a page close, which fires a leave notification—and then the freshly reloaded page immediately tries to rejoin. When those two raced each other, the delayed leave processing would sometimes finish right after the rejoin, wiping the user out of the room. Now, the app records the timestamp when the page closes, and if a rejoin happens within 3 seconds, it waits briefly before re-registering. On top of that, if a location update ever returns "your participant row no longer exists," a self-healing mechanism automatically rejoins the session.
+
+### Only the Person Holding the Secret Token Can Write
+
+If any browser could directly overwrite participant rows in the database, anyone who knew the room URL could move other people's pins around. To lock this down, direct table writes are completely blocked via Row-Level Security (RLS), and all writes must go through Postgres functions (RPCs) that verify a secret token issued upon joining. That token is stored exclusively inside that device's browser and is never exposed to other participants. It also prevents any guest from impersonating the host.
+
+## A History of Rebuilds
+
+I built the first version between August and September 2025. I revisited it several times after that, with the biggest overhaul happening in March 2026. To stamp out race conditions around joining and leaving, I repeatedly rolled back to known-good states and fixed one piece at a time. The string of "Revert" and "Restore" commits in the git log is the battle scar from that effort.
+
+In June 2026, I migrated hosting from Vercel to Cloudflare Workers. Because imadoko has an API route that receives `sendBeacon` leave notifications, it cannot be exported as purely static files. Instead, I used OpenNext to run the Next.js server directly on Workers. Around the same time, I added a "Return to Previous Share" button along with Terms of Service and a Privacy Policy.
+
+## What I Want to Build Next
+
+- Add expiration times to share links
+- Lengthen the polling interval when stationary to save battery life
+- Clearly indicate online/offline connection status on screen
+- Support English and other languages
+- Make it installable to the home screen like a native app (PWA)
+
+Once you use it for a meetup, you never want to go back to texting "Where are you?" Give it a try the next time you meet up with friends.

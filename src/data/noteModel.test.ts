@@ -1,13 +1,41 @@
 import { describe, expect, it } from "vitest";
-import { formatNoteDate, notePath, notesForProduct, sortNotesNewestFirst, type NoteSource } from "./noteModel";
+import {
+  formatNoteDate,
+  localizeNote,
+  localizeNotes,
+  notePath,
+  notesForProduct,
+  sortNotesNewestFirst,
+  type NoteSource,
+} from "./noteModel";
 
 const note = (slug: string, date: string, products: string[] = []): NoteSource => ({
   slug,
   title: slug,
+  titleEn: `${slug}-en`,
   description: slug,
+  descriptionEn: `${slug}-desc-en`,
   date,
-  tags: [],
+  tags: ["タグ"],
+  tagsEn: ["Tag"],
   products,
+});
+
+describe("localizeNote and localizeNotes", () => {
+  it("resolves Japanese and English fields", () => {
+    const src = note("test", "2026-09-19");
+    expect(localizeNote(src, "ja")).toMatchObject({
+      title: "test",
+      description: "test",
+      tags: ["タグ"],
+    });
+    expect(localizeNote(src, "en")).toMatchObject({
+      title: "test-en",
+      description: "test-desc-en",
+      tags: ["Tag"],
+    });
+    expect(localizeNotes([src], "en")).toHaveLength(1);
+  });
 });
 
 describe("sortNotesNewestFirst", () => {
@@ -48,8 +76,9 @@ describe("notesForProduct", () => {
 });
 
 describe("formatNoteDate", () => {
-  it("drops the leading zeros", () => {
+  it("drops the leading zeros in Japanese and formats English month names", () => {
     expect(formatNoteDate("2026-09-01")).toBe("2026年9月1日");
+    expect(formatNoteDate("2026-09-01", "en")).toBe("Sep 1, 2026");
   });
 
   it("does not shift the day by the local time zone", () => {

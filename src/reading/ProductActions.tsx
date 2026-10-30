@@ -1,7 +1,10 @@
+"use client";
+
 import { ExternalLink } from "lucide-react";
 import { GithubIcon } from "@/ui/icons";
 import type { Project } from "@/data";
 import { isPlaceholderUrl } from "@/detail/products/catalog";
+import { useLanguage } from "@/state/LanguageContext";
 
 type Props = {
   project: Project;
@@ -24,6 +27,8 @@ const BUTTON =
  * demo (`/archive/v1`) is a separate static build, not one of our routes.
  */
 export default function ProductActions({ project }: Props) {
+  const { language } = useLanguage();
+  const isJa = language === "ja";
   const playable = !isPlaceholderUrl(project.demoUrl);
   const hasCode = !isPlaceholderUrl(project.githubUrl);
 
@@ -41,7 +46,7 @@ export default function ProductActions({ project }: Props) {
         // Not a button, so it may wrap: at 320px the sentence is wider than
         // the column, and `BUTTON` would hold it to one line.
         <p className="flex-1 py-3 px-5 flex items-center justify-center text-center rounded-none border border-dashed border-black/20 font-bold text-xs sm:text-sm text-neutral-600">
-          開発中のため、まだ公開していません
+          {isJa ? "開発中のため、まだ公開していません" : "Currently in development — not yet public"}
         </p>
       )}
       {hasCode && (

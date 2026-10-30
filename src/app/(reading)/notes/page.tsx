@@ -17,7 +17,7 @@ export const metadata: Metadata = readingMetadata({
 export default function NotesIndexPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
-      <SectionHeading as="h1" className="mb-10 md:mb-14">Note</SectionHeading>
+      <SectionHeading as="h1" en="Note" className="mb-10 md:mb-14">ノート</SectionHeading>
       <NoteList notes={sortNotesNewestFirst(NOTES)} />
     </div>
   );

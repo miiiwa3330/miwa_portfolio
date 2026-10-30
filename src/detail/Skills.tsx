@@ -171,7 +171,7 @@ export default function Skills() {
   const [litSkill, setLitSkill] = useState<string | null>(null);
 
   return (
-    <DetailSection id="skills" title="Skills">
+    <DetailSection id="skills" title={isJa ? "技術スタック" : "Skills"}>
       <div className="space-y-12">
         {CATEGORIES.map((cat, catIdx) => (
           <div key={cat.id} className="space-y-4">

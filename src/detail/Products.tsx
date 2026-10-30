@@ -66,7 +66,7 @@ export default function Products({ initialProject = null }: Props) {
   };
 
   return (
-    <DetailSection id="products" title="Products">
+    <DetailSection id="products" title={language === "ja" ? "制作実績" : "Products"}>
       <ProductFilters
         category={category}
         status={status}

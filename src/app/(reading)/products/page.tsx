@@ -17,7 +17,7 @@ export const metadata: Metadata = readingMetadata({
 export default function ProductsIndexPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
-      <SectionHeading as="h1" className="mb-10 md:mb-14">Products</SectionHeading>
+      <SectionHeading as="h1" en="Products" className="mb-10 md:mb-14">制作実績</SectionHeading>
       <ProductList projects={localizeProjects(PROJECTS, "ja")} />
     </div>
   );

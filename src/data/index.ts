@@ -10,5 +10,12 @@ export type {
 export { EXPERIENCE } from "./experience";
 export type { ExperienceSource } from "./experience";
 export { NOTES } from "./notes";
-export { notePath, sortNotesNewestFirst, notesForProduct, formatNoteDate } from "./noteModel";
+export {
+  notePath,
+  sortNotesNewestFirst,
+  notesForProduct,
+  formatNoteDate,
+  localizeNote,
+  localizeNotes,
+} from "./noteModel";
 export type { NoteSource } from "./noteModel";

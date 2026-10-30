@@ -26,7 +26,7 @@ export type NavEntry = NavItem | PageLink;
  * full-screen menu and on the reading pages.
  */
 export const NAV: readonly NavItem[] = [
-  { section: "about", page: "/about", ja: "自己紹介", en: "About" },
+  { section: "about", page: "/about", ja: "自己紹介", en: "About me" },
   { section: "products", page: "/products", ja: "制作実績", en: "Products" },
   { section: "skills", page: "/skills", ja: "技術スタック", en: "Skills" },
   { section: "experience", page: "/experience", ja: "経歴・活動", en: "Experience" },

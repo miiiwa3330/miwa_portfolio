@@ -1,0 +1,70 @@
+The planet on the top page of this site has a sun. When you zoom out to the "Overview" altitude to view the planet from a slight distance, a glowing orb appears near the upper right of the screen, and you can grab it and drag it wherever you like. Moving it shifts the boundary between day and night on the planet and changes the direction of the buildings' shadows.
+
+This "draggable sun" was not a feature I had planned from the start. It was the answer I arrived at only after asking "how can I brightly illuminate the entire planet?", building a completely different approach first, measuring it, and throwing it away because of how it looked.
+
+## A Fixed Light Cannot Illuminate Everything
+
+It started with a simple question about the lighting. At the time, the light was fixed in a single direction relative to the planet. It occurred to me that maybe we could treat the camera itself as the light source (the sun). First, I decided to measure whether the problem that idea was trying to solve actually existed.
+
+The problem was very real. Out of the five buildings standing on the surface of the planet, the ones facing the light were bright, while the ones on the backside were dark. The darkest building—the Contact building—had only **one-seventh** the brightness of the brightest building. Even though the camera flew right past it and the card on screen explained what the building was, the building itself was barely visible.
+
+Could we fix it just by changing the direction of the light? Not at all. Even when I brute-forced the sun's direction across the entire sphere in 2-degree increments (16,200 combinations) looking for an angle that would make the darkest building even slightly brighter, **not a single one existed**. The five buildings are spread 149.5 degrees apart across the sphere, so no matter which direction you shine the light from, at least one building always falls into the night side. It wasn't a problem that could be solved by tweaking a constant.
+
+## The Idea of Making the Camera the Sun
+
+So I decided to actually build the first idea that came to mind. If we shine the light from the direction the camera is looking, whichever building you are currently viewing is guaranteed to be illuminated.
+
+However, if you shine the light from the exact same angle as the camera, shadows fall directly behind the buildings and disappear from view, flattening the three-dimensional feel of the voxels and making the planet look like a figurine photographed in a studio. To avoid that, I offset the light slightly from the camera's line of sight. I measured the offset angle to pick the right value too. At less than 20 degrees, the entire visible hemisphere falls into the lit side, and the day-night terminator never appears on screen. After testing various angles, I settled on 28.6 degrees.
+
+As far as brightness went, it achieved the goal completely. In front of the Contact building—which had been the darkest—the average brightness of the planet nearly doubled, rising from 62.1 to 120.7.
+
+## The Numbers Improved, But It Looked Worse
+
+Yet when I actually ran it and looked at the screen, my honest impression was: "This doesn't look very good." Everything felt washed out and blurry.
+
+My first suspicion was that the light moving every frame might be causing flickering. I was able to rule that out definitively: when I paused the motion and took two screenshots five seconds apart, the pixels matched identically. There was no flicker.
+
+The real cause was that **the shadows had shrunk**. When the light is only 28.6 degrees off the line of sight, a building's shadow hides directly behind the building itself. Measuring only the sandy ground regions showed that the shadow area had dropped by more than 20%, from 26.9% down to 20.6%. Without shadows, the outlines and depth of the buildings weaken, making the whole scene look flat and blurry. That was the true identity of the "washed-out" feeling.
+
+There was another problem that was harder to put into numbers. Because the light moved together with the camera, **the direction of the light relative to the screen was always identical**. No matter how much the planet rotated, the shading never changed. Half the fun of watching the planet spin had vanished.
+
+Incidentally, at first I tried comparing the overall contrast of the screen using the standard deviation of brightness, and saw almost no difference (35.0 vs. 35.2). The color differences between the ground and the buildings were so much larger that they buried the difference in shading. Only after isolating the single-colored sandy ground and measuring there did the difference show up in the numbers. I'm keeping a record of this as a reminder that if you measure the wrong target, you can easily miss a real visual difference.
+
+I implemented this idea, measured it, and rejected it based on how it looked.
+
+## Then Let the Visitor Move the Sun
+
+The next idea I came up with was to **place the sun itself in the scene and let the person viewing the site grab and move it**. I defined the specification upfront:
+
+- Drag the sun directly to move it
+- It stays wherever you leave it (it doesn't move on its own)
+- No restrictions on the range of motion
+- Boost the ambient light so the night side never goes pitch black
+
+Letting the sun stay wherever you put it works because the planet itself keeps rotating. Even with the sun stationary, the shading continues to shift as the planet spins during the tour. That brought right back the joy of watching the shadows evolve as the planet turns—the exact quality the camera-tracking light had lost.
+
+I also determined the ambient light boost on the night side by measuring. Without a baseline boost, 14.1% of the pixels on the night-side screen were too dark to make out any shapes. Raising the ambient light slightly brought that down to 0.2%.
+
+## A Sun Placed Far Away Never Appeared on Screen
+
+In my first implementation, I placed the sun very far away—even further out than the farthest point the camera could reach.
+
+Yet even when I rotated the planet a full 360 degrees, the sun never once appeared on screen. The reason was pure geometry. The camera on this site is always looking at the center of the planet, which means only a narrow cone around that line of sight ever fits inside the frame. For a distant object to enter that cone, it has to be almost directly behind the planet—where it gets hidden behind the planet's body.
+
+So I did the opposite and placed the sun right next to the planet. Bringing it closer makes the sun appear beside the planet, in the open margin of space around it. The window of distances that worked turned out to be narrower than I expected: too close and it clips into the buildings on the surface; too far and it slips out of the frame again. The usable range was only between roughly 2.0 and 2.4 times the planet's radius.
+
+Along the way, I briefly added logic to fade the sun out when it came in front of the camera, but I decided to remove it. There is no need for the sun to turn invisible. Instead, I made the sun appear and become draggable only when the camera is zoomed out to the "Overview" altitude. At closer altitudes, the sun gets clipped by the corners of the screen and is visible for only about a third of a full orbit.
+
+## A Sun That Couldn't Keep Up With Your Finger
+
+The last remaining piece was the feel of dragging. At first, I built it the conventional way: rotating the sun in proportion to how far the mouse moved. When I measured it, however, the sun only followed **41%** of the mouse's movement.
+
+This was geometry again. The sun moves along the surface of a sphere centered on the planet. Viewed from the outside, across much of that sphere the sun is moving toward or away from the camera rather than across the screen. Near the center of the camera's view, 94.7% of the sun's motion was along the line of sight. You can't fix that by multiplying by a correction factor either, because the required factor varies depending on where the sun is and diverges to infinity at the edge of the sphere.
+
+So I changed the approach. I cast a ray from the mouse cursor into the screen and place the sun at the exact point where that ray intersects the sun's sphere. With this method, no sensitivity multiplier is needed at all. When I re-measured, moving the pointer 286 pixels moved the sun 287 pixels—a **100% tracking rate**.
+
+## Keeping a Record of Discarded Ideas
+
+Looking back, throwing away the camera-as-sun idea was the right call. Still, building and measuring it wasn't a waste. The conclusion that "a fixed light cannot illuminate everything in principle" came directly out of testing that idea. And having that conclusion is what let me arrive at "let the visitor move the sun" without hesitation.
+
+On this site, whenever an idea is tried and discarded, I record it alongside the reason and the measurements. That way, if the same idea crosses my mind again months later, I won't have to repeat the same experiment all over again.

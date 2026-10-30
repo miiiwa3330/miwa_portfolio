@@ -34,12 +34,14 @@ async function render(mdx: string) {
 
 describe("splitMdxBody, over the real bodies", () => {
   for (const kind of ["products", "notes"] as ContentKind[]) {
-    for (const slug of contentSlugs(kind)) {
-      it(`frames each heading of ${kind}/${slug} on its own`, async () => {
-        const mdx = readContent(kind, slug);
-        const sections = splitMdxBody(await render(mdx), H2);
-        expect(sections.length).toBe(h2Count(mdx) + (hasLead(mdx) ? 1 : 0));
-      });
+    for (const lang of ["ja", "en"] as const) {
+      for (const slug of contentSlugs(kind, lang)) {
+        it(`frames each heading of ${kind}/${lang}/${slug} on its own`, async () => {
+          const mdx = readContent(kind, slug, lang);
+          const sections = splitMdxBody(await render(mdx), H2);
+          expect(sections.length).toBe(h2Count(mdx) + (hasLead(mdx) ? 1 : 0));
+        });
+      }
     }
   }
 

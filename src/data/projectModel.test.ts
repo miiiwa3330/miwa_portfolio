@@ -214,11 +214,12 @@ describe("the catalogue itself", () => {
 });
 
 describe("each project's own page", () => {
-  it("has a body on disk for every project, and no body without a project", () => {
+  it("has a body on disk for every project in both ja and en, and no body without a project", () => {
     // The modal's "Read More" is shown for every project, so a project
     // without a body would be a button into a 404 — the build fails first,
     // since the page imports it. An orphaned body is never served at all.
-    expect(contentSlugs("products").sort()).toEqual(PROJECTS.map((p) => p.slug).sort());
+    expect(contentSlugs("products", "ja").sort()).toEqual(PROJECTS.map((p) => p.slug).sort());
+    expect(contentSlugs("products", "en").sort()).toEqual(PROJECTS.map((p) => p.slug).sort());
   });
 
   it("uses slugs that are safe as a URL segment", () => {
@@ -236,6 +237,9 @@ describe("each project's own page", () => {
   });
 
   it("does not repeat the title inside the body", () => {
-    for (const { slug } of PROJECTS) expect(readContent("products", slug), slug).not.toMatch(/^# /m);
+    for (const { slug } of PROJECTS) {
+      expect(readContent("products", slug, "ja"), `${slug} (ja)`).not.toMatch(/^# /m);
+      expect(readContent("products", slug, "en"), `${slug} (en)`).not.toMatch(/^# /m);
+    }
   });
 });

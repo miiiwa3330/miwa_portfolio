@@ -29,9 +29,9 @@ import { useHandheld } from "@/state/useHandheld";
 export default function ReadingHeader() {
   const pathname = usePathname();
   const current = pageLinkForPath(pathname);
-  const fallbackTitle = current?.en ?? "";
   const { language, toggleLanguage } = useLanguage();
   const isJa = language === "ja";
+  const fallbackTitle = (isJa ? current?.ja : current?.en) ?? "";
   const handheld = useHandheld();
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolledPastTitle, setScrolledPastTitle] = useState(false);
@@ -59,7 +59,7 @@ export default function ReadingHeader() {
       window.removeEventListener("scroll", checkScroll);
       window.removeEventListener("resize", checkScroll);
     };
-  }, [pathname, fallbackTitle]);
+  }, [pathname, fallbackTitle, language]);
 
   const compactTitle = headingText || fallbackTitle;
 

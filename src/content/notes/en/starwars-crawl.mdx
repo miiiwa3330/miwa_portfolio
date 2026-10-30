@@ -1,0 +1,70 @@
+The self-introduction on this site is staged like the opening crawl of a *Star Wars* film: yellow text tilted back into the screen, receding into the distance, growing smaller as it goes until it fades away. Once you finish reading to the end of the text, the camera flies back to the planet.
+
+Rather than using Three.js, this effect is built entirely with HTML and CSS 3D transforms. Its visual proportions were tuned by measuring an actual frame from the film (our reference image). This note is the story of matching the **typography and character grid** to that reference image as well.
+
+## We Had Matched the Dimensions, But Not the Typesetting
+
+In early August, I asked this question:
+
+> For the placement of each individual character in the self-introduction text, is there a way to align them into clean vertical columns like in the reference image?
+
+In the Japanese theatrical reference image, the characters line up in a strict grid both vertically and horizontally, as if placed one by one into the squares of manuscript paper (*genkō yōshi*). On this site, by contrast, the text was center-aligned and left to the browser's default line wrapping, leaving both the left and right edges jagged.
+
+Looking back, even though we had repeatedly measured and matched the font size and tilt angle against the reference image, **we had never once checked the typesetting itself against the reference**.
+
+## Four Things Revealed by Reading the Reference Image Closely
+
+Examining the reference image again revealed four distinct rules:
+
+1. **Exactly 13 characters per line.** Every single full line in the reference frame contains 13 Japanese characters
+2. **Both left and right edges are flush.** Only the final line of a paragraph is shorter
+3. **No line-breaking avoidance rules (*kinsoku shori*).** Even a small kana like "ォ" in "ウォーカー" (Walker) is allowed to sit at the very start of a new line
+4. **Only the first line of each paragraph is indented by 1 character**
+
+What was fascinating is that the third observation is the direct reason the first is possible. In standard Japanese typesetting, small kana and punctuation marks are forbidden from starting a new line (*kinsoku shori*); the layout engine pushes them out or pulls a character down from the previous line to avoid it. The moment it does that, however, that line becomes 12 or 14 characters long and breaks the vertical grid. The film's opening crawl prioritized preserving the strict 13-character grid even when it meant placing a small kana at the start of a line. Unless you notice that detail, you can never reproduce a uniform 13-character grid.
+
+## Defining Line Width by Character Count
+
+The way to lock the number of characters per line turned out to be surprisingly simple. In CSS, the `em` unit represents the font size of the element itself. Setting `width: 15em` on the text container makes its **width equal to exactly 15 full-width characters**, regardless of how the viewport size changes.
+
+We initially set it to 13 characters to match the reference image, and later adjusted it to 15 characters. What we learned from the reference image was the **typesetting system**—every line having the exact same character count, flush edges on both sides, and no *kinsoku* line-break shifting—rather than the specific number 13. Because someone might otherwise come along later and change it back to 13 "to match the reference image," we documented that distinction right in the code comments.
+
+Until then, we had been switching the font size across four responsive breakpoints in an attempt to keep the character count per line roughly consistent. When we actually measured those four breakpoints, though, the line lengths were all over the place: 9.7, 14.6, 13.8, and 15.0 characters. Once the width was defined directly in `em` units, there was no longer any reason to maintain stepped font-size breakpoints.
+
+## Justified Alignment, Break Anywhere, One-Character Indent
+
+Those three typesetting rules translate cleanly into three lines of CSS:
+
+- **Flush left and right edges** (`text-align: justify`)
+- **No *kinsoku* line-break adjustments** (`line-break: anywhere`)
+- **Indent the start of each paragraph by one character** (`text-indent: 1em`)
+
+Because a `1em` indent is the exact width of one grid cell, indenting the first line shifts every character over by one full column without disturbing the vertical grid.
+
+One thing we double-checked before dropping `text-align: center` was perspective distortion. Because the crawl plane is tilted backward in 3D space, a comment in the code warned that left-aligning the text would shift lines off the perspective center axis and skew them. Thinking it through, however, every full line in a justified block spans the exact same width, which means **the center of every line still sits dead-center on the perspective axis**, just as it did with center alignment. What mattered was keeping each line's midpoint centered, not how the final short line was aligned.
+
+## Half-Width Alphanumerics Quietly Break the Grid
+
+Switching to a character grid raised one more decision. The Japanese self-introduction contained 16 alphanumeric strings such as "Miiiwa", "2019", and "42tokyo". Because half-width Latin characters and digits are roughly half the width of a full-width Japanese character, mixing them into a line shifts every subsequent character on that line off the grid.
+
+The two options were either to convert all alphanumerics to full-width forms (`Ｍｉｉｉｗａ`) so they sit squarely inside the grid cells, or to keep them half-width to preserve the usual look of brand names. I chose full-width so the grid would hold everywhere.
+
+Even with full-width characters, modern browsers can still insert tiny gaps on their own. Recent CSS text-spacing features (`text-autospace`) automatically add slight padding between Japanese characters and Latin letters or compress full-width punctuation, and browser defaults around this are still shifting. Unless you explicitly disable those features, **the text renders without any obvious error while the vertical grid quietly drifts out of alignment**.
+
+## A Space That Didn't Exist in the Source File
+
+When we measured the rendered position of every single line to verify the grid, one line out of sixty was shifted by half a cell. The culprit was how the manuscript was formatted in code.
+
+In the JSX source file, the first paragraph had been wrapped across two lines for readability. React (JSX) collapses a newline between text lines into a single half-width ASCII space (`U+0020`). As a result, a **space that didn't exist anywhere in the text itself** had been injected right in the middle of a Japanese sentence. Searching the manuscript for spaces turned up nothing, and the only visible symptom was a single line out of sixty shifting by half a column. Joining the paragraph onto a single line in the source fixed it immediately.
+
+Both accidental half-width characters and invisible JSX line-wrap spaces are bugs that break the grid silently without throwing any errors. To make sure we catch it immediately if someone accidentally reintroduces one during a future edit, we added unit tests that read the raw source file as text and assert that no half-width alphanumerics appear inside the Japanese crawl paragraphs and that no paragraph is split across multiple lines.
+
+## Never Measure Tilted Text While It Is Still Tilted
+
+Finally, we hit one last snag in how we measured the result.
+
+When we read the on-screen bounding boxes of the characters directly and grouped them into lines by vertical position, our script reported a line with **25 characters**—even though the container was locked to 13 characters wide at the time. The cause was 3D perspective: near the top of the crawl, distant lines shrink and crowd together vertically until adjacent lines overlap within a few pixels, causing two separate lines to be counted as one.
+
+When we temporarily disabled the 3D tilt transform during measurement and measured the flat layout across four different viewport widths, every single full line had the exact same character count and the right edge aligned across all lines to within less than a pixel. **Whenever you measure something in screen coordinates that involves a 3D projection, strip the projection first and measure the unprojected layout.** That rule, too, joined our project's verification guide.
+
+The opening crawl of a movie looks like it is simply floating effortlessly into space, but under the hood its typography is locked into a tight grid. Next time you open the self-introduction on this site, take a look at how the characters line up vertically column by column.

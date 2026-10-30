@@ -1,0 +1,63 @@
+## Turning the News into Security Case Studies
+
+Almost every week, another headline rolls by: "Personal data potentially leaked at Company X." Yet after reading the headline and thinking "not again," we rarely follow up on **why it happened or how it could have been prevented**. By the time a follow-up report comes out months later, we've already forgotten the original news.
+
+loo100 ("Leak Department Store") is a site that picks up recent data breach incidents at Japanese companies one by one and breaks them down from three angles: **timeline, root cause, and countermeasures**. By using real-world incidents as an entry point, I wanted to make textbook terms like "ransomware" and "vendor risk management" feel directly relevant to people's own workplaces.
+
+The target audience isn't security specialists. It's everyday users who want to know whether a service they use was affected, developers and IT staff who want to apply lessons to their own systems, and learners who want to pick up the fundamentals through real examples. There is no account registration—anyone can read everything right away.
+
+## Inside an Incident Article
+
+Every incident article follows the exact same structure:
+
+- **Overview**: A concise summary of what happened
+- **Timeline**: A chronological diagram plotting occurrence, detection, public disclosure, and follow-up reports along a line
+- **Root Cause**: A diagram of the attack path or misconfiguration showing exactly where defenses were breached
+- **Countermeasures**: The exact same diagram, showing "if this safeguard had been in place, the attack would have stopped right here"
+- **Impact**: The number of leaked records and the types of information exposed
+- **Sources** and **Update History**
+
+The scope is strictly limited to data breach incidents involving Japanese organizations. Overseas-only breaches, standalone vulnerability advisories, and service outages that do not involve data leaks are excluded.
+
+From the "Related Concepts" section inside each article, readers can jump to foundational explainers covering topics like ransomware, VPN appliance vulnerabilities, or password hashing. And from each explainer page, they can jump back to other incidents where that same technology played a role—letting readers trace a path **from one incident to other breaches that shared the exact same weakness**.
+
+## Strict Rules on What Not to Write
+
+Because the site deals with real security incidents, I established strict editorial rules:
+
+- **Never write anything not backed by a cited source.** Prioritize official announcements from the affected organization and reports from public agencies; when primary sources aren't available, stick strictly to what can be verified from reputable news coverage. Every article includes source URLs and publication dates
+- **Separate fact from speculation.** If the root cause or scale of damage is still unknown, state "under investigation" or "not disclosed" rather than guessing
+- **Never touch the leaked data itself.** Never post leaked personal information or link to leak sites
+- **Never write exploit how-tos.** Keep technical explanations focused on understanding the mechanism and defending against it, without providing reproducible attack steps
+- **Never disparage the affected organization.** Stick strictly to explaining causes and countermeasures without speculative blame
+
+## Visual Design and the Historical Chart on the Top Page
+
+Instead of a standard article list, the top page presents **the history of the incidents themselves** as a single interactive chart. The horizontal axis is the public disclosure date and the vertical axis is the number of leaked records, turning each incident into a single thin vertical line. Because the scale of breaches spans orders of magnitude—from 100,000 to 100 million records—the vertical axis uses a logarithmic scale. Incidents where the number of affected records has not been disclosed are lined up in a separate row underneath. Hovering your cursor over a line (or tapping it on mobile) brings up a summary card for that incident, which links straight to the full article.
+
+The overall aesthetic is unified around a monochrome black-and-white palette over a gray background, monospace typography, white-on-black boxed labels, and a border frame with a bottom status bar enclosing the viewport. By rule, visual distinctions rely on lines and fills rather than color. Light and dark modes can also be toggled.
+
+One subtle polish issue I ran into was that titles and buttons shifted slightly every time you navigated to a new page. The culprit was monospace font loading: the browser rendered fallback text before the web font arrived and redrew it the instant the font loaded, changing the width of the boxed labels. I fixed this by preloading the font alongside the HTML and configuring `font-display` so that **if the font doesn't arrive in time for the initial paint, the page won't swap it mid-render**.
+
+## Anonymous Comments
+
+Each incident article has an anonymous comment section that anyone can post to without an account. There are no name or email fields, and posts go live immediately. To balance that openness, I built in strict safeguards against trolling and accidental posting of personal data:
+
+- Maximum of 140 characters per comment
+- **No posts containing URLs.** That blocks not only strings starting with `https://`, but also domain-like strings, IP addresses, obfuscated URLs like `hxxp` or `[.]`, and full-width character variants
+- Posts containing strings that look like email addresses, phone numbers, or credit card numbers are also rejected
+- Rate-limited to 3 comments per 5 minutes from the same IP address
+- Cloudflare Turnstile for bot protection
+- Rendered strictly as plain text—never parsed as HTML and never auto-linked
+
+Input validation shares the exact same rule code between the client and the server. Client-side checks are purely there to assist the user while typing; the authoritative enforcement always happens on the server.
+
+## Under the Hood
+
+Article pages are built with Astro. Each article is a standalone Markdown file whose frontmatter fields (dates, tags, sources, etc.) are schema-validated at build time before being exported as static pages. Rather than writing custom scripts per article to draw the timelines and attack flowcharts, each Markdown file contains **only declarative diagram data**, which is rendered by shared components. That keeps the visual style consistent and prevents arbitrary code from sneaking into content files.
+
+The site is served from Cloudflare Workers, and all content pages are pre-rendered static files. The only code that runs on request is the comments API (written in Hono), which stores comments in Cloudflare D1.
+
+Astro 7 introduced a new pattern for placing a Hono app at the front door of the entire site, and I tried that first. However, when every page is pre-rendered, Astro concludes that "no server is needed" and skips outputting the Worker entry point entirely—meaning **the API didn't run in production**. I reverted to invoking Hono from inside an Astro API route instead.
+
+At launch, the site holds 21 incident articles and 8 technical explainers. As new breaches happen and follow-up reports come out, I keep adding new articles and updating existing ones.

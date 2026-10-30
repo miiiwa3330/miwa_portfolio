@@ -20,7 +20,7 @@ export default function Contact() {
   };
 
   return (
-    <DetailSection id="contact" title="Contact" className="mb-20">
+    <DetailSection id="contact" title={isJa ? "お問い合わせ" : "Contact"} className="mb-20">
       <div className="max-w-3xl mx-auto text-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
@@ -38,7 +38,15 @@ export default function Contact() {
           </div>
 
           <h3 className="text-3xl sm:text-4xl md:text-5xl font-black text-neutral-950 mb-4 tracking-tight">
-            Let&apos;s build something <span className="underline decoration-2 underline-offset-4">amazing</span>
+            {isJa ? (
+              <>
+                一緒に<span className="underline decoration-2 underline-offset-4">面白いもの</span>を作りませんか？
+              </>
+            ) : (
+              <>
+                Let&apos;s build something <span className="underline decoration-2 underline-offset-4">amazing</span>
+              </>
+            )}
           </h3>
 
           <p className="text-neutral-600 mb-10 text-base sm:text-lg leading-relaxed max-w-xl mx-auto">

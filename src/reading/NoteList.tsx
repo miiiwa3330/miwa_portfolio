@@ -1,7 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import CornerBrackets from "@/ui/CornerBrackets";
-import { formatNoteDate, notePath, type NoteSource } from "@/data";
+import { formatNoteDate, localizeNotes, notePath, type NoteSource } from "@/data";
+import { useLanguage } from "@/state/LanguageContext";
 
 type Props = {
   notes: readonly NoteSource[];
@@ -18,9 +21,13 @@ type Props = {
  * sentence (the longest runs to 27 characters), not a product's name.
  */
 export default function NoteList({ notes, titleAs: Title = "h2" }: Props) {
+  const { language } = useLanguage();
+  const isJa = language === "ja";
+  const localizedNotes = localizeNotes(notes, language);
+
   return (
     <ul className="grid grid-cols-[minmax(0,1fr)] md:grid-cols-[repeat(2,minmax(0,1fr))] gap-6">
-      {notes.map((note) => (
+      {localizedNotes.map((note) => (
         <li key={note.slug} className="flex">
           <Link
             href={notePath(note.slug)}
@@ -32,7 +39,7 @@ export default function NoteList({ notes, titleAs: Title = "h2" }: Props) {
               dateTime={note.date}
               className="self-start text-neutral-100 font-mono text-[10px] font-bold bg-neutral-900 border border-neutral-700 px-2 py-0.5 rounded-none tabular-nums uppercase"
             >
-              {formatNoteDate(note.date)}
+              {formatNoteDate(note.date, language)}
             </time>
             <Title className="mt-3 font-bold text-neutral-950 text-lg sm:text-xl leading-[1.5] group-hover:underline transition-colors [overflow-wrap:anywhere]">
               {note.title}
@@ -45,7 +52,7 @@ export default function NoteList({ notes, titleAs: Title = "h2" }: Props) {
                 ))}
               </span>
               <span className="ml-auto inline-flex items-center gap-0.5 whitespace-nowrap text-xs font-bold text-neutral-900 group-hover:underline uppercase">
-                読む
+                {isJa ? "読む" : "Read"}
                 <ChevronRight
                   size={14}
                   aria-hidden="true"

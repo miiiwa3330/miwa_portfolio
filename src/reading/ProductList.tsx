@@ -1,10 +1,13 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import CornerBrackets from "@/ui/CornerBrackets";
-import { productPath, type Project } from "@/data";
+import { PROJECTS, localizeProject, productPath, type Project } from "@/data";
 import { CARD_TAG_COUNT, statusLabel } from "@/detail/products/catalog";
 import { CategoryBadge, StatusBadge } from "@/detail/products/Badges";
+import { useLanguage } from "@/state/LanguageContext";
 
 type Props = {
   projects: readonly Project[];
@@ -28,6 +31,14 @@ type Props = {
  * screen edge.
  */
 export default function ProductList({ projects, titleAs: Title = "h2", columns = 3 }: Props) {
+  const { language } = useLanguage();
+  const isJa = language === "ja";
+
+  const localizedProjects = projects.map((p) => {
+    const source = PROJECTS.find((s) => s.slug === p.slug);
+    return source ? localizeProject(source, language) : p;
+  });
+
   return (
     <ul
       className={`grid grid-cols-[minmax(0,1fr)] gap-6 md:gap-8 ${columns === 3
@@ -35,7 +46,7 @@ export default function ProductList({ projects, titleAs: Title = "h2", columns =
           : "sm:grid-cols-[repeat(2,minmax(0,1fr))]"
         }`}
     >
-      {projects.map((project) => (
+      {localizedProjects.map((project) => (
         <li key={project.slug} className="flex">
           <Link
             href={productPath(project.slug)}
@@ -52,7 +63,7 @@ export default function ProductList({ projects, titleAs: Title = "h2", columns =
                 className="object-cover motion-safe:group-hover:scale-105 transition-transform duration-500"
               />
               <div className="absolute top-3.5 right-3.5">
-                <StatusBadge status={project.status} label={statusLabel(project.status, "ja")} />
+                <StatusBadge status={project.status} label={statusLabel(project.status, language)} />
               </div>
             </div>
 
@@ -84,7 +95,7 @@ export default function ProductList({ projects, titleAs: Title = "h2", columns =
 
               <div className="flex items-center justify-end pt-3 border-t border-black/10 mt-auto font-mono">
                 <span className="inline-flex items-center gap-0.5 whitespace-nowrap text-xs font-bold text-neutral-900 group-hover:underline uppercase">
-                  紹介を読む
+                  {isJa ? "紹介を読む" : "Read More"}
                   <ChevronRight
                     size={14}
                     aria-hidden="true"

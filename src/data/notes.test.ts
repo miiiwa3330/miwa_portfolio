@@ -4,10 +4,19 @@ import { PROJECTS } from "./projects";
 import { MIN_PROSE_CHARS, contentSlugs, proseLength, readContent } from "@/content/contentFiles.testutil";
 
 describe("NOTES", () => {
-  it("has a body on disk for every entry, and no body without an entry", () => {
+  it("has a body on disk for every entry in both ja and en, and no body without an entry", () => {
     // A missing body fails the build (the page imports it); a body with no
     // entry fails nothing — it is simply never served.
-    expect(contentSlugs("notes").sort()).toEqual(NOTES.map((n) => n.slug).sort());
+    expect(contentSlugs("notes", "ja").sort()).toEqual(NOTES.map((n) => n.slug).sort());
+    expect(contentSlugs("notes", "en").sort()).toEqual(NOTES.map((n) => n.slug).sort());
+  });
+
+  it("provides English metadata for every entry", () => {
+    for (const n of NOTES) {
+      expect(n.titleEn, `${n.slug} titleEn`).toBeTruthy();
+      expect(n.descriptionEn, `${n.slug} descriptionEn`).toBeTruthy();
+      expect(n.tagsEn?.length, `${n.slug} tagsEn`).toBe(n.tags.length);
+    }
   });
 
   it("uses each slug once, in a form that is safe in a URL", () => {
@@ -50,6 +59,9 @@ describe("NOTES", () => {
   it("does not repeat the title inside the body", () => {
     // The page draws the h1 from NOTES; an `# heading` in the MDX would be a
     // second h1 saying the same thing.
-    for (const { slug } of NOTES) expect(readContent("notes", slug), slug).not.toMatch(/^# /m);
+    for (const { slug } of NOTES) {
+      expect(readContent("notes", slug, "ja"), `${slug} (ja)`).not.toMatch(/^# /m);
+      expect(readContent("notes", slug, "en"), `${slug} (en)`).not.toMatch(/^# /m);
+    }
   });
 });

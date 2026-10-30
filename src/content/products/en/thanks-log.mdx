@@ -1,0 +1,55 @@
+## An Album That Collects Only "Thank You"
+
+thanks-log (working title) is an app concept for gathering "thank you" messages for someone special ahead of a milestone—like graduation, Mother's Day, or a senior club retirement—and presenting them as a single digital album. As a bonus, the collected photos and voice clips could also be compiled into a short video.
+
+Here are a few examples of how it would be used:
+
+- **For Mother's Day**, saving up little daily notes of gratitude for a mom who made lunch every day, then handing them over as a finished album on the day itself.
+- **For a club's final tournament**, forming a group with every team member so everyone can post their thanks to the retiring seniors, completing a single keepsake volume filled with everyone's messages.
+- **For a parents' wedding anniversary**, siblings living apart create a group to pool their gratitude and photos of the grandchildren into one gift.
+
+The project remained in the planning and architecture phase and was never built as a live app. However, revisiting this blueprint directly sparked [Reallog](/products/reallog), the service I am designing now.
+
+## The Core Value Is "Gathering," Not Video Editing
+
+At first, inspired by SetLog—an app that automatically stitches daily clips into short videos—I assumed the final output should be a video. Stepping back, though, I realized the real value of this service was not video editing, but **the act of gathering**.
+
+Whenever people try to put together a keepsake for someone today, they end up trading photos and videos over LINE while one person (usually the organizer) bears the burden of chasing everyone down and sorting through the files. That logistical burden is huge. Generating a slideshow video from a folder of media, on the other hand, is something plenty of existing apps can already do.
+
+So I made the album the star of the show. Unlike auto-generated videos, an album never fails to render and never runs into background-music copyright headaches—meaning **you are guaranteed to finish it and hand it over**. Video became a nice optional bonus.
+
+## A Deadline Turns Effort into a Sprint
+
+Every project in thanks-log starts by locking in three things up front: **who it is for, what the occasion is, and when it will be gifted**.
+
+Open-ended gratitude logging without a deadline quickly feels like homework with no finish line, and people almost always stall out midway. Anchoring the project to an emotional milestone that already exists in real life—graduation day, Mother's Day, a retirement match—turns an endless chore into a focused sprint toward that date.
+
+The format of each contribution is fixed as well: just one photo or short video clip paired with a brief note. Instead of pressuring people to write long letters, a 10-second voice clip or a single snapshot is enough. Keeping every entry uniform lowers the barrier to contributing and ensures the finished album looks cohesive.
+
+## You Can Only Write "Thank You"
+
+Plenty of services already exist for collecting birthday wishes or farewell group cards. What set thanks-log apart was narrowing the theme strictly to gratitude. Rather than a blank canvas where you can write anything, the submission flow itself was designed to keep the focus on saying thank you.
+
+The other key difference was temporal: instead of scrambling to collect messages once right before a farewell party, I wanted to build a habit of **saving up little pieces of gratitude day by day** leading up to the gift date. My core hypothesis—and the biggest bet behind the product—was that if younger users are already comfortable casually logging daily moments in apps like SetLog, that same habit could be channeled toward thanking a specific person and landed as a meaningful gift.
+
+## Protecting the Surprise at the System Level
+
+Because a gratitude album is almost always given as a surprise, making sure the recipient never finds out early has to be guaranteed by the system architecture, not just by UI polish.
+
+Notifications were the biggest trap to guard against. If the recipient also happened to use thanks-log and received a push notification saying "A project addressed to you was created!", the surprise would be ruined on the spot. So I established as an ironclad data rule from day one that **designating someone as a recipient never triggers a single notification to them**. Even when the album is completed, nothing is sent automatically—it reaches the recipient only at the exact moment the organizer hands over the link.
+
+I also made visibility between group members configurable. Usually, being able to see each other's posts makes the process feel collaborative and fun. In some situations, though, contributors want to keep their messages private from one another until the final reveal. For those cases, a group can be set so members only see their own submissions, while the organizer retains full visibility to curate the album and remove anything inappropriate.
+
+## Crafting the Moment the Album Is Opened
+
+The part of the design I cared about most was the unveiling—the moment the recipient opens the finished album for the first time.
+
+My rule here was never to rely on background music to manufacture emotion. Playing a popular song is an easy shortcut to make a montage feel moving, but it immediately tangles the product in music licensing issues. Instead, I wanted to build that emotional peak through the tactile gesture of "unsealing" the album, the sheer count of how many people contributed how many thank-yous, and the raw voices, handwriting, and expressions of the people who sent them.
+
+Finally, the recipient is never asked to download an app. Nothing kills a heartfelt moment faster than "Please install our app from the store first," so finished albums were designed to open directly in the browser via a web link or QR code.
+
+## Onward to Reallog
+
+Just a few days after locking in the specification for thanks-log, a different idea crossed my mind: "What if a school class could gather a whole year of shared memories into one place?" I re-read the entire thanks-log design doc and borrowed its structural backbone to start designing [Reallog](/products/reallog).
+
+In Reallog, I removed the three elements at the center of thanks-log—the single recipient, the surprise, and the gifting deadline—and reshaped the system around a fixed group pooling one memory a day. Even though both products are about "everyone bringing a piece to the table," a surprise gift album and a private group social archive require completely different decisions. Still, the conviction that "constraints make creation easier" carried straight through from one to the other.

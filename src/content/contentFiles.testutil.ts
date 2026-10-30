@@ -11,14 +11,16 @@ const CONTENT_DIR = fileURLToPath(new URL(".", import.meta.url));
 export type ContentKind = "products" | "notes";
 
 /** Slugs that have an MDX body on disk. */
-export function contentSlugs(kind: ContentKind): string[] {
-  return readdirSync(`${CONTENT_DIR}${kind}`)
+export function contentSlugs(kind: ContentKind, lang: "ja" | "en" = "ja"): string[] {
+  const dir = lang === "en" ? `${CONTENT_DIR}${kind}/en` : `${CONTENT_DIR}${kind}`;
+  return readdirSync(dir)
     .filter((name) => name.endsWith(".mdx"))
     .map((name) => name.replace(/\.mdx$/, ""));
 }
 
-export function readContent(kind: ContentKind, slug: string): string {
-  return readFileSync(`${CONTENT_DIR}${kind}/${slug}.mdx`, "utf8");
+export function readContent(kind: ContentKind, slug: string, lang: "ja" | "en" = "ja"): string {
+  const dir = lang === "en" ? `${CONTENT_DIR}${kind}/en` : `${CONTENT_DIR}${kind}`;
+  return readFileSync(`${dir}/${slug}.mdx`, "utf8");
 }
 
 /**

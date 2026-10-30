@@ -39,7 +39,7 @@ export default function Experience({ onOpenProject }: Props = {}) {
   const yearGroups = useMemo(() => groupTimelineByYear(EXPERIENCE), []);
 
   return (
-    <DetailSection id="experience" title="Experience">
+    <DetailSection id="experience" title={isJa ? "経歴・活動" : "Experience"}>
       <div className="max-w-5xl mx-auto">
         {yearGroups.map((group, groupIndex) => {
           const isLastGroup = groupIndex === yearGroups.length - 1;

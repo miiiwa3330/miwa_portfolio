@@ -26,13 +26,15 @@ const internalLinks = (mdx: string) =>
 
 describe("links inside the reading pages", () => {
   for (const kind of ["products", "notes"] as ContentKind[]) {
-    it(`point only at pages that exist (${kind})`, () => {
-      for (const slug of contentSlugs(kind)) {
-        for (const href of internalLinks(readContent(kind, slug))) {
-          expect(ROUTES.has(href), `${kind}/${slug} → ${href}`).toBe(true);
+    for (const lang of ["ja", "en"] as const) {
+      it(`point only at pages that exist (${kind} / ${lang})`, () => {
+        for (const slug of contentSlugs(kind, lang)) {
+          for (const href of internalLinks(readContent(kind, slug, lang))) {
+            expect(ROUTES.has(href), `${kind}/${lang}/${slug} → ${href}`).toBe(true);
+          }
         }
-      }
-    });
+      });
+    }
   }
 
   it("finds the links it is meant to check", () => {

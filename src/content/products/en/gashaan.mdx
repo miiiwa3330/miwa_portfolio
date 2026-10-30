@@ -1,0 +1,74 @@
+## A "Rage Room" in the Palm of Your Hand
+
+There are places in the world called "rage rooms." You pay a fee, step into a room, and smash plates, glasses, and old appliances to pieces with a baseball bat to blow off steam. It's something you might want to try at least once, but it's not exactly a place you can drop by whenever you feel like it.
+
+gashaan is an iPhone app built to recreate that catharsis anytime in the palm of your hand. The concept is "the ultimate brainless stress-relief experience." When you open the app, a single wine glass sits on a pedestal right in front of you. You tap the screen, and it shatters. That's all there is to it. There is no tutorial and no game over, and my goal is to take you from launching the app to shattering your first object in just 1 or 2 taps.
+
+I named it after the Japanese onomatopoeia for things shattering (*gashaan*). At first, its working title was "Pocket Rage," but putting "rage" in the name leaned too heavily toward venting anger. I cared just as much about the ASMR-like satisfaction of enjoying the crisp sounds of breaking glass, so I went with a sound effect that doesn't push you into either mood.
+
+It is still in development and has not been released on the App Store yet.
+
+## Differentiating Through "Tactile Feel"
+
+There are already plenty of smashing apps out there. Where gashaan aims to compete is in the part that never shows up in screenshots: **tactile feel**.
+
+- **Haptics** — Instead of a generic buzz, the app crafts distinct breaking sensations for glass versus ceramics by varying the intensity and sharpness of vibrations over time
+- **Physics** — Rather than playing back canned animations, every break is driven by real-time physics, so an object never shatters the same way twice. Flying shards bounce off the floor and walls a second time
+- **Sound** — Both the initial crack at the moment of impact and the lingering clatter of shards scattering across the floor
+
+Having all three arrive at the exact same instant without any lag is both the hardest and the most important part. I would love to say "zero milliseconds of delay," but even on a 120 Hz display, a single video frame takes 8.3 milliseconds, making true zero physically impossible. Instead, my practical target is to **fire the visuals, audio, and haptics on the exact same frame** and keep total end-to-end latency under 20 milliseconds. To human perception, that feels completely instantaneous.
+
+## Why Unity?
+
+The first thing I wrestled with was what tech stack to build it in. There were three candidates:
+
+- **Web (Three.js)** — Browser vibration APIs can barely do more than "buzz and stop," which makes it impossible to deliver on the promise of "ultimate haptics"
+- **iOS Native (Swift)** — Haptics are top-tier, but building fracture simulation, particle systems, and an item production pipeline entirely from scratch would be far too heavy
+- **Unity 6 (URP)** — Rich ecosystem for physics and destruction, full access to the iPhone's haptic engine (Core Haptics), and an open path to expanding to Android in the future
+
+In the end, I chose the combination of Unity 6 and iOS.
+
+Things didn't go strictly according to plan, though. Apple's official Unity plugin that I intended to use for haptics kept hanging mid-build and turned out to be unusable. I ended up writing a small native bridge of my own that calls Core Haptics directly, along with a build script that automatically links the required frameworks on every build. It was a detour, but it meant I didn't have to compromise on haptic expressiveness.
+
+## Rebuilding How a Glass Shatters from Scratch
+
+For my first milestone, I narrowed the scope solely to "making a single wine glass feel incredible to shatter." Before branching out into dozens of items, I wanted to perfect just one.
+
+### The Pre-Fractured Strategy
+
+Shattering glass into tiny pieces via real-time physics on the fly is too heavy for a phone. So at first, I followed standard game industry practice: pre-fracturing a finely shattered glass model in Blender ahead of time and swapping the "intact glass" for the "shattered glass" the instant it gets hit.
+
+I wrote a script to drive Blender headlessly from the command line, lathe-turned a thin 1.5 mm glass mesh, divided it into 5 vertical impact zones, and pre-fractured it so shards would break into finer pieces right around the impact point. To allow repeated hits, I pre-generated an entire tree structure of sub-fragments all the way down.
+
+### Two Problems Showed Up on Actual Hardware
+
+Although it looked good, running it on an actual iPhone revealed two problems:
+
+1. **It was heavy.** Spawning the underlying objects for roughly 3,200 shards in a single frame at the moment of impact caused a noticeable hitch
+2. **A wireframe-like seam pattern appeared from the second hit onward.** I had cleanly rebuilt the outer shell that breaks on the first hit, but the deeper-level sub-fragments revealed on subsequent hits still had visible internal seams
+
+What made this tricky was that the two problems were in direct tension with each other. Rebuilding every level of the hierarchy cleanly to hide the seams on the second and third hits would increase the object count even further, making the first problem worse. The strategy of "pre-fracturing deep hierarchies ahead of time" had hit a dead end.
+
+### Pre-Fracture Only the First Hit, Slice on the Fly After That
+
+So I changed tactics. I limited pre-fracturing strictly to **the first break**, preparing around 25 to 40 shards tailored to the impact location. From the second hit onward, the app **slices only the specific shard you tapped right on the spot with a plane**.
+
+To pull this off, I wrote a custom mesh cutter that slices an arbitrary mesh in two along a single plane and caps the newly exposed cross-sections. Because it doesn't generate hundreds of pieces at once, a single slice finishes in a fraction of a millisecond. Before putting it on a phone, I ran a command-line verification test that recursively sliced the 33 shards from one fracture pattern over and over, confirming that 1,105 consecutive cuts completed without a single failure.
+
+The result was a huge success:
+
+- The frame hitch at the moment of impact disappeared completely
+- No matter how many times you tap, no internal seam lines ever show up
+- You can keep chopping shards into smaller and smaller pieces to your heart's content
+
+As a bonus, the data size for a single fracture pattern dropped from 15 MB to under 1 MB, and generation time in Blender plunged from 250 seconds per pattern to just 3 seconds.
+
+## Not Overdoing the Sparkle
+
+I also put a lot of care into the tiny glints of light when the glass shatters. At first, I added flashy screen flashes and star-shaped sparkle effects, but on an actual phone they looked fake. Real glass doesn't emit light when it breaks. What the naked eye actually sees are tiny, sharp pinpricks of reflected light.
+
+That led me to draw a clear line: **make the physical visuals relentlessly realistic, and save all the flashy effects strictly for the score display.** The score isn't there to judge winning or losing; it pops up as a dopamine-pumping spectacle of flying numbers and climbing combos. It never punishes the player.
+
+## What's Next
+
+The feel of shattering a wine glass has finally reached a point I'm happy with. Next, I plan to replace the shard audio with real foley recordings and build out the app-level features like score juice and an item selection screen. Little by little, I'll be adding more things you'd want to smash: plates, empty bottles, vases, keyboards, CRT televisions, watermelons, plaster busts, and more.

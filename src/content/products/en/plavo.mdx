@@ -1,0 +1,49 @@
+## Plants That Speak in Their Own Words
+
+plavo is an iOS app where pointing your camera at a houseplant causes **a speech bubble to sprout right out of the real plant, letting it tell you how it's doing in its own words**. Instead of making you read charts, the plant talks to you directly: "I'm thirsty," or "The sun was shining on me this morning, but I've been stuck in the shade all afternoon."
+
+Our ultimate goal as creators might sound a little dramatic: **we want users to empathize with their plant so deeply that if it dies, they cry the way they would over losing a person**. Because of that, plavo is designed not as a utility app that reminds you when to water, but as an experience centered on attachment to a living thing—and what it means to lose it.
+
+We are building it as a team: a hardware-focused teammate is developing the sensor gadget that measures the plant's environment, while I am responsible for the iOS app. It has not been released to the public yet.
+
+## Three Guiding Principles
+
+Whenever I face a design tradeoff, I always come back to these three rules:
+
+**1. Never upstage the real plant.** We don't create mascot characters, and we don't add voice acting. The instant you put a cute mascot on screen, the user's attention shifts to the mascot, and the living plant sitting right in front of them gets demoted to a sidekick. All plavo overlays is the plant's voice—the star of the show is always that single pot sitting in your room.
+
+**2. Never present information as raw data.** We never show numerical readings on screen; every metric is translated into the plant's own words. The moment an app displays "Estimated bloom date: October 12," it turns into an agricultural management tool. It's only plavo when the plant itself tells you, "I'll bloom in about 12 days."
+
+**3. Never blame failures on the user.** When the camera hasn't found a plant yet, or when a network request fails, we don't pop up cold error dialogs—we express the state through the plant's demeanor. In an app where the camera feed is the home screen, "searching for a plant" is the state users spend the longest time looking at.
+
+## How It Works
+
+### Anchoring Speech Bubbles in Physical Space
+
+To detect plants, the app runs Apple's Vision framework entirely on-device on every frame. Once a plant is recognized, ARKit places a 3D speech bubble in that direction. Pan the camera away and the bubble drifts off-screen; pan back and it's still waiting in the exact same spot. Step closer and it grows larger; step back and it shrinks.
+
+ARKit has built-in plane detection for floors and tables, but I deliberately avoid using it. A leafy, branching houseplant is the single worst subject for flat plane detection. Instead, the app raycasts toward 3D feature points around the detected plant on screen and anchors the bubble at the hit distance—with a fallback that places it roughly 1.2 meters away if no feature points register.
+
+### Translating Sensor Numbers into Lines of Dialogue
+
+The hardware sensor streams time-series data for sunlight, soil moisture, temperature, and humidity. From those raw readings, the app calculates daily light integral (total light absorbed over the day), growing degree days (accumulated heat that drives growth stages), and vapor pressure deficit (how easily the plant can transpire), using those derived indicators to select what the plant says. A sunflower, for instance, blooms once its accumulated growing degree days reach roughly 958—which lets the plant itself tell you how many days remain until it opens up.
+
+A single point-in-time reading can only ever say "I don't have enough water right now," whereas a full day's curve lets the plant say "I started drying out fast after noon." **Having a time series is what gives the plant's words a sense of lived time**, and that is the biggest reason we use a dedicated sensor.
+
+In the full product architecture, both a camera snapshot and the sensor time series are passed to an AI model (Claude) to diagnose the plant and generate dialogue on the fly. Insights that neither a photo nor a number could produce alone—like suspecting root rot because the leaves are wilting even though soil moisture is plenty high—only become possible when you cross-reference both sources together.
+
+### What We Persist and What We Don't
+
+Values that can be recomputed deterministically (such as daily light integral or estimated bloom dates) are never saved to disk, because if we ever refine a formula later, stored values would contradict historical recalculations. Conversely, **anything the AI said while looking at a photo from that moment is permanently saved**. Re-running diagnosis on the same photo three months later might produce a different response. If your plant told you "My lower leaves are turning yellow" on August 10, and a later recalculation overwrote that with "Looking healthy!", it would rewrite your shared memory of that day.
+
+### Letting the Plant Stay Quiet
+
+Running a full diagnosis takes anywhere from a few seconds to over ten. During that wait, plavo doesn't force small talk. Right after spotting the plant, it pops up a tiny reaction like "Hmm?" and then, if it actually has something worth saying, delivers its main line—otherwise it simply stays quiet. A character that never stops chattering quickly becomes exhausting, and we believe **feeling alive also lives in the moments when something chooses not to react**.
+
+## Preparing for Exhibition
+
+Right now, we are tailoring a build for a tech exhibition in October 2026. Because the goal on the show floor is to communicate our vision for the service at a glance, we split what we want visitors to experience into three distinct stations: a real potted plant demonstrating AR speech bubbles anchored in space, a set of panels showing plants at different growth stages to demonstrate how dialogue evolves over time, and an artificial flower rigged with a sponge and moisture sensor so visitors can see sensor readings translate directly into feelings in real time.
+
+To avoid relying on venue Wi-Fi, the exhibition build selects from a pre-written pool of roughly 120 lines and resets its state between visitors.
+
+The iOS app is written in Swift using SwiftUI, ARKit, Vision, and RealityKit. The core logic—such as botanical calculations and dialogue selection—is extracted into a standalone Swift package with zero dependencies on the camera or AR frameworks, allowing it to run unit tests directly on a Mac without an iPhone attached. Our dialogue authoring tools and validation scripts are written in TypeScript, and **both the TypeScript and Swift implementations are tested against the exact same JSON test fixtures and expected outputs**, so if anyone changes a formula on only one side, the test suite catches the drift immediately.

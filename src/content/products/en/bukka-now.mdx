@@ -1,0 +1,61 @@
+## Is Your Sense of Prices Still Up to Date?
+
+How much does a 5 kg bag of rice cost? How about a regular bowl of gyudon? Prices I could have answered without thinking a few years ago are no longer things I can state with confidence today. News of price hikes rolls in almost every week, yet there is no easy way to check just how outdated the price tags inside my own head have become.
+
+bukka_now is a web service built to test that sense of prices in numbers. You punch in the prices of everyday goods, groceries, and services on a numeric keypad, and at the end it tells you what top percentile your price intuition ranks in. No sign-up or login is required—you can start playing the moment you open the page.
+
+## How to Play
+
+On the title screen, you pick the number of questions and hit start. You can choose anywhere from 10 to 100 questions in increments of 10.
+
+Every question takes the form "How much is X?" and every answer is a price in yen. There are no multiple-choice options and no sliders. You type the price you have in mind directly on the on-screen keypad (or with the number keys and Enter on a physical keyboard on PC). My initial design combined four-choice questions, sliders, and comparisons with past prices, but as I built it out, I narrowed it down exclusively to **typing numbers straight in like a calculator**.
+
+Each question has a 10-second time limit. With less than 3 seconds left, the gauge flashes red, and when it hits 0, whatever you have typed at that moment is automatically submitted. Even on mobile, everything from the prompt to the keypad and submit button is packed to fit on a single screen without scrolling. When you only have 10 seconds, I couldn't afford to make players scroll around hunting for the submit button.
+
+## Where the Correct Answers Come From
+
+The official prices come from the publicly released figures of the Retail Price Survey conducted by the Statistics Bureau of Japan's Ministry of Internal Affairs and Communications. The question pool contains 100 items, and the correct answers are the 2025 annual average prices for the Tokyo 23 wards (or the uniform national price for items that cost the same everywhere in Japan, like postage or movie tickets).
+
+I deliberately excluded prices that cannot be verified through public statistics, such as menu items at specific restaurant chains. A quiz whose "correct" answers have no solid backing leaves players unconvinced when they miss.
+
+I also paid close attention to how each item is phrased. Raw statistical data is sometimes recorded in wholesale-style units like "per 1 kg," so I converted the prompts into **the units you actually see on store price tags**, such as "1 bag of bean sprouts (200 g)," "eggs (pack of 10)," or "pork (100 g)." Beneath every question, the region, year, and source—"Tokyo 23 Wards, 2025 Average"—are always displayed.
+
+## How Scoring Works
+
+The score for each question is determined by the **ratio** between your answer and the actual price. Hitting the exact price gives 100 points, while answering 3 times or one-third of the actual price gives 0 points. For example, if the correct answer is 1,000 yen, answering 800 yen earns 80 points, and answering 1,500 yen earns 63 points.
+
+At first, I used a formula that gave 0 points if you were off by 40% from the correct answer. However, when I scored 11 actual playthroughs from test players, the average was 23 points and 6 of the 11 scored 0. If almost everyone gets a zero, it doesn't work as a diagnostic test. After comparing 5 different formulas on those same 11 playthroughs, I settled on the current formula, which brought the average to 52 points with only 1 zero while still preserving clear score differences between people with sharp and rusty price intuition.
+
+Because the ratio is handled logarithmically, **people who overestimate and people who underestimate are graded with the exact same strictness**. Answering double the price and answering half the price yield the exact same score.
+
+The average across all questions becomes your overall score, which is then compared against everyone else's overall scores to calculate your top percentile. On top of that, based on your overall score and whether you tend to guess high or low, you are sorted into one of 4 types: "Real-Time Market Master," "Past-Price Time Traveler," "Hyper-Inflation Worrier," or "Easygoing Intuit." I also prepared slightly dry, deadpan commentary for each score bracket—22 tiers in total, including special tiers for 100 points and 0 points.
+
+## Three Views on the Results Screen
+
+At the top of the results screen, your score card stays pinned in place, while three horizontally swipeable views sit below it.
+
+- **Answer Distribution**: A horizontal bar chart for each question that divides everyone's answers into 10 buckets. Color coding shows which bucket holds your answer, the correct price, and the overall average, switching to diagonal stripes when two of them land in the same bucket
+- **1-Yen Resolution Plot**: A fine vertical bar chart counting everyone's answers in 1-yen increments. It reveals patterns that disappear when grouped into buckets—such as how heavily guesses cluster around round numbers. Dragging your finger across it brings up a tooltip showing the exact yen amount and number of respondents at that position
+- **Price History**: A line chart tracing the annual average price from the Retail Price Survey, spanning as far back as 1950 through 2025. It lets you see "what year's price" your guess actually corresponds to
+
+Across all three views, the per-question cards are locked to the exact same height. Even when you swipe horizontally, the same question lines up at the same vertical position, so you can flip back and forth between views to compare a single item. Below each question, I also included a short column explaining the background behind that item's price.
+
+## Under the Hood
+
+The frontend is a single-page application built with React and Vite, served from Cloudflare Workers. The APIs for serving questions, grading answers, and aggregating stats are written in Hono and run on the same Worker. Submission logs and per-question aggregates are stored in Cloudflare D1 (SQLite).
+
+All static files are served directly as Workers Static Assets, configured so that only requests starting with `/api/` invoke the Worker code. Simply opening the screen does not spin up a Worker execution.
+
+### Preventing Cheating
+
+Since this is a quiz, the whole point is lost if players can peek at the answers locally. Neither the correct prices nor any values that could hint at them (such as historical prices or community averages) **are ever sent to the browser until after the player submits their answers**. All grading happens server-side, and the master data for the 100 questions is never bundled into the client code shipped to the browser.
+
+### Keeping the Aggregates Clean
+
+Because the service displays everyone's answers, a single typo or troll submission included raw in the average would wreck the charts. The community average, minimum, and maximum are calculated solely from answers that fall between one-fifth and 5 times the correct price. The submission API also validates question IDs, duplicates, and price ranges before accepting a payload, and rate-limits submissions to 6 requests per minute per IP address.
+
+### Visual Design
+
+For the visual style, I aimed for a minimal editorial illustration look inspired by illustrator unpis's website—uniform black lines drawn over an unbleached paper background. There are no drop shadows, and accent colors are strictly limited to four: vermilion, green, yellow, and blue. The color of each number always matches the color of its corresponding bar on the graph so you never lose track of which number belongs to which bar. No emojis are used anywhere on screen or in the share text.
+
+Results can be posted directly to X or copied as plain text.

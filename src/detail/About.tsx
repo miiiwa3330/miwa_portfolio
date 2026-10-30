@@ -13,7 +13,9 @@ export default function About() {
 
   return (
     <div className="py-8 md:py-12">
-      <SectionHeading as="h1" className="mb-10 md:mb-14">About</SectionHeading>
+      <SectionHeading as="h1" className="mb-10 md:mb-14">
+        {isJa ? "自己紹介" : "About me"}
+      </SectionHeading>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
         {/* Left column: Summary profile card */}
@@ -42,21 +44,31 @@ export default function About() {
             Miiiwa
           </h2>
           <p className="font-mono text-sm font-bold text-neutral-500 mb-6">
-            Student Software Engineer / 27卒
+            {isJa ? "学生ソフトウェアエンジニア / 27卒" : "Student Software Engineer / Class of '27"}
           </p>
 
           <div className="space-y-4 pt-4 border-t border-black/10 font-mono text-xs sm:text-sm">
             <div>
-              <span className="text-neutral-500 block uppercase tracking-wider text-[11px]">Motto</span>
+              <span className="text-neutral-500 block uppercase tracking-wider text-[11px]">
+                {isJa ? "モットー" : "Motto"}
+              </span>
               <span className="font-bold text-neutral-900">{isJa ? "「面白いを最優先！」" : '"Fun First!"'}</span>
             </div>
             <div>
-              <span className="text-neutral-500 block uppercase tracking-wider text-[11px]">Affiliation</span>
-              <span className="font-bold text-neutral-900">42tokyo / 大学情報系</span>
+              <span className="text-neutral-500 block uppercase tracking-wider text-[11px]">
+                {isJa ? "所属" : "Affiliation"}
+              </span>
+              <span className="font-bold text-neutral-900">
+                {isJa ? "42tokyo / 大学情報系" : "42tokyo / CS Major"}
+              </span>
             </div>
             <div>
-              <span className="text-neutral-500 block uppercase tracking-wider text-[11px]">Interests</span>
-              <span className="font-bold text-neutral-900">Web / AI / 3D / Novel UX</span>
+              <span className="text-neutral-500 block uppercase tracking-wider text-[11px]">
+                {isJa ? "興味・関心" : "Interests"}
+              </span>
+              <span className="font-bold text-neutral-900">
+                {isJa ? "Web / AI / 3D / 新しいUX" : "Web / AI / 3D / Novel UX"}
+              </span>
             </div>
           </div>
         </motion.div>
