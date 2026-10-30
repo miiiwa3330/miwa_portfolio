@@ -90,7 +90,7 @@ export default function ReadingHeader() {
                 transition={{ duration: 0.18 }}
                 className="mt-2 pt-1.5 border-t border-neutral-900/40 w-full flex items-center gap-1.5 select-none"
               >
-                <span aria-hidden="true" className="w-1 h-3.5 bg-[#ea580c] rounded-full shrink-0" />
+                <span aria-hidden="true" className="w-1 h-3.5 bg-[#ea580c] rounded-none shrink-0" />
                 <span className="text-xs sm:text-sm font-black tracking-tight text-neutral-900 truncate max-w-[180px] sm:max-w-[260px]">
                   {compactTitle}
                 </span>
