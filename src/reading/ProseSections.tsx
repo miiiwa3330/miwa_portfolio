@@ -30,7 +30,7 @@ export default function ProseSections({ Body }: Props) {
       {sections.map((sectionNodes, idx) => (
         <div
           key={idx}
-          className="group/prose relative p-4 sm:p-6 -mx-4 sm:-mx-6 transition-colors [&>h2:first-child]:mt-0 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+          className="group/prose relative p-4 sm:p-5 -mx-4 sm:-mx-5 transition-colors"
         >
           <CornerBrackets
             size="md"
@@ -39,7 +39,9 @@ export default function ProseSections({ Body }: Props) {
             colorClass="border-neutral-900"
             className="opacity-0 group-hover/prose:opacity-100 transition-opacity"
           />
-          {sectionNodes}
+          <div className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+            {sectionNodes}
+          </div>
         </div>
       ))}
     </div>
