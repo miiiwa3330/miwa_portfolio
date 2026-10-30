@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -59,28 +59,16 @@ const DESTINATIONS: readonly DestinationCard[] = [
 ];
 
 const ASCII_404 = [
-  "██╗  ██╗ ██████╗ ██╗  ██╗",
-  "██║  ██║██╔═████╗██║  ██║",
-  "███████║██║██╔██║███████║",
-  "╚════██║████╔╝██║╚════██║",
-  "     ██║╚██████╔╝     ██║",
-  "     ╚═╝ ╚═════╝      ╚═╝",
-].join("\n");
-
-const ASCII_ASTRONAUT = [
-  "        _..._        ",
-  "      .'     '.      ",
-  "     /  _   _  \\     ",
-  "     | (o)_(o) |     ",
-  "      \\   ^   /      ",
-  "      /'-----'\\      ",
-  "     / /     \\ \\     ",
-  "    (_/       \\_)    ",
+  "  _  _    ___  _  _   ",
+  " | || |  / _ \\| || |  ",
+  " | || |_| | | | || |_ ",
+  " |__   _| |_| |__   _|",
+  "    |_|  \\___/   |_|  ",
 ].join("\n");
 
 type CmdEntry = {
   cmd: string;
-  output: ReactNode;
+  output: string | null;
 };
 
 export default function NotFoundView() {
@@ -91,38 +79,56 @@ export default function NotFoundView() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [input, setInput] = useState("");
   const [history, setHistory] = useState<CmdEntry[]>([]);
+  const [cmdHistory, setCmdHistory] = useState<string[]>([]);
+  const [historyIdx, setHistoryIdx] = useState<number>(-1);
 
-  const asciiReportJa = [
+  const asciiBodyJa = [
+    ASCII_404,
+    "",
     "+------------------------------------------------------------------+",
-    "| SYSTEM DIAGNOSTIC : 404 SECTOR_NOT_FOUND                         |",
+    "| STATUS  : 404 Not Found (ERR_SECTOR_UNMAPPED)                    |",
+    `| TARGET  : ${pathname.padEnd(54, " ").slice(0, 54)} |`,
     "+------------------------------------------------------------------+",
-    `| TARGET_PATH       : ${pathname.padEnd(44, " ").slice(0, 44)} |`,
-    "| STATUS            : UNREACHABLE (VOID_SPACE)                     |",
-    "+------------------------------------------------------------------+",
-    "| [MESSAGE]                                                        |",
     "| この区画には、まだ「部屋」が作られていません。                   |",
     "| アクセスしようとしたURLは移動または削除されたか、                |",
     "| コロニーの外の宇宙空間を指しています。                           |",
+    "|                                                                  |",
+    "| [RECOVERY COMMANDS]                                              |",
+    "|   cd /           : 部屋（3Dトップページ）へ戻る                  |",
+    "|   cd /products   : 制作実績の一覧へ移動                          |",
+    "|   cd /notes      : ノートの一覧へ移動                            |",
+    "|   help           : コマンド一覧を表示                            |",
     "+------------------------------------------------------------------+",
   ].join("\n");
 
-  const asciiReportEn = [
+  const asciiBodyEn = [
+    ASCII_404,
+    "",
     "+------------------------------------------------------------------+",
-    "| SYSTEM DIAGNOSTIC : 404 SECTOR_NOT_FOUND                         |",
+    "| STATUS  : 404 Not Found (ERR_SECTOR_UNMAPPED)                    |",
+    `| TARGET  : ${pathname.padEnd(54, " ").slice(0, 54)} |`,
     "+------------------------------------------------------------------+",
-    `| TARGET_PATH       : ${pathname.padEnd(44, " ").slice(0, 44)} |`,
-    "| STATUS            : UNREACHABLE (VOID_SPACE)                     |",
-    "+------------------------------------------------------------------+",
-    "| [MESSAGE]                                                        |",
     "| This sector of the colony hasn't been built yet.                 |",
     "| The URL you requested may have been moved, deleted, or points    |",
     "| into deep space outside the rocket colony.                       |",
+    "|                                                                  |",
+    "| [RECOVERY COMMANDS]                                              |",
+    "|   cd /           : Return to the 3D Colony Room                  |",
+    "|   cd /products   : Browse Products                               |",
+    "|   cd /notes      : Read Technical Notes                          |",
+    "|   help           : Show available commands                       |",
     "+------------------------------------------------------------------+",
   ].join("\n");
 
   const runCommand = (raw: string) => {
     const trimmed = raw.trim();
-    if (!trimmed) return;
+    if (!trimmed) {
+      setHistory((prev) => [...prev, { cmd: "", output: null }]);
+      return;
+    }
+    setCmdHistory((prev) => [...prev, trimmed]);
+    setHistoryIdx(-1);
+
     const lower = trimmed.toLowerCase();
 
     if (lower === "clear") {
@@ -131,7 +137,7 @@ export default function NotFoundView() {
       return;
     }
 
-    if (lower === "home" || lower === "cd /" || lower === "cd ~") {
+    if (lower === "home" || lower === "cd" || lower === "cd /" || lower === "cd ~" || lower === "exit") {
       window.location.href = "/";
       return;
     }
@@ -151,40 +157,30 @@ export default function NotFoundView() {
       return;
     }
 
-    let output: ReactNode;
+    let output: string;
     if (lower === "help") {
-      output = (
-        <pre className="text-green-300 whitespace-pre-wrap">
-          {[
-            "AVAILABLE RECOVERY COMMANDS:",
-            "  home       : Return to the 3D Colony Room (/)",
-            "  products   : Jump to Products (/products)",
-            "  about      : Jump to About me (/about)",
-            "  skills     : Jump to Skills (/skills)",
-            "  experience : Jump to Experience (/experience)",
-            "  contact    : Jump to Contact (/contact)",
-            "  notes      : Jump to Notes (/notes)",
-            "  ls         : List available sectors",
-            "  clear      : Clear command log",
-          ].join("\n")}
-        </pre>
-      );
-    } else if (lower === "ls") {
-      output = (
-        <pre className="text-green-300 whitespace-pre-wrap">
-          {"drwxr-xr-x  / (room)   /about   /products   /skills   /experience   /contact   /notes"}
-        </pre>
-      );
+      output = [
+        "Available commands:",
+        "  cd /           Return to 3D Room (/)",
+        "  cd /about      Go to About me (/about)",
+        "  cd /products   Go to Products (/products)",
+        "  cd /skills     Go to Skills (/skills)",
+        "  cd /experience Go to Experience (/experience)",
+        "  cd /contact    Go to Contact (/contact)",
+        "  cd /notes      Go to Notes (/notes)",
+        "  ls             List directories",
+        "  pwd            Print working directory",
+        "  whoami         Print current user",
+        "  clear          Clear terminal screen",
+      ].join("\n");
+    } else if (lower === "ls" || lower === "ls -la" || lower === "ls -l") {
+      output = "about/       contact/     experience/  notes/       products/    skills/";
     } else if (lower === "pwd") {
-      output = <span className="text-red-400">{pathname} (UNMAPPED_VOID)</span>;
+      output = `/Users/miiiwa${pathname} (unmapped)`;
     } else if (lower === "whoami") {
-      output = <span>lost-traveler@miiiwa-colony</span>;
+      output = "miiiwa";
     } else {
-      output = (
-        <span className="text-amber-400">
-          {`zsh: command not found: ${trimmed} (type 'help' or click a command below)`}
-        </span>
-      );
+      output = `zsh: command not found: ${trimmed}`;
     }
 
     setHistory((prev) => [...prev, { cmd: trimmed, output }]);
@@ -197,146 +193,169 @@ export default function NotFoundView() {
         404 ページが見つかりません
       </SectionHeading>
 
-      {/* Main 404 Terminal Window */}
+      {/* macOS Terminal / iTerm Window matching the user's screenshot */}
       <motion.section
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        aria-label="404 Terminal"
+        aria-label="miiiwa — -zsh — 120×30"
         onClick={() => inputRef.current?.focus()}
-        className="group relative rounded-none bg-[#050505] text-green-400 border border-black overflow-hidden font-mono cursor-text"
+        className="relative rounded-[11px] bg-[#1e2430]/95 backdrop-blur-md text-[#e6edf3] border border-white/15 shadow-[0_24px_60px_rgba(0,0,0,0.45)] overflow-hidden font-mono cursor-text"
       >
-        <CornerBrackets
-          size="lg"
-          offset="card"
-          strokeWidth="2"
-          colorClass="border-[#ea580c]"
-          className="opacity-0 group-hover:opacity-100 transition-opacity z-20"
-        />
-
-        {/* CRT scanline overlay inside the terminal box */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-10 opacity-[0.14] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.35)_50%),linear-gradient(90deg,rgba(255,0,0,0.05),rgba(0,255,0,0.02),rgba(0,0,255,0.05))] bg-[length:100%_4px,3px_100%]"
-        />
-
-        {/* Terminal Top Bar */}
-        <div className="relative z-20 flex flex-wrap items-center justify-between gap-2 px-4 sm:px-6 py-2.5 bg-neutral-950 text-neutral-300 border-b border-green-500/30 text-[11px] sm:text-xs select-none">
+        {/* Title bar: left-aligned traffic lights + blue folder icon + "miiiwa — -zsh — 120×30" */}
+        <div className="flex items-center gap-3 px-3.5 py-2 bg-[#1c1d22] border-b border-black/40 select-none">
+          {/* macOS Traffic Lights with glyphs inside */}
           <div className="flex items-center gap-2">
-            <span className="inline-block w-2.5 h-2.5 bg-[#ea580c]" />
-            <span className="inline-block w-2.5 h-2.5 bg-amber-400/80" />
-            <span className="inline-block w-2.5 h-2.5 bg-green-500/80" />
-            <span className="ml-2 font-bold tracking-widest text-green-400 uppercase">
-              miiiwa@colony-shell: ~ (tty404)
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+            <a
+              href="/"
+              onClick={(e) => e.stopPropagation()}
+              title={isJa ? "閉じる（部屋へ戻る）" : "Close (Return to Room)"}
+              aria-label={isJa ? "閉じる（部屋へ戻る）" : "Close (Return to Room)"}
+              className="w-3.5 h-3.5 rounded-full bg-[#ff5f57] flex items-center justify-center text-[#4d0000] hover:brightness-110 transition"
+            >
+              <svg viewBox="0 0 10 10" className="w-2 h-2 stroke-current stroke-[1.75]" fill="none" aria-hidden="true">
+                <path d="M2.5 2.5L7.5 7.5M7.5 2.5L2.5 7.5" strokeLinecap="round" />
+              </svg>
+            </a>
+            <span className="w-3.5 h-3.5 rounded-full bg-[#febc2e] flex items-center justify-center text-[#5c3c00]">
+              <svg viewBox="0 0 10 10" className="w-2 h-2 stroke-current stroke-[1.75]" fill="none" aria-hidden="true">
+                <path d="M2 5H8" strokeLinecap="round" />
+              </svg>
+            </span>
+            <span className="w-3.5 h-3.5 rounded-full bg-[#28c840] flex items-center justify-center text-[#004d0d]">
+              <svg viewBox="0 0 10 10" className="w-2 h-2 fill-current" aria-hidden="true">
+                <path d="M2.2 4.8V2.2H4.8L2.2 4.8ZM7.8 5.2V7.8H5.2L7.8 5.2Z" />
+              </svg>
             </span>
           </div>
-          <span className="text-[#ea580c] font-bold tabular-nums">
-            [EXIT_CODE: 404_ERR_SECTOR_UNMAPPED]
-          </span>
+
+          {/* Folder icon + title text right next to traffic lights */}
+          <div className="flex items-center gap-1.5 text-[13px] font-sans font-semibold text-[#b8bcc4] tracking-tight truncate">
+            <svg viewBox="0 0 20 16" className="w-4 h-3.5 shrink-0" fill="none" aria-hidden="true">
+              <path
+                d="M1 2.5C1 1.67 1.67 1 2.5 1H7.17C7.7 1 8.21 1.21 8.59 1.59L9.8 2.8H17.5C18.33 2.8 19 3.47 19 4.3V13.5C19 14.33 18.33 15 17.5 15H2.5C1.67 15 1 14.33 1 13.5V2.5Z"
+                fill="#56b4f9"
+              />
+              <path
+                d="M1 5.2H19V13.5C19 14.33 18.33 15 17.5 15H2.5C1.67 15 1 14.33 1 13.5V5.2Z"
+                fill="#6ec3ff"
+              />
+            </svg>
+            <span className="truncate">miiiwa — -zsh — 120×30</span>
+          </div>
         </div>
 
-        {/* Terminal Body (Pure ASCII) */}
-        <div className="relative z-20 p-5 sm:p-8 md:p-10 text-xs sm:text-sm leading-relaxed space-y-5 overflow-x-auto">
-          {/* Prompt 1: Locate request */}
+        {/* Terminal Viewport */}
+        <div className="p-4 sm:p-6 md:p-7 min-h-[24rem] text-[13px] sm:text-[14px] leading-[1.45] text-[#e6edf3] overflow-x-auto space-y-1">
+          <div>Last login: Sun Oct 25 02:06:08 on ttys004</div>
+
+          {/* Initial command that triggered 404 */}
           <div>
-            <div className="text-white">
-              <span className="text-green-500 font-bold">miiiwa@colony:~$</span>{" "}
-              <span>locate --sector &quot;{pathname}&quot;</span>
-            </div>
-            <div className="mt-1 text-red-400">
-              zsh: locate: {pathname}: No such sector in rocket colony (HTTP 404)
-            </div>
+            <span>miiiwa@MiwanoMacBook-Air ~ % </span>
+            <span>cd .{pathname}</span>
           </div>
+          <div>cd: no such file or directory: .{pathname}</div>
 
-          {/* ASCII 404 Banner + Astronaut */}
-          <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-10 py-2">
-            <pre
-              aria-label="404"
-              className="text-[#ea580c] font-bold text-[11px] sm:text-sm md:text-base leading-[1.15] select-none overflow-x-auto"
-            >
-              {ASCII_404}
-            </pre>
-            <pre
-              aria-hidden="true"
-              className="hidden sm:block text-green-500/80 text-[11px] leading-[1.15] select-none"
-            >
-              {ASCII_ASTRONAUT}
-            </pre>
-          </div>
-
-          {/* ASCII Diagnostic Frame */}
-          <pre className="text-green-300 text-[11px] sm:text-xs md:text-sm leading-[1.45] overflow-x-auto">
-            {isJa ? asciiReportJa : asciiReportEn}
+          {/* Pure ASCII 404 output */}
+          <pre className="pt-2 pb-3 text-[12px] sm:text-[13px] leading-[1.35] text-[#e6edf3] overflow-x-auto">
+            {isJa ? asciiBodyJa : asciiBodyEn}
           </pre>
 
-          {/* Clickable ASCII Quick Commands */}
-          <div>
-            <div className="text-white mb-2">
-              <span className="text-green-500 font-bold">miiiwa@colony:~$</span>{" "}
-              <span>./recover.sh --select-action</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 pt-1">
-              {/* Plain <a> into the hub (see leadsToHub in src/hub/nav.ts) */}
-              {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-              <a
-                href="/"
-                onClick={(e) => e.stopPropagation()}
-                className="inline-block px-3.5 py-2 bg-green-500/15 hover:bg-[#ea580c] text-green-300 hover:text-black border border-green-500/50 hover:border-[#ea580c] font-bold transition-colors text-xs sm:text-sm cursor-pointer"
-              >
-                {isJa ? "[ $ cd /  (部屋・トップへ戻る) ]" : "[ $ cd /  (Return to 3D Room) ]"}
-              </a>
-
-              <Link
-                href="/products"
-                onClick={(e) => e.stopPropagation()}
-                className="inline-block px-3.5 py-2 bg-transparent hover:bg-green-500/20 text-green-300 border border-green-500/40 hover:border-green-400 font-bold transition-colors text-xs sm:text-sm"
-              >
-                {isJa ? "[ $ cd /products  (制作実績を見る) ]" : "[ $ cd /products  (Browse Products) ]"}
-              </Link>
-
-              <Link
-                href="/notes"
-                onClick={(e) => e.stopPropagation()}
-                className="inline-block px-3.5 py-2 bg-transparent hover:bg-green-500/20 text-green-300 border border-green-500/40 hover:border-green-400 font-bold transition-colors text-xs sm:text-sm"
-              >
-                {isJa ? "[ $ cd /notes  (ノートを読む) ]" : "[ $ cd /notes  (Read Notes) ]"}
-              </Link>
-            </div>
+          {/* Clickable ASCII shortcuts inside terminal */}
+          <div className="pt-1 pb-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] sm:text-[13px]">
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+            <a
+              href="/"
+              onClick={(e) => e.stopPropagation()}
+              className="text-[#6ec3ff] hover:underline cursor-pointer"
+            >
+              [cd / (Room)]
+            </a>
+            <Link
+              href="/products"
+              onClick={(e) => e.stopPropagation()}
+              className="text-[#6ec3ff] hover:underline"
+            >
+              [cd /products]
+            </Link>
+            <Link
+              href="/notes"
+              onClick={(e) => e.stopPropagation()}
+              className="text-[#6ec3ff] hover:underline"
+            >
+              [cd /notes]
+            </Link>
+            <Link
+              href="/about"
+              onClick={(e) => e.stopPropagation()}
+              className="text-[#6ec3ff] hover:underline"
+            >
+              [cd /about]
+            </Link>
           </div>
 
-          {/* Interactive command history */}
+          {/* Command history */}
           {history.map((item, idx) => (
-            <div key={idx} className="space-y-1">
-              <div className="text-white">
-                <span className="text-green-500 font-bold">miiiwa@colony:~$</span> {item.cmd}
+            <div key={idx}>
+              <div>
+                <span>miiiwa@MiwanoMacBook-Air ~ % </span>
+                <span>{item.cmd}</span>
               </div>
-              <div className="pl-2">{item.output}</div>
+              {item.output && (
+                <pre className="whitespace-pre-wrap text-[#e6edf3] leading-[1.4]">
+                  {item.output}
+                </pre>
+              )}
             </div>
           ))}
 
-          {/* Live interactive prompt */}
-          <div className="flex items-center pt-1">
-            <span className="text-green-500 font-bold mr-2 shrink-0">miiiwa@colony:~$</span>
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  runCommand(input);
-                }
-              }}
-              placeholder={
-                isJa
-                  ? "help / ls / home / products などを入力して Enter..."
-                  : "Type 'help', 'ls', 'home', 'products' and press Enter..."
-              }
-              aria-label="Terminal command input"
-              className="flex-1 min-w-0 bg-transparent border-none outline-none text-white placeholder:text-green-700/70 font-mono text-xs sm:text-sm"
-              autoComplete="off"
-              spellCheck={false}
-            />
+          {/* Active prompt line with block cursor */}
+          <div className="flex items-center flex-wrap">
+            <span className="whitespace-pre shrink-0">miiiwa@MiwanoMacBook-Air ~ % </span>
+            <div className="relative flex-1 min-w-[160px] flex items-center">
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    runCommand(input);
+                  } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    if (cmdHistory.length > 0) {
+                      const nextIdx = historyIdx + 1;
+                      if (nextIdx < cmdHistory.length) {
+                        setHistoryIdx(nextIdx);
+                        setInput(cmdHistory[cmdHistory.length - 1 - nextIdx]);
+                      }
+                    }
+                  } else if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    if (historyIdx > 0) {
+                      const nextIdx = historyIdx - 1;
+                      setHistoryIdx(nextIdx);
+                      setInput(cmdHistory[cmdHistory.length - 1 - nextIdx]);
+                    } else if (historyIdx === 0) {
+                      setHistoryIdx(-1);
+                      setInput("");
+                    }
+                  }
+                }}
+                aria-label="zsh command input"
+                className="w-full bg-transparent border-none outline-none text-[#e6edf3] font-mono text-[13px] sm:text-[14px] caret-[#a8b1be]"
+                autoFocus
+                autoComplete="off"
+                spellCheck={false}
+              />
+              {input.length === 0 && (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-0 inline-block w-[8.5px] h-[17px] bg-[#9aa2af]/85 animate-pulse"
+                />
+              )}
+            </div>
           </div>
         </div>
       </motion.section>
