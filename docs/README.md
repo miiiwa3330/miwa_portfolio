@@ -23,7 +23,7 @@ miwa_portfolio のドキュメント一覧。作業のルールそのものは [
 | [voxel-object-creation.md](voxel-object-creation.md) | Blockbench MCP でのボクセル制作フローと規約（**退役済み**） | ボクセルに戻すときだけ読む |
 | [room-migration.md](room-migration.md) | 球体の惑星 → ロケットのコロニーの中の「部屋」への移行の要件・設計・各手順の結果（**完了済み**）と、**ユーザーの確認待ちの一覧** | 確認待ちの事項が決まったら一覧から消し、決まった値を `tech.md`・`scene-invariants.md` へ |
 
-**動く試作物は `docs/` にはない。** 単体で開ける HTML の実験はルート直下の [sandbox/](../sandbox/) にある（2026-09-16 に `docs/prototypes/` から移した。理由は [structure.md](structure.md)）。ここに置くのは書かれた記録だけ。
+**動く試作物は `docs/` にはなく、リポジトリにも置き場を持たない。** 以前あった `sandbox/` は 2026-10-22 に削除した（経緯と、git の履歴からの取り出し方は [structure.md](structure.md)）。ここに置くのは書かれた記録だけ。
 
 ## 書き分けの指針
 

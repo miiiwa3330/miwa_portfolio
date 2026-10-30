@@ -31,10 +31,25 @@ import {
   type RoomPose,
 } from "./camera/roomCamera";
 import { publishBody, publishView, viewNow } from "./camera/viewChannel";
-import { planRoomMove } from "./camera/walkFlight";
+import { chainMoves, planRoomMove, seatedMove } from "./camera/walkFlight";
+import {
+  MAC_ZOOM_SECONDS,
+  deskViewPose,
+  deskViewSeconds,
+  deskViewToward,
+  feedSwipe,
+  macGamePose,
+  nearestDeskView,
+  turnSeatedHead,
+  type DeskView,
+  type SwipeLatch,
+} from "./room/deskViews";
+import { macPlaying, onMacOpen } from "./mac/macSession";
+import { deskViewNow, onDeskView, setDeskView } from "./deskView";
+import { macPointer, pcPointer } from "./deskPointer";
 import { STANDING, advanceGait, stepBob } from "./room/gait";
 import { AT_CENTRE, NO_KEYS, stepFreeWalk, type FreeWalk, type WalkKeys } from "./camera/freeWalk";
-import { seatShare } from "./room/seat";
+import { seatFacing, seatOnLine, seatShare } from "./room/seat";
 import {
   EYE_HEIGHT,
   facingStop,
@@ -43,9 +58,10 @@ import {
   zoomView,
   type ViewZoom,
 } from "./room/layout";
+import { ROOM_EXPOSURE } from "./room/lighting";
 import { ROOM_TOUR, stopU } from "./room/tour";
 import { sceneClock } from "./sceneClock";
-import { pointerClaim } from "./pointerClaim";
+import { isInteractive, pointerClaim } from "./pointerClaim";
 import { useAppState } from "@/state/AppStateContext";
 import { useHandheld } from "@/state/useHandheld";
 import { useLanguage } from "@/state/LanguageContext";
@@ -114,23 +130,11 @@ const WHEEL_REARM_MS = 220;
  * walks takes as long as the walk (`camera/walkFlight.ts`), which out to an
  * area is longer than either.
  *
- * Two values, and the one in play is chosen by whether the detail page was
- * covering the canvas when the flight began — not by which control started it.
- * The sheet takes roughly 0.3s to slide off the screen, and a flight underneath
- * it is a flight nobody sees; the longer figure is what leaves most of the
- * pull-back still to come at the moment the diorama is uncovered. With nothing
- * in the way there is nothing to wait for, and the same delay would only read
- * as the camera being slow off the mark.
+ * (There was a second, longer figure, 1.6s, for a flight that began behind the
+ * detail sheet as it slid away. The sheet went on 2026-10-30, and with it the
+ * only flight anyone could not see the start of.)
  */
 const FLIGHT_SECONDS = 1.1;
-const RETURN_SECONDS = 1.6;
-
-/** Elements whose gestures should NOT rotate the camera (real UI controls). */
-function isInteractive(target: EventTarget | null): boolean {
-  return !!(target as HTMLElement | null)?.closest?.(
-    "button, a, input, textarea, select, [data-ui]"
-  );
-}
 
 /** Straight-line distance between two tracked pointers, in screen px. */
 function pointerDistance(a: { x: number; y: number }, b: { x: number; y: number }): number {
@@ -272,6 +276,9 @@ function useViewInput(
 
     const onPointerMove = (e: PointerEvent) => {
       if (locked()) return;
+      // A gesture an object in the room took (a key held down, the mouse slid
+      // on the desk) is that object's: it does not turn the view as well.
+      if (pointerClaim.isClaimed(e.pointerId)) return;
       if (captured()) {
         // The same turn on the held angles and their targets: the aim moves
         // with the hand, and a wheel's glide still under way carries on.
@@ -346,8 +353,8 @@ function useViewInput(
       }
     };
 
-    // A hard flick that dismisses the detail page keeps emitting wheel events
-    // for a second or two after the fingers leave the trackpad. A stream that
+    // A hard flick keeps emitting wheel events for a second or two after the
+    // fingers leave the trackpad. A stream that
     // began while locked is refused until the wheel falls quiet: a genuinely
     // new gesture always starts after a pause.
     let lastWheelAt = 0;
@@ -408,45 +415,6 @@ function useViewInput(
   }, [canvas, yawRef, pitchRef, yawTargetRef, pitchTargetRef, tourURef, draggingRef, followTourRef, lockedRef, flightRef, onPinchZoom]);
 }
 
-/** Stands in for an absent `onEmptyTap`; the hook is disabled in that case anyway. */
-function noop() {}
-
-/** Movement below this, in px, is a tap rather than the start of a drag. */
-const TAP_SLOP_PX = 10;
-
-/**
- * A press held longer than this is not a tap, in ms.
- *
- * There has to be an upper bound as well as a movement one: a finger resting
- * on the glass while the reader decides what to do drifts less than the slop,
- * and lifting it half a second later should not read as having asked for
- * anything. 350ms is the usual figure for the boundary between a tap and a
- * press, and it is comfortably longer than the ~120ms a deliberate tap takes.
- */
-const TAP_MAX_MS = 350;
-
-/**
- * A tap on empty sky, which is how a phone pauses the diorama.
- *
- * The pause button is gone on a handheld (see `useHandheld`); this replaces
- * it. "Empty" has three exclusions and each is a different kind of thing:
- *
- *  - **A real control** — the header, the card rail, the terminal. Found by
- *    walking up the DOM from the target (`isInteractive`).
- *  - **An object in the scene** — an area marker. Invisible to the
- *    DOM, since every one of these lands on the same canvas, so they say so
- *    themselves on the way down (`pointerClaim`).
- *  - **A gesture that turned out to be something else** — a drag of the
- *    room, or a second finger arriving for a pinch. Both are ruled out
- *    here rather than negotiated with `useViewInput`: this hook watches the
- *    same events and cancels its own candidate, so the two never need to
- *    agree about anything.
- *
- * Deliberately separate from `useViewInput` rather than another branch inside
- * it. That hook is about where the camera points; this one is about a button
- * that is not there any more, and the only thing they share is the stream of
- * events.
- */
 /** The keys that walk: W/A/S/D by where they are on the keyboard, whatever the layout prints on them. */
 const WALK_CODES = new Set(["KeyW", "KeyA", "KeyS", "KeyD"]);
 
@@ -507,121 +475,14 @@ function useWalkKeys(): { read: () => WalkKeys } {
   };
 }
 
-function useTapGesture(enabled: boolean, flightRef: React.RefObject<unknown>, onTap: () => void) {
-  const onTapRef = useRef(onTap);
-  useEffect(() => {
-    onTapRef.current = onTap;
-  }, [onTap]);
-
-  useEffect(() => {
-    if (!enabled) return;
-
-    let candidate: { id: number; x: number; y: number; at: number } | null = null;
-    let pointersDown = 0;
-
-    const onPointerDown = (e: PointerEvent) => {
-      pointersDown += 1;
-      // A second finger means a pinch. The first finger's candidate goes with
-      // it — lifting out of a pinch is not a tap, however still the fingers
-      // were.
-      if (pointersDown > 1) {
-        candidate = null;
-        return;
-      }
-      if (isInteractive(e.target)) return;
-      if (pointerClaim.isClaimed(e.pointerId)) return;
-      // A flight owns the camera; a tap landing mid-flight is someone trying
-      // to interrupt it, and pausing the town is not what they asked for.
-      if (flightRef.current !== null) return;
-      candidate = { id: e.pointerId, x: e.clientX, y: e.clientY, at: e.timeStamp };
-    };
-
-    const onPointerMove = (e: PointerEvent) => {
-      if (!candidate || e.pointerId !== candidate.id) return;
-      if (Math.hypot(e.clientX - candidate.x, e.clientY - candidate.y) > TAP_SLOP_PX) {
-        candidate = null; // it became a drag
-      }
-    };
-
-    const onPointerUp = (e: PointerEvent) => {
-      pointersDown = Math.max(0, pointersDown - 1);
-      const tap = candidate;
-      candidate = null;
-      if (!tap || e.pointerId !== tap.id) return;
-      if (e.timeStamp - tap.at > TAP_MAX_MS) return;
-      // Checked again on the way up as well as on every move: a pointer can
-      // land and lift with no `pointermove` in between and still have
-      // travelled, and a coarse pointer reports its position generously.
-      if (Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > TAP_SLOP_PX) return;
-      onTapRef.current();
-    };
-
-    const onPointerCancel = () => {
-      pointersDown = Math.max(0, pointersDown - 1);
-      candidate = null;
-    };
-
-    window.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("pointermove", onPointerMove);
-    window.addEventListener("pointerup", onPointerUp);
-    window.addEventListener("pointercancel", onPointerCancel);
-    return () => {
-      window.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
-      window.removeEventListener("pointercancel", onPointerCancel);
-    };
-  }, [enabled, flightRef]);
-}
-
-/**
- * While the detail page covers the canvas there is nothing to look at, so the
- * render loop is switched to on-demand and nudged about once a second instead
- * of running at 60fps behind an opaque panel. Rendering the room for an
- * audience of nobody competes for the same main thread the sheet animation and
- * the section mount are using.
- */
-const OBSCURED_HEARTBEAT_MS = 1000;
-
-function IdleHeartbeat({ obscured }: { obscured: boolean }) {
-  const invalidate = useThree((state) => state.invalidate);
-
-  useEffect(() => {
-    if (!obscured) return;
-    const id = setInterval(invalidate, OBSCURED_HEARTBEAT_MS);
-    return () => clearInterval(id);
-  }, [obscured, invalidate]);
-
-  return null;
-}
-
-/**
- * Hands the pause button's state to the diorama's clock, from inside the
- * Canvas where the renderer's own clock lives.
- */
-function ScenePause() {
-  const { paused } = useAppState();
-  const clock = useThree((state) => state.clock);
-
-  useEffect(() => {
-    // The `elapsedTime` property, not getElapsedTime(): the getter advances the
-    // clock as a side effect, and would eat the delta the next frame is owed.
-    // Being up to one frame (16ms) behind at the moment of the press is not
-    // something anyone can see; a swallowed frame is.
-    sceneClock.setPaused(paused, clock.elapsedTime);
-  }, [paused, clock]);
-
-  return null;
-}
-
 /** Yaw and pitch, in radians, of the tour at `u`. */
 function tourAngles(u: number): { yaw: number; pitch: number } {
   const d = ROOM_TOUR.direction(u);
   return { yaw: yawOf(d[0], d[2]) * DEG, pitch: Math.asin(Math.max(-1, Math.min(1, d[1]))) };
 }
 
-function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
-  const { activeSection, pageOpen, homeNonce, turnRequest, viewZoom, setViewZoom } = useAppState();
+function CameraController() {
+  const { activeSection, homeNonce, turnRequest, viewZoom, setViewZoom } = useAppState();
 
   // Whether the card is the strip along the bottom rather than the panel on
   // the left — which decides whether the subject has to be slid clear of it.
@@ -674,7 +535,6 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
   const prevSectionRef = useRef<Focus>(null);
   const prevNonceRef = useRef(homeNonce);
   const prevZoomRef = useRef(viewZoom);
-  const prevPageOpenRef = useRef(pageOpen);
 
   /** The flight in progress, if any. The record and its step are in `camera/roomCamera.ts`. */
   const flightRef = useRef<RoomFlight | null>(null);
@@ -691,29 +551,115 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
 
   // Turning only makes sense in the free view — lock out drag/wheel input
   // whenever a section is focused, so stray gestures can't accumulate.
-  const lockedRef = useRef(pageOpen || !!activeSection);
+  const lockedRef = useRef(!!activeSection);
   useEffect(() => {
-    lockedRef.current = pageOpen || !!activeSection;
+    lockedRef.current = !!activeSection;
     // Stepping into an area hands the cursor back: what is there — the card,
-    // the PC's screen, the page — is read and clicked with it.
+    // the PC's screen, the hologram — is read and clicked with it.
     if (lockedRef.current && document.pointerLockElement) document.exitPointerLock();
-  }, [pageOpen, activeSection]);
+  }, [activeSection]);
 
   const canvas = useThree((state) => state.gl.domElement);
   useViewInput(canvas, yawRef, pitchRef, yawTargetRef, pitchTargetRef, tourURef, draggingRef, followTourRef, lockedRef, flightRef, setViewZoom);
 
+  // Sat at the desk: a two-finger swipe off the screens turns to the next of
+  // its screens that way (`room/deskViews.ts`). On a screen the swipe is
+  // the screen's own (the PC's page scrolls, the mouse's wheel turns).
+  const sectionRef = useRef(activeSection);
+  /** The flight under way is a turn between the desk's views (not sitting down or getting up), so another swipe may take over from it. */
+  const deskTurnRef = useRef(false);
+  const viewFromRef = useRef<DeskView>("pc");
+  /** The seated reader has looked round with the mouse since the last turn to a screen: a swipe goes on from the screen nearest their look. */
+  const lookedAwayRef = useRef(false);
+  useEffect(() => {
+    sectionRef.current = activeSection;
+  }, [activeSection]);
+  useEffect(() => {
+    if (activeSection !== "desk") return;
+    let latch: SwipeLatch | null = null;
+    const onWheel = (e: WheelEvent) => {
+      // A pinch, the page's own controls, or a screen: not a swipe between the screens.
+      if (e.ctrlKey || isInteractive(e.target) || pcPointer.now().overScreen || macPointer.now().overScreen) return;
+      // Ours, horizontal ones included: left alone, they page the browser back.
+      e.preventDefault();
+      // A game open on the Mac holds the view on its screen, till it is closed (Esc, its close box).
+      if (macPlaying()) return;
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+      const fed = feedSwipe(latch, e.deltaX * unit, e.deltaY * unit, e.timeStamp);
+      latch = fed.latch;
+      if (!fed.swipe || (flightRef.current && !deskTurnRef.current)) return;
+      if (!lookedAwayRef.current) {
+        setDeskView(deskViewToward(deskViewNow(), fed.swipe, fed.axis ?? undefined));
+        return;
+      }
+      // Looked away with the mouse: on from the screen nearest the look — back to it, where nothing is that way.
+      lookedAwayRef.current = false;
+      const from = nearestDeskView(poseRef.current.yaw, poseRef.current.pitch);
+      setDeskView(deskViewToward(from, fed.swipe, fed.axis ?? undefined), true);
+    };
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => window.removeEventListener("wheel", onWheel);
+  }, [activeSection]);
+
+  // Sat at the desk: a click on nothing — not a screen, not the page's
+  // controls, not a key or a mouse on the desk — captures the mouse, and the
+  // head turns with it, as when standing (2026-10-25, the user). The reader
+  // stays sat: the eye stays over the seat (`turnSeatedHead`). Esc gives the
+  // cursor back and leaves the view where it was; a swipe turns to a screen
+  // again. The head turns only as far as a neck goes from the way the body
+  // faces (`NECK`).
+  useEffect(() => {
+    if (activeSection !== "desk") return;
+    lookedAwayRef.current = false;
+    const captured = () => document.pointerLockElement === canvas;
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType !== "mouse" || e.button !== 0 || captured()) return;
+      if (isInteractive(e.target) || pcPointer.now().overScreen || macPointer.now().overScreen || pointerClaim.isClaimed(e.pointerId)) return;
+      if (flightRef.current || macPlaying()) return;
+      Promise.resolve(canvas.requestPointerLock?.()).catch(() => {});
+    };
+    const onPointerMove = (e: PointerEvent) => {
+      if (!captured() || flightRef.current || macPlaying()) return;
+      const look = mouseLook(poseRef.current.yaw, poseRef.current.pitch, e.movementX, e.movementY);
+      poseRef.current = turnSeatedHead(poseRef.current, look.yaw, look.pitch, seatFacing(seatOnLine(poseRef.current)));
+      lookedAwayRef.current = true;
+    };
+    window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("pointermove", onPointerMove);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointermove", onPointerMove);
+    };
+  }, [activeSection, canvas]);
+  useEffect(() => {
+    /** Where a view holds the camera: the Mac's zoomed to its screen while a game is open on it (`macGamePose`). */
+    const held = (view: DeskView): RoomPose =>
+      view === "mac" && macPlaying() ? { ...zoomFraming("desk", handheld), ...macGamePose() } : { ...deskViewPose(view), ...zoomFraming("desk", handheld) };
+    const fly = (to: RoomPose, seconds: number) => {
+      flightRef.current = beginRoomFlight(seatedMove(poseRef.current, to, seconds), null);
+      deskTurnRef.current = true;
+    };
+    const offView = onDeskView((view) => {
+      const from = viewFromRef.current;
+      viewFromRef.current = view;
+      lookedAwayRef.current = false;
+      if (sectionRef.current !== "desk") return;
+      fly(held(view), deskViewSeconds(from, view));
+    });
+    // A game opening or closing zooms in or out — from the Mac's seat; opened from elsewhere, the turn to the Mac that follows takes it there.
+    const offGame = onMacOpen(() => {
+      if (sectionRef.current !== "desk" || deskViewNow() !== "mac") return;
+      fly(held("mac"), MAC_ZOOM_SECONDS);
+    });
+    return () => {
+      offView();
+      offGame();
+    };
+  }, [handheld]);
+
   /** Where the keys have walked the reader, and their jump: the free view's place on the floor. */
   const walkRef = useRef<FreeWalk>(AT_CENTRE);
   const walkKeys = useWalkKeys();
-
-  // The tap that replaces the pause button. Off while the detail sheet covers
-  // the canvas, during About, where a tap beside the text is not asking for
-  // the room to freeze, and at the desk, where a tap is on the PC's screen.
-  useTapGesture(
-    !!onEmptyTap && !pageOpen && activeSection !== "about" && activeSection !== "desk",
-    flightRef,
-    onEmptyTap ?? noop
-  );
 
   const freePose = (yaw: number, pitch: number): RoomPose => ({
     x: walkRef.current.x,
@@ -778,7 +724,15 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
 
   /** Fly to `to`, walking whatever distance the reader covers on foot (`camera/walkFlight.ts`). */
   const startFlight = (to: RoomPose, duration: number, land: RoomFlight["land"]) => {
-    flightRef.current = beginRoomFlight(planRoomMove(poseRef.current, to, duration), land);
+    deskTurnRef.current = false;
+    // Getting up from another of the desk's screens than the PC's — the Mac's
+    // seat, or the head turned — turns back to the PC's first, and gets up
+    // from there: standing up and the chair being pushed aside go from its seat.
+    const from = poseRef.current;
+    const pc = poseFromView(zoomView("desk"), zoomFraming("desk", handheld));
+    const turnedAway = seatShare(from) >= 1 && seatShare(to) < 1 && (Math.hypot(from.x - pc.x, from.z - pc.z) > 1e-4 || Math.abs(wrapAngle(from.yaw - pc.yaw)) > 1e-4 || Math.abs(from.pitch - pc.pitch) > 1e-4);
+    const move = turnedAway ? chainMoves(seatedMove(from, pc, deskViewSeconds(seatOnLine(from) > 1e-3 ? "mac" : "camera", "pc")), planRoomMove(pc, to, duration)) : planRoomMove(from, to, duration);
+    flightRef.current = beginRoomFlight(move, land);
   };
 
   // Swiping the card asks for a stop. Steering tourURef is all it takes — the
@@ -800,9 +754,7 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     const wasZoomChange = viewZoom !== prevZoomRef.current;
     prevZoomRef.current = viewZoom;
 
-    // Longer when the detail page was covering the canvas as the flight was
-    // asked for — most of a short flight would happen behind the sheet.
-    const duration = prevPageOpenRef.current ? RETURN_SECONDS : FLIGHT_SECONDS;
+    const duration = FLIGHT_SECONDS;
 
     /** Turn the free view to `yaw`/`pitch` and fly there, at the current stage. */
     const flyToFree = (yaw: number, pitch: number) => {
@@ -845,7 +797,7 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
       return;
     }
 
-    // 4. The free view's stage changed (a pinch, or the zoom control) while
+    // 4. The free view's stage changed (a pinch) while
     //    already in the free view: same direction, new field of view.
     if (wasZoomChange) {
       flyToFree(yawRef.current, pitchRef.current);
@@ -861,11 +813,6 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSection, homeNonce, viewZoom]);
 
-  // Declared after the effect above so that effect always reads the previous value.
-  useEffect(() => {
-    prevPageOpenRef.current = pageOpen;
-  }, [pageOpen]);
-
   // Ahead of every other frame callback (a negative priority still leaves
   // the rendering to R3F): the markers project through this camera, and if
   // they ran first they would publish where the marker was a frame ago while
@@ -876,7 +823,7 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
     const camera = state.camera as THREE.PerspectiveCamera;
     const size = state.size;
 
-    // The idle sway, on the room's clock so the pause button holds it still.
+    // The idle sway, on the room's clock.
     // Eased out while reading the PC's screen or the hologram — text that
     // sways is harder to read — and off for a reader who asked for less motion.
     const reading = activeSection === "desk" || activeSection === "about";
@@ -892,8 +839,7 @@ function CameraController({ onEmptyTap }: { onEmptyTap?: () => void }) {
       if (walkRef.current.height > 0 || walkRef.current.vx || walkRef.current.vz) walkRef.current = { ...walkRef.current, vx: 0, vz: 0, height: 0, rise: 0 };
     }
 
-    // A flight owns the camera outright while it runs. Real delta, not the
-    // room's clock: the pause button freezes the room, not the reader.
+    // A flight owns the camera outright while it runs.
     const flight = flightRef.current;
     if (flight) {
       const step = advanceRoomFlight(flight, delta);
@@ -1040,19 +986,8 @@ function Crosshair() {
 }
 
 export default function Scene({
-  obscured = false,
   interactive = true,
-  onEmptyTap,
 }: {
-  obscured?: boolean;
-  /**
-   * Called when a handheld reader taps empty space — the gesture that replaces
-   * the pause button there (see `useTapGesture`). Absent on a desktop.
-   *
-   * **Must be stable.** It is handed across the `<Canvas>` boundary, and a new
-   * identity every render would rebind the listeners.
-   */
-  onEmptyTap?: () => void;
   /**
    * Whether the canvas should accept pointer events right now. `<Canvas>`'s
    * own outermost div sets an inline `pointerEvents` style, which beats any
@@ -1066,22 +1001,19 @@ export default function Scene({
       <Canvas
         camera={{ position: [0, EYE_HEIGHT, 0], fov: 45, near: 0.05, far: 60 }}
         dpr={[1, 2]}
-        frameloop={obscured ? "demand" : "always"}
         events={roomEvents}
         style={interactive ? undefined : { pointerEvents: "none" }}
         // The prototype's exposure, for its placeholder lights. Not a design
         // value — it means nothing once the lighting is rebuilt (step 6).
         onCreated={({ gl, camera }) => {
-          gl.toneMappingExposure = 1.75;
+          gl.toneMappingExposure = ROOM_EXPOSURE;
           // The reader's eye is the one camera that draws the screen cut-outs.
           camera.layers.enable(SCREEN_HOLE_LAYER);
         }}
       >
         <RoomScene />
-        <CameraController onEmptyTap={onEmptyTap} />
+        <CameraController />
         <LensRenderer />
-        <ScenePause />
-        <IdleHeartbeat obscured={obscured} />
       </Canvas>
       <Crosshair />
     </>

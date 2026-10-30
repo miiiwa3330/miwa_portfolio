@@ -1,8 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
+import CornerBrackets from "@/ui/CornerBrackets";
 
-/** Transient message pinned to the bottom of the viewport. */
+/** Transient message pinned to the bottom of the viewport, in the site's box style. */
 export default function Toast({ children }: { children: React.ReactNode }) {
   return (
     <motion.div
@@ -10,8 +11,9 @@ export default function Toast({ children }: { children: React.ReactNode }) {
       animate={{ opacity: 1, y: 0, x: "-50%" }}
       exit={{ opacity: 0, y: 50, x: "-50%" }}
       role="status"
-      className="fixed bottom-10 left-1/2 z-[9999] px-6 py-3 rounded-full bg-white border border-[var(--primary)] text-[var(--primary)] font-bold backdrop-blur-md whitespace-nowrap"
+      className="fixed bottom-10 left-1/2 z-[9999] px-5 py-2.5 rounded-none bg-neutral-900 border border-neutral-700 text-neutral-100 font-mono text-xs font-bold whitespace-nowrap shadow-xl"
     >
+      <CornerBrackets size="xs" offset="tight" colorClass="border-neutral-100" />
       {children}
     </motion.div>
   );

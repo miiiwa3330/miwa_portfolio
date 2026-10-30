@@ -12,7 +12,7 @@ import type { Direction } from "../direction";
  * - **k = 1 is an ordinary perspective** (rectilinear): `r = tanθ / tanH`,
  *   which is what three.js's `PerspectiveCamera` draws.
  * - **k = 2 is the stereographic fisheye** the user picked in
- *   `sandbox/room-lab.html` (2026-10-01) over equidistant: it keeps small
+ *   the room-lab prototype (2026-10-01) over equidistant: it keeps small
  *   things their own shape all the way to the edge (it is conformal), where
  *   equidistant squeezes them radially — to about 0.70 of their width at 161°.
  *   The price is that the centre of the frame comes out smaller.

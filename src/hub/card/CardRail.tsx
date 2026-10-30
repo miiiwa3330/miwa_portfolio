@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { motion, animate, useMotionValue } from "framer-motion";
+import CornerBrackets from "@/ui/CornerBrackets";
 import { CARD_COPY } from "./cardCopy";
 import HomeButton from "../HomeButton";
 import {
@@ -267,7 +268,7 @@ function CardRailBody({
         />
 
         {focused && (
-          <HomeButton onClick={onHome} className="absolute -top-16 left-1/2 -translate-x-1/2" />
+          <HomeButton onClick={onHome} isJa={isJa} className="absolute -top-16 left-1/2 -translate-x-1/2" />
         )}
       </div>
 
@@ -275,8 +276,8 @@ function CardRailBody({
         {RAIL_ORDER.map((key, i) => (
           <span
             key={key}
-            className={`h-1.5 rounded-full transition-all duration-300 ${
-              i === activeIndex ? "w-5 bg-white" : "w-1.5 bg-white/35"
+            className={`h-1 rounded-none transition-all duration-300 ${
+              i === activeIndex ? "w-5 bg-white" : "w-1.5 bg-white/40"
             }`}
           />
         ))}
@@ -287,6 +288,8 @@ function CardRailBody({
 
 /**
  * One card on the strip, positioned at its slot offset.
+ * The site's box style (square corners, a box label, a fine border).
+ * The selected center card is enclosed in corner brackets ("「」").
  */
 function RailCardFace({
   section,
@@ -308,16 +311,19 @@ function RailCardFace({
         transform: `translateX(${railOffsetPx(slot, cardWidth)}px)`,
         zIndex: middle ? 10 : 0,
       }}
-      className="absolute inset-0 rounded-xl bg-white border border-black/10 shadow-md shadow-black/10 p-4 flex flex-col pointer-events-none select-none"
+      className="absolute inset-0 rounded-none bg-white/85 backdrop-blur-md border border-black/20 shadow-none p-4 flex flex-col pointer-events-none select-none"
       aria-hidden={!middle}
     >
-      <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-700 shrink-0">
+      {middle && (
+        <CornerBrackets size="sm" offset="tight" strokeWidth="2" colorClass="border-neutral-900" />
+      )}
+      <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-neutral-100 bg-neutral-900 border border-neutral-700 px-1.5 py-0.5 rounded-none self-start shrink-0">
         {copy.sub}
       </span>
-      <h3 className="text-xl font-black text-gray-900 tracking-tight mt-1 shrink-0">
+      <h3 className="text-lg font-black text-neutral-900 tracking-tight mt-1.5 shrink-0">
         {isJa ? copy.jaTitle : copy.enTitle}
       </h3>
-      <p className="text-[13px] leading-snug text-gray-600 mt-1.5 line-clamp-2">
+      <p className="text-xs leading-snug text-neutral-600 mt-1 line-clamp-2">
         {isJa ? copy.ja : copy.en}
       </p>
     </div>

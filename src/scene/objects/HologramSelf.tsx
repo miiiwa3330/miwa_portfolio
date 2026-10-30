@@ -28,7 +28,7 @@ import { sceneClock } from "../sceneClock";
 
 /** **Provisional (仮).** A quarter size: 42 cm tall. */
 const SCALE = 0.25;
-/** How fast it turns, in radians a second of the room's clock (the pause button stops it). */
+/** How fast it turns, in radians a second of the room's clock. */
 const TURN_RATE = 0.5;
 
 const VERTEX = /* glsl */ `

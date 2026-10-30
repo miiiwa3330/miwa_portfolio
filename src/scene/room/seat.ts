@@ -1,14 +1,19 @@
 import {
+  CHAIR_BACK_BEHIND_EYE,
   CHAIR_SEAT,
   CHAIR_SEAT_FORWARD,
   EYE_HEIGHT,
+  MAC,
+  PIECES,
   SEATED_EYE_HEIGHT,
   SUBJECTS,
   chairBackZ,
   horizontalAt,
+  pieceCentreDistance,
   subjectYaw,
   zoomView,
 } from "./layout";
+import { macSeatLocal, pcSeatLocal, seatWorld } from "./deskViews";
 import { floorSpot, type RoomPose } from "../camera/roomCamera";
 
 /**
@@ -22,6 +27,11 @@ import { floorSpot, type RoomPose } from "../camera/roomCamera";
  * line from the centre to the desk, which the reader walks along, so it waits
  * off to the left (`CHAIR_PARKED`) and is brought round behind the legs over
  * the last steps in (`CHAIR_APPROACH`), then under them as they go down.
+ *
+ * Sat, the reader can roll over to the Macintosh, on the left (2026-10-23,
+ * `room/deskViews.ts`): the chair goes along the straight line from the PC's
+ * seat to the Mac's, turning to face it, and everywhere on that line the
+ * reader is sat (`seatOnLine`, 0 at the PC and 1 at the Mac).
  *
  * Everything here is a function of the camera's held pose (no sway, no step
  * bob), so the chair and the body cannot disagree with the flight about how
@@ -92,8 +102,36 @@ function onLine(across: number): number {
 export function seatShare(pose: RoomPose): number {
   const { along, across } = onSeatLine(pose);
   const atChair = smoothstep(standForward() - 0.2, standForward() - 0.05, along) * (1 - smoothstep(seatForward() + 0.05, seatForward() + 0.2, along));
-  return seatedShare(pose.eyeHeight) * atChair * onLine(across);
+  // Or rolled over towards the Mac, on the way between the two seats.
+  const rolled = onLine(rollLine(pose).off);
+  return seatedShare(pose.eyeHeight) * Math.max(atChair * onLine(across), rolled);
 }
+
+/** The held eye's place against the line from the PC's seat to the Mac's: how far along it (0–1, clamped) and how far off it, in metres. */
+function rollLine(pose: RoomPose): { t: number; off: number } {
+  const [x, z] = floorSpot(pose);
+  const [ax, az] = seatWorld(pcSeatLocal());
+  const [bx, bz] = seatWorld(macSeatLocal());
+  const [dx, dz] = [bx - ax, bz - az];
+  const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)));
+  return { t, off: Math.hypot(x - (ax + dx * t), z - (az + dz * t)) };
+}
+
+/**
+ * How far over from the PC's seat to the Mac's a seated reader is: 0 at the
+ * PC, 1 at the Mac. What the chair's place and turn, the body's facing and
+ * the hands' places go by.
+ */
+export function seatOnLine(pose: RoomPose): number {
+  return rollLine(pose).t;
+}
+
+/** The way the seat faces at a place along the line, as the room measures yaw (radians): the PC's way, turned towards the Mac's as it goes. */
+export function seatFacing(along: number): number {
+  return seatYaw() * DEG - MAC.yaw * along;
+}
+
+
 
 /**
  * Where the chair stands, in the desk's own frame (`pieceToWorld`'s: +Z
@@ -101,15 +139,22 @@ export function seatShare(pose: RoomPose): number {
  * three.js's sense — anticlockwise from above).
  *
  * Sat, it is under the reader, its back `CHAIR_BACK_BEHIND_EYE` behind the
- * eye (`chairBackZ`, at the desk), and rolls in with them. Going down, it
- * comes in from behind to there. Walking in, it comes round from aside to
- * behind. Anywhere else it is aside.
+ * eye (`chairBackZ`, at the desk), and rolls in with them — and over to the
+ * Mac, turning to face it as the reader does. Going down, it comes in from
+ * behind to there. Walking in, it comes round from aside to behind.
+ * Anywhere else it is aside.
  */
 export function chairPlacement(pose: RoomPose): { x: number; z: number; yaw: number } {
   const pcX = SUBJECTS.desk.local[0];
   const { along, across } = onSeatLine(pose);
   const sat = seatShare(pose);
-  if (sat >= 1) return { x: pcX, z: chairBackZ() + (seatForward() - along), yaw: 0 };
+  if (sat >= 1) {
+    // Behind the eye, turned as the seat faces there (three.js's sense: anticlockwise, the Mac's own turn).
+    const turn = MAC.yaw * seatOnLine(pose);
+    const [x, z] = floorSpot(pose);
+    const local = { x, z: z + pieceCentreDistance(PIECES.desk) };
+    return { x: local.x + CHAIR_BACK_BEHIND_EYE * Math.sin(turn), z: local.z + CHAIR_BACK_BEHIND_EYE * Math.cos(turn), yaw: turn };
+  }
 
   const pulledOut = chairBackZ() + ROLL_IN;
   // Walking in: first back, alongside the reader, then across behind them.

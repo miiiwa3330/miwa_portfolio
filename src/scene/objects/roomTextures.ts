@@ -198,10 +198,10 @@ export function makeCityTexture(): THREE.CanvasTexture {
  * The left monitor's video: there is no footage yet, so it plays a
  * procedural loop — a neon grid running towards a striped sunset, the
  * look the room's own palette suggests. `draw` paints one frame at time `t`
- * (seconds, on the room's clock, so the pause button stops it).
+ * (seconds, on the room's clock).
  */
-export function makeVideo(): { texture: THREE.CanvasTexture; draw: (t: number) => void } {
-  const [c, ctx] = canvas(320, 196);
+export function makeVideo(width: number, height: number): { texture: THREE.CanvasTexture; draw: (t: number) => void } {
+  const [c, ctx] = canvas(width, height);
   const t0 = texture(c);
   const draw = (t: number) => {
     const w = c.width;
@@ -212,22 +212,25 @@ export function makeVideo(): { texture: THREE.CanvasTexture; draw: (t: number) =
     sky.addColorStop(1, "#5a1a6b");
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, w, horizon);
-    // The sun, striped, slowly setting and rising again.
-    const sunY = horizon - 18 - Math.sin(t * 0.2) * 10;
-    const sun = ctx.createLinearGradient(0, sunY - 40, 0, sunY + 40);
+    // The sun, striped, slowly setting and rising again. Sized by the
+    // picture's shorter side, so it is the same sun on end or lying down.
+    const k = Math.min(w, h) / 196;
+    const r = 40 * k;
+    const sunY = horizon - 18 * k - Math.sin(t * 0.2) * 10 * k;
+    const sun = ctx.createLinearGradient(0, sunY - r, 0, sunY + r);
     sun.addColorStop(0, "#ffd36b");
     sun.addColorStop(1, "#ff3fa0");
     ctx.fillStyle = sun;
     ctx.beginPath();
-    ctx.arc(w / 2, sunY, 40, 0, Math.PI * 2);
+    ctx.arc(w / 2, sunY, r, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = "#3a1050";
-    for (let i = 0; i < 5; i++) ctx.fillRect(w / 2 - 42, sunY + 6 + i * 7, 84, 2 + i * 0.6);
+    for (let i = 0; i < 5; i++) ctx.fillRect(w / 2 - r - 2 * k, sunY + (6 + i * 7) * k, 2 * r + 4 * k, (2 + i * 0.6) * k);
     // The ground: a grid rushing towards the viewer.
     ctx.fillStyle = "#0a0414";
     ctx.fillRect(0, horizon, w, h - horizon);
     ctx.strokeStyle = "#ff3fd2";
-    ctx.lineWidth = 1;
+    ctx.lineWidth = Math.max(1, k);
     const phase = (t * 0.8) % 1;
     for (let i = 0; i < 12; i++) {
       const z = (i + 1 - phase) / 12;
@@ -241,8 +244,8 @@ export function makeVideo(): { texture: THREE.CanvasTexture; draw: (t: number) =
     ctx.globalAlpha = 1;
     for (let i = -10; i <= 10; i++) {
       ctx.beginPath();
-      ctx.moveTo(w / 2 + i * 6, horizon);
-      ctx.lineTo(w / 2 + i * 60, h);
+      ctx.moveTo(w / 2 + i * 6 * k, horizon);
+      ctx.lineTo(w / 2 + i * 60 * k, h);
       ctx.stroke();
     }
     t0.needsUpdate = true;

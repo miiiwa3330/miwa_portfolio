@@ -1,11 +1,10 @@
 /**
  * Which pointer, if any, an object in the scene has taken for itself.
  *
- * A tap on empty sky pauses the diorama (see `useTapGesture` in Scene.tsx),
- * and "empty" has to exclude the things in the scene that answer a tap of
- * their own — the area markers and the light switches. Neither of those is a DOM
- * element, so `isInteractive`, which walks up from `event.target`, cannot see
- * them: to the DOM every one of these gestures lands on the same canvas.
+ * Excludes things in the scene that answer an interaction of their own — the
+ * area markers and the light switches. Neither of those is a DOM element, so
+ * `isInteractive`, which walks up from `event.target`, cannot see them: to the
+ * DOM every one of these gestures lands on the same canvas.
  *
  * A module-level value rather than a ref threaded down through `RoomScene`,
  * for the reason the other three channels here exist (`sceneClock`,
@@ -18,9 +17,7 @@
  * R3F listens on the canvas's container; `useViewInput` listens on `window`.
  * A pointer event reaches the container first and window last, so an object's
  * `onPointerDown` has always run by the time the window handler asks whether
- * the gesture was claimed. `Sun` already depends on exactly this to stop a
- * tap on a marker from also pausing the room. (The planet's sun relied on it
- * first, to stop a drag of the sun from also spinning the planet.)
+ * the gesture was claimed.
  */
 
 let claimed: number | null = null;
@@ -43,3 +40,13 @@ export const pointerClaim = {
     if (claimed === pointerId) claimed = null;
   },
 };
+
+/**
+ * Elements whose gestures belong to the page, not the room: real UI controls
+ * (and anything marked `data-ui`, such as the PC's screen). A gesture that
+ * starts on one must not turn the camera, nor press a key of the keyboard
+ * on the desk behind it.
+ */
+export function isInteractive(target: EventTarget | null): boolean {
+  return !!(target as HTMLElement | null)?.closest?.("button, a, input, textarea, select, [data-ui]");
+}

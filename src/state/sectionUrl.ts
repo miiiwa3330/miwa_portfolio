@@ -1,21 +1,21 @@
-import type { Focus, SectionType } from "@/types";
+import type { Focus } from "@/types";
 
 /**
- * The open section, expressed in the URL.
+ * The hub's state, expressed in the URL hash.
  *
- * Without this the site had no addressable state at all: the browser's back
- * button left the site instead of closing the panel, and there was no way to
- * link anyone to a particular section.
+ * Two jobs are left for it since the detail sheet was replaced by real pages
+ * (`/products`, `/skills`, … — 2026-10-30):
  *
- * A hash, not a path. The site is a single statically exported document with
- * one 3D scene that must survive navigation, so real routes would mean either
- * reloading the whole world or keeping the canvas in a layout above them —
- * a restructure, and a separate decision. A hash buys the back button and
- * shareable links today without touching the export.
- *
- * Note what this deliberately does NOT fix: the section content is still
- * rendered on the client, so it stays absent from the prerendered HTML and
- * invisible to anything that does not run JavaScript.
+ *  - **`/#desk`**: the user asked for the PC to have a URL of its own
+ *    (2026-10-01), so that a link can open the room with the reader already
+ *    seated. While seated the address bar shows it, and the back button gets
+ *    up from the chair.
+ *  - **The old links.** Until 2026-10-30 an area's page was the sheet, opened
+ *    at `/#products` and the like — every link into an area, the reading
+ *    pages' navigation included, had that shape, and they are out there.
+ *    `/#about` still means what it meant (the hologram, which never had a
+ *    sheet); the four that had one are sent on to their pages
+ *    (`movedToPage`).
  */
 
 const FOCUS_IDS = ["about", "products", "skills", "experience", "contact", "desk"] as const;
@@ -32,22 +32,19 @@ export function hashForSection(section: Focus): string {
 }
 
 /**
- * Whether focusing this opens the detail sheet: every area but About, which
- * is read off the hologram, and the desk, which is read on the PC's own
- * screen (docs/room-migration.md).
+ * Whether this hash used to open the detail sheet, whose content is now a page
+ * of its own: every area but About, which is read off the hologram, and the
+ * desk, which is read on the PC's own screen.
  */
-export function hasSheet(focus: Focus): focus is Exclude<NonNullable<SectionType>, "about"> {
+export function movedToPage(focus: Focus): focus is "products" | "skills" | "experience" | "contact" {
   return focus !== null && focus !== "about" && focus !== "desk";
 }
 
 /**
- * The hash the address bar should show for this state: an area while its
- * sheet is open, and the desk while the reader is sitting at it — the user
- * asked for the PC to have a URL of its own (`/#desk`, 2026-10-01), so that a
- * link can open the room with the reader already seated. Nothing otherwise:
- * turning round the room is not a place to link to.
+ * The hash the address bar should show for this state: the desk while the
+ * reader is sitting at it, and nothing otherwise — turning round the room is
+ * not a place to link to.
  */
-export function hashForState(focus: Focus, pageOpen: boolean): string {
-  if (focus === "desk") return hashForSection(focus);
-  return hashForSection(pageOpen ? focus : null);
+export function hashForState(focus: Focus): string {
+  return hashForSection(focus === "desk" ? focus : null);
 }

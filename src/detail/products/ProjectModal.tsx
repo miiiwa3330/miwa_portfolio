@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { BookOpen, X } from "lucide-react";
+import CornerBrackets from "@/ui/CornerBrackets";
 import { useLanguage } from "@/state/LanguageContext";
 import { productPath, type Project } from "@/data";
 import { statusLabel } from "./catalog";
@@ -42,21 +43,24 @@ export default function ProjectModal({ project, onClose, onBlockedLink }: Props)
       className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-md"
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        initial={{ scale: 0.95, opacity: 0, y: 16 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.9, opacity: 0, y: 20 }}
+        exit={{ scale: 0.95, opacity: 0, y: 16 }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-5xl bg-white border border-black/5 rounded-3xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="relative w-full max-w-5xl bg-white border border-black/20 rounded-none overflow-hidden flex flex-col max-h-[90vh] shadow-2xl"
       >
+        <CornerBrackets size="lg" offset="card" strokeWidth="2" colorClass="border-neutral-900" />
+
         <button
           onClick={onClose}
           aria-label={language === "ja" ? "閉じる" : "Close"}
-          className="absolute top-4 right-4 z-30 p-2.5 bg-white/90 hover:bg-white text-gray-800 hover:text-gray-950 rounded-full backdrop-blur-md shadow-md border border-black/10 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+          className="group absolute top-3.5 right-3.5 sm:top-4 sm:right-4 z-30 w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center bg-neutral-900/90 hover:bg-neutral-900 text-white rounded-none border border-black backdrop-blur-md transition-all active:scale-95 cursor-pointer"
         >
+          <CornerBrackets size="xs" offset="tight" strokeWidth="2" colorClass="border-white" className="opacity-0 group-hover:opacity-100 transition-opacity" />
           <X size={18} />
         </button>
 
-        <div className="relative h-64 md:h-96 w-full shrink-0 border-b border-black/5 bg-gray-50">
+        <div className="relative h-64 md:h-96 w-full shrink-0 border-b border-black/10 bg-neutral-100">
           <Image
             src={project.image}
             alt={project.title}
@@ -72,7 +76,7 @@ export default function ProjectModal({ project, onClose, onBlockedLink }: Props)
 
         <div className="p-6 md:p-10 overflow-y-auto custom-scrollbar">
           <div className="flex items-center gap-3 sm:gap-4 mb-6">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-950 tracking-tight">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-neutral-950 tracking-tight">
               {project.title}
             </h2>
             <CategoryBadge size="lg" category={project.category} />
@@ -80,21 +84,21 @@ export default function ProjectModal({ project, onClose, onBlockedLink }: Props)
 
           <div className="space-y-6">
             <div>
-              <h3 className="font-bold mb-3 border-b border-black/5 pb-2 text-xs tracking-widest uppercase text-gray-500">
+              <h3 className="font-mono font-bold mb-3 border-b border-black/10 pb-2 text-xs tracking-widest uppercase text-neutral-600">
                 Overview
               </h3>
-              <p className="text-gray-700 text-base sm:text-lg leading-relaxed">{project.description}</p>
+              <p className="text-neutral-700 text-base sm:text-lg leading-relaxed">{project.description}</p>
             </div>
 
             <div>
-              <h3 className="font-bold mb-3 border-b border-black/5 pb-2 text-xs tracking-widest uppercase text-gray-500">
+              <h3 className="font-mono font-bold mb-3 border-b border-black/10 pb-2 text-xs tracking-widest uppercase text-neutral-600">
                 Tech Stack
               </h3>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 font-mono">
                 {project.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="px-3 py-1.5 bg-gray-50 border border-black/5 rounded-xl text-gray-700 text-sm font-medium"
+                    className="px-2.5 py-1 bg-neutral-50 border border-black/15 rounded-none text-neutral-800 text-xs font-medium"
                   >
                     {tag}
                   </span>
@@ -103,15 +107,15 @@ export default function ProjectModal({ project, onClose, onBlockedLink }: Props)
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mt-10 pt-6 border-t border-black/5">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mt-10 pt-6 border-t border-black/10 font-mono">
             <ProjectLinks
               project={project}
               onBlocked={onBlockedLink}
-              iconSize={18}
+              iconSize={16}
               codeLabel="View Code"
               demoLabel="Play Now"
-              codeClassName="flex-1 py-3.5 sm:py-4 flex items-center justify-center gap-2 rounded-2xl bg-white hover:bg-gray-50 border border-black/10 text-gray-800 font-bold transition-all hover:scale-[1.01] active:scale-95 text-sm sm:text-base cursor-pointer"
-              demoClassName="flex-1 py-3.5 sm:py-4 flex items-center justify-center gap-2 rounded-2xl bg-[#ea580c] hover:bg-[#c2410c] text-white font-bold transition-all shadow-[0_4px_0_#9a3412] hover:shadow-[0_2px_0_#9a3412] hover:translate-y-[2px] active:shadow-none active:translate-y-1 text-sm sm:text-base cursor-pointer"
+              codeClassName="flex-1 py-3 flex items-center justify-center gap-2 rounded-none bg-white hover:bg-neutral-100 border border-black/20 text-neutral-900 font-bold transition-all active:scale-95 text-xs sm:text-sm uppercase cursor-pointer"
+              demoClassName="flex-1 py-3 flex items-center justify-center gap-2 rounded-none bg-neutral-900 hover:bg-black text-white border border-black font-bold transition-all active:scale-95 text-xs sm:text-sm uppercase cursor-pointer"
             />
             {/* The project's own page — the long write-up this modal only
                 summarises. A route of this app, unlike Code/Play, so it is a

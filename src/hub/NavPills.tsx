@@ -1,66 +1,80 @@
 import Link from "next/link";
-import type { SectionType } from "@/types";
-import { NAV, PAGE_LINKS, leadsToHub, navKey, offHubHref, type NavEntry } from "./nav";
+import CornerBrackets from "@/ui/CornerBrackets";
+import { NAV, PAGE_LINKS, navKey, type NavEntry } from "./nav";
 
 type Props = {
   isJa: boolean;
   /** The entry drawn lit. */
   current: NavEntry | undefined;
-  /**
-   * Given on the hub, where an area is a camera flight rather than a page:
-   * its entry becomes a button that calls this. Without it (the reading
-   * pages) every area is a link — see `offHubHref`, and `leadsToHub`
-   * for why the ones into the hub are plain <a>. The page links after the
-   * divider are next/link everywhere.
-   */
-  onSectionClick?: (id: NonNullable<SectionType>) => void;
   className?: string;
+  /** On the reading pages' light background: a dark bar, so it still reads as the hub's. */
+  onLight?: boolean;
 };
 
-const itemClass = (lit: boolean) =>
-  `px-4 py-2 rounded-full text-base font-bold whitespace-nowrap transition-all duration-200 ${lit
-    ? "bg-orange-600 text-white shadow-sm"
-    : "text-gray-700 hover:text-orange-600 hover:bg-orange-50/80"
+const itemClass = (lit: boolean, onLight: boolean) => {
+  if (onLight) {
+    return `group relative h-8.5 sm:h-9 px-3.5 sm:px-4 flex items-center justify-center rounded-none text-xs sm:text-sm font-mono font-bold tracking-wider uppercase whitespace-nowrap transition-all duration-150 ${lit
+      ? "bg-white text-neutral-900 border border-white shadow-sm"
+      : "text-neutral-300 hover:text-white hover:bg-neutral-800/80 border border-transparent"
+    }`;
+  }
+  return `group relative h-8.5 sm:h-9 px-3.5 sm:px-4 flex items-center justify-center rounded-none text-xs sm:text-sm font-mono font-bold tracking-wider uppercase whitespace-nowrap transition-all duration-150 ${lit
+    ? "bg-neutral-900 text-neutral-100 border border-black shadow-sm"
+    : "text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100/80 border border-transparent"
   }`;
+};
 
 /**
- * The white pill of navigation in the header's top right — the hub's and the
+ * The box navigation bar in the header's top right — the hub's and the
  * reading pages', drawn by this one component so the two cannot drift apart.
  * The five areas, then a divider, then the pages off the hub (`PAGE_LINKS`).
+ * Every entry is a page (`next/link`), on the hub too: an area's write-up has
+ * been a page of its own since 2026-10-30, not a sheet opened over the room.
+ *
+ * The site's box style: square corners, a box label, a fine border, half
+ * see-through over a blur. Inverted (dark bar, white lit entry) on the reading
+ * pages' light background.
  */
-export default function NavPills({ isJa, current, onSectionClick, className = "" }: Props) {
+export default function NavPills({ isJa, current, className = "", onLight = false }: Props) {
+  const bracketColor = (lit: boolean) => {
+    if (onLight) return lit ? "border-neutral-900" : "border-white";
+    return lit ? "border-neutral-900" : "border-neutral-800";
+  };
+
   return (
     <nav
       aria-label={isJa ? "メニュー" : "Menu"}
-      className={`gap-1.5 pointer-events-auto bg-white px-2 py-2 rounded-full border border-black/5 shadow-sm ${className}`}
+      className={`h-12 gap-1.5 pointer-events-auto px-2 rounded-none shadow-none backdrop-blur-md flex items-center transition-colors duration-200 ${
+        onLight
+          ? "bg-neutral-900/85 border border-black text-neutral-100"
+          : "bg-white/85 border border-black/20 text-neutral-800"
+      } ${className}`}
     >
       {NAV.map((item) => {
         const lit = item === current;
         const label = isJa ? item.ja : item.en;
 
-        if (onSectionClick) {
-          const id = item.section;
-          return (
-            <button key={navKey(item)} onClick={() => onSectionClick(id)} className={itemClass(lit)}>
-              {label}
-            </button>
-          );
-        }
-        const href = offHubHref(item);
-        const linkProps = { href, "aria-current": lit ? ("page" as const) : undefined, className: itemClass(lit) };
-        return leadsToHub(href) ? (
-          <a key={navKey(item)} {...linkProps}>
-            {label}
-          </a>
-        ) : (
-          <Link key={navKey(item)} {...linkProps}>
+        return (
+          <Link
+            key={navKey(item)}
+            href={item.page}
+            aria-current={lit ? "page" : undefined}
+            className={itemClass(lit, onLight)}
+          >
+            <CornerBrackets
+              size="xs"
+              offset="tight"
+              strokeWidth="2"
+              colorClass={bracketColor(lit)}
+              className="opacity-0 group-hover:opacity-100 transition-opacity"
+            />
             {label}
           </Link>
         );
       })}
 
       {/* The "｜" between the areas and the pages off the hub. */}
-      <span aria-hidden="true" className="self-center w-px h-5 mx-1 bg-black/15" />
+      <span aria-hidden="true" className={`self-center w-px h-5 mx-1.5 ${onLight ? "bg-neutral-700" : "bg-neutral-300"}`} />
 
       {PAGE_LINKS.map((link) => {
         const lit = link === current;
@@ -69,8 +83,15 @@ export default function NavPills({ isJa, current, onSectionClick, className = ""
             key={navKey(link)}
             href={link.page}
             aria-current={lit ? "page" : undefined}
-            className={itemClass(lit)}
+            className={itemClass(lit, onLight)}
           >
+            <CornerBrackets
+              size="xs"
+              offset="tight"
+              strokeWidth="2"
+              colorClass={bracketColor(lit)}
+              className="opacity-0 group-hover:opacity-100 transition-opacity"
+            />
             {isJa ? link.ja : link.en}
           </Link>
         );

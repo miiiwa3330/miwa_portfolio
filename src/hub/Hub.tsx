@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import { useAppState } from "@/state/AppStateContext";
 import { facingNow, publishFacing } from "@/state/facingChannel";
@@ -16,54 +17,19 @@ import CardRail from "./card/CardRail";
 import HubHeader from "./HubHeader";
 import HubDock from "./HubDock";
 import MobileMenu from "./MobileMenu";
-import { navItemForSection } from "./nav";
-import PauseFlash from "./PauseFlash";
+import { navItemForSection, pathForSection } from "./nav";
 import HomeButton from "./HomeButton";
 import SemanticSEO from "./SemanticSEO";
 import Hologram from "./about/Hologram";
-import type { ZoomStage } from "./ZoomControl";
 import { adjacentSection } from "@/scene/room/tour";
-import Sheet from "@/detail/Sheet";
 import { RoomHtmlLayer, RoomPanel } from "./room/RoomHtml";
 import DeskScreen from "./desk/DeskScreen";
+import ScreenCursor from "./desk/ScreenCursor";
 import { DESK_SCREEN, HOLOGRAM_PANEL } from "@/scene/room/screens";
-import { exitDirectionFor, type ExitDirection } from "@/detail/detailSheet";
-
-// Each transparent spacer bracketing the detail page is exactly one viewport
-// tall, which is what makes "the panel has left the screen" and "progress has
-// reached 1" the same instant. At 1.5 there was a half-viewport dead zone where
-// the panel was already gone but scrolling further still did nothing.
-// Kept in sync with the h-screen classes on Sheet's two spacers.
-const SPACER_VH = 1;
-
-// Fire slightly before the very end: momentum scrolling often stops a few
-// pixels short, and with no further scroll events that would strand the user
-// staring at the diorama with the panel still technically open.
-const RETURN_HOME_AT = 0.98;
-
-// Long enough to cover the open animation, short enough not to feel like the
-// page is refusing to close.
-const OPEN_SETTLE_MS = 450;
-
-// Wait before throttling the render loop, so the sheet's slide and the camera's
-// flight to the section both finish at full frame rate. Only once the panel has
-// settled over the whole viewport is there nothing left to see.
-const OBSCURE_DELAY_MS = 900;
 
 export default function Hub() {
-  const {
-    activeSection,
-    setActiveSection,
-    pageOpen,
-    openPage,
-    closePage,
-    goHome,
-    turnTo,
-    paused,
-    togglePaused,
-    viewZoom,
-    goToView,
-  } = useAppState();
+  const router = useRouter();
+  const { activeSection, unfocus, goHome, turnTo } = useAppState();
   const { language, toggleLanguage } = useLanguage();
   const { openTerminal } = useTerminal();
   const isJa = language === "ja";
@@ -77,43 +43,9 @@ export default function Hub() {
   /** The full-screen navigation panel. Rendered here so it covers the header. */
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // `paused` as a ref, so the tap handler below can read the current value
-  // without listing it as a dependency — see `handleEmptyTap` for why that
-  // callback has to keep the same identity for the life of the page.
-  const pausedRef = useRef(paused);
-  useEffect(() => {
-    pausedRef.current = paused;
-  }, [paused]);
-
-  /**
-   * The play/pause badge a tap leaves behind, and its state at that moment.
-   *
-   * Keyed by a nonce rather than by `paused` alone: tapping twice in quick
-   * succession comes back to the state it started in, and a key that did not
-   * change would leave the first badge's exit animation running instead of
-   * restarting it.
-   */
-  const [pauseFlash, setPauseFlash] = useState<{ nonce: number; paused: boolean } | null>(null);
-
-  /**
-   * A tap on empty sky freezes or resumes the town.
-   *
-   * Stable across renders: it crosses the `<Canvas>` boundary, where a new
-   * identity every render would rebind the scene's pointer listeners. Reads
-   * the next paused state from the updater rather than from `paused` in
-   * scope, which is what keeps the dependency list empty.
-   */
-  const handleEmptyTap = useCallback(() => {
-    togglePaused();
-    setPauseFlash((current) => ({
-      nonce: (current?.nonce ?? 0) + 1,
-      paused: !pausedRef.current,
-    }));
-  }, [togglePaused]);
-
   /**
    * Which area the card is about. With no section explicitly focused it is
-   * whatever the camera is turned towards, so rotating the diorama leafs
+   * whatever the camera is turned towards, so turning round the room leafs
    * through the areas.
    *
    * A function, called at the moment an answer is needed, rather than a value
@@ -129,28 +61,17 @@ export default function Hub() {
     const stop = activeSection ?? facingNow();
     return stop === "desk" ? null : stop;
   };
+
+  // An area's write-up is a page of its own (`/products`, …), not a sheet
+  // over the room (2026-10-30).
   const openCard = () => {
     const section = cardSection();
-    if (section) openPage(section);
+    if (section) router.push(pathForSection(section));
   };
+
   const stepCard = (step: number) => {
     const section = cardSection();
     if (section) turnTo(adjacentSection(section, step));
-  };
-  const openedAt = useRef(0);
-
-  // What the zoom control highlights: any focused section (including About)
-  // reads as its own "zoom" stage, same as a pinch reaching the closest step —
-  // otherwise it's whichever free-view stage viewZoom names.
-  const zoomStage: ZoomStage = activeSection ? "zoom" : viewZoom;
-  const handleZoomSelect = (stage: ZoomStage) => {
-    if (stage === "zoom") {
-      // Step in to whatever is in front — the desk included, which sits the
-      // reader down at the PC.
-      setActiveSection(activeSection ?? facingNow());
-    } else {
-      goToView(stage);
-    }
   };
 
   // The dotted trail starts from a dot on the card's corner. The trail measures
@@ -158,48 +79,13 @@ export default function Hub() {
   // card's own markup, rather than restated as numbers at the drawing end.
   const anchorDotRef = useRef<HTMLSpanElement | null>(null);
 
-  // The detail page is bracketed by two transparent spacers. Scrolling off
-  // either end pulls the camera back to the diorama and then goes home.
-  const scroller = useRef<HTMLDivElement | null>(null);
-  const scrollReady = useRef(false);
-
-  // Read by AnimatePresence at the moment the sheet is removed, so it has to
-  // be set in the same update as goHome() — the exiting child itself is
-  // rendered from cached props and would never see a later change.
-  const [exitDirection, setExitDirection] = useState<ExitDirection>("down");
-
-  // Whether the 3D canvas is completely hidden behind the detail page, and so
-  // is safe to stop rendering. Deliberately not a per-frame value: it flips
-  // only when the panel starts or stops covering the viewport.
-  const [sceneObscured, setSceneObscured] = useState(false);
-  const obscureTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const setCovered = useCallback((covered: boolean) => {
-    if (obscureTimer.current !== null) {
-      clearTimeout(obscureTimer.current);
-      obscureTimer.current = null;
-    }
-    if (!covered) {
-      setSceneObscured(false);
-      return;
-    }
-    obscureTimer.current = setTimeout(() => setSceneObscured(true), OBSCURE_DELAY_MS);
-  }, []);
-
-  useEffect(() => () => {
-    if (obscureTimer.current !== null) clearTimeout(obscureTimer.current);
-  }, []);
-
   /**
-   * Dismiss the detail page. `resetCamera` separates the two intents: scrolling
-   * off either end leaves the camera on the area just read about, while the
-   * logo and HOME are a deliberate "take me back to the start" and fly to the
-   * one fixed default view.
+   * Step back out of an area. `resetCamera` separates the two intents: getting
+   * up from the PC and reading the hologram to the end leave the camera on the
+   * area just used, while the logo and BACK are a deliberate "take me back to
+   * the start" and fly to the one fixed default view.
    */
-  const closeToHome = (direction: ExitDirection, resetCamera: boolean) => {
-    setExitDirection(direction);
-    setCovered(false);
-
+  const closeToHome = (resetCamera: boolean) => {
     // Say where the camera will end up facing in the same breath as sending it
     // there. `facing` is otherwise only recomputed once the camera is idle, so
     // for the half second the flight home takes it still held the area that
@@ -212,84 +98,27 @@ export default function Hub() {
       goHome();
     } else {
       if (activeSection) publishFacing(activeSection);
-      closePage();
-    }
-  };
-
-  const handleNav = (id: NonNullable<SectionType>) => {
-    if (id === "about") {
-      openPage(id);
-    } else if (pageOpen) {
-      setActiveSection(id);
-    } else {
-      openPage(id);
-    }
-  };
-
-  useEffect(() => {
-    if (!pageOpen) {
-      scrollReady.current = false;
-      return;
-    }
-    openedAt.current = Date.now();
-
-    // Park the viewport on the panel so the spacer above it is reachable by
-    // scrolling up. Runs while the sheet is still translated off-screen.
-    scrollReady.current = false;
-    if (scroller.current) {
-      scroller.current.scrollTop = window.innerHeight * SPACER_VH;
-    }
-    // Ignore the scroll event the line above emits, which would otherwise
-    // read as "scrolled all the way up" and bounce straight back home.
-    const frame = requestAnimationFrame(() => {
-      scrollReady.current = true;
-      // Parked: the sheet now covers the whole viewport, so the canvas behind
-      // it is about to become invisible.
-      setCovered(true);
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [pageOpen, activeSection, setCovered]);
-
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    if (!scrollReady.current) return;
-
-    const el = e.currentTarget;
-    const spacer = window.innerHeight * SPACER_VH;
-    const maxScroll = el.scrollHeight - el.clientHeight;
-
-    // How far into either transparent spacer the reader has scrolled. Zero
-    // means the panel still covers the viewport entirely.
-    const upward = 1 - el.scrollTop / spacer;
-    const downward = 1 - (maxScroll - el.scrollTop) / spacer;
-    const progress = Math.max(0, Math.min(1, Math.max(upward, downward)));
-
-    // Entering a spacer reveals the diorama again, so the render loop has to
-    // come back up to speed before it is seen.
-    setCovered(progress <= 0);
-
-    if (progress >= RETURN_HOME_AT && Date.now() - openedAt.current > OPEN_SETTLE_MS) {
-      closeToHome(exitDirectionFor(upward, downward), false);
+      unfocus();
     }
   };
 
   // Whether the hologram is projecting the self-introduction.
-  const aboutFocused = !pageOpen && activeSection === "about";
+  const aboutFocused = activeSection === "about";
 
   // Whether the reader is sitting at the PC. The PC's screen is HTML behind
   // the canvas (seen through a hole in it), so while seated the canvas lets
   // every gesture through to it. Turning the head is locked out at the desk
   // anyway, as it is in every focused area.
-  const seated = !pageOpen && activeSection === "desk";
+  const seated = activeSection === "desk";
 
   // The area the overlay talks about, if any. The desk is focused like an
-  // area but is not one: it has no sheet, no card and no nav entry.
+  // area but is not one: it has no page, no card and no nav entry.
   const section = activeSection === "desk" ? null : activeSection;
 
-  // Whether there is a card to show at all. Not while the detail sheet is up
-  // (the page says what the card would have), not during About, which is
+  // Whether there is a card to show at all. Not during About, which is
   // frameless — it has no card and no leader line to anchor one to — and not
   // at the desk, which has neither.
-  const cardShowing = !pageOpen && activeSection !== "about" && activeSection !== "desk";
+  const cardShowing = activeSection !== "about" && activeSection !== "desk";
 
   return (
     <main className="w-full h-screen overflow-hidden relative font-sans">
@@ -307,7 +136,8 @@ export default function Hub() {
           chair, the lamp — still covers it. */}
       <RoomHtmlLayer className="z-[5]">
         <RoomPanel panel={DESK_SCREEN} interactive={seated}>
-          <DeskScreen isJa={isJa} onLeave={() => closeToHome("down", false)} openTerminal={openTerminal} />
+          <DeskScreen isJa={isJa} onLeave={() => closeToHome(false)} openTerminal={openTerminal} />
+          <ScreenCursor />
         </RoomPanel>
       </RoomHtmlLayer>
 
@@ -322,26 +152,17 @@ export default function Hub() {
           the pinch-to-orbit-zoom logic. Paired with the page's own
           maximumScale/userScalable in layout.tsx, which stops the same
           gesture from zooming the page anywhere outside the canvas. */}
-      {/* pointer-events-none on this div while the crawl is showing: with the
-          canvas now painted *in front of* the crawl layer (z-10 over z-5,
-          needed for the occlusion above), it would otherwise catch every
-          gesture over the whole viewport before the crawl's own wheel
-          handler ever saw one. Nothing in the scene needs a pointer hit
-          during About anyway — markers sit at radius 0 and drag/wheel
-          orbiting is already locked out (orbitLockedRef) whenever a section
-          is focused. `interactive={!aboutShowing}` on Scene itself is the
-          other half of this — see its own prop comment for why turning off
-          pointer-events on just this wrapper div is not enough by itself. */}
+      {/* pointer-events-none while seated: the PC's screen is HTML *behind*
+          the canvas (z-5 under z-10, needed for the occlusion above), so the
+          canvas would otherwise catch every gesture meant for it.
+          `interactive={!seated}` on Scene itself is the other half of this —
+          see its own prop comment for why turning off pointer-events on just
+          this wrapper div is not enough by itself. */}
       <div
         className={`fixed inset-0 w-full h-full z-10 touch-none ${seated ? "pointer-events-none" : ""}`}
       >
         <Scene
-          obscured={sceneObscured}
           interactive={!seated}
-          // Only a phone gets the tap: a desktop still has a pause button, and
-          // handing the gesture over as well would mean a stray click on the
-          // starfield froze the town with nothing to say why.
-          onEmptyTap={handheld ? handleEmptyTap : undefined}
         />
       </div>
 
@@ -354,13 +175,13 @@ export default function Hub() {
       {handheld ? (
         aboutFocused && (
           <div className="fixed inset-x-4 top-[38%] bottom-28 z-[15]">
-            <Hologram isJa={isJa} active onFinish={() => closeToHome("down", false)} />
+            <Hologram isJa={isJa} active onFinish={() => closeToHome(false)} />
           </div>
         )
       ) : (
         <RoomHtmlLayer className="z-[15]">
           <RoomPanel panel={HOLOGRAM_PANEL} interactive={aboutFocused} hidden={!aboutFocused}>
-            <Hologram isJa={isJa} active={aboutFocused} onFinish={() => closeToHome("down", false)} />
+            <Hologram isJa={isJa} active={aboutFocused} onFinish={() => closeToHome(false)} />
           </RoomPanel>
         </RoomHtmlLayer>
       )}
@@ -376,17 +197,7 @@ export default function Hub() {
             activeSection={section}
             isJa={isJa}
             toggleLanguage={toggleLanguage}
-            paused={paused}
-            togglePaused={togglePaused}
-            onLogoClick={() => closeToHome("down", true)}
-            onNavClick={handleNav}
-            zoomStage={zoomStage}
-            onZoomSelect={handleZoomSelect}
-            // The sheet is the only white surface that ever gets under the
-            // header. About is deliberately not one: it has no sheet, its text
-            // sits straight on the starfield, and the logo stays white there.
-            onLightBackground={pageOpen}
-            onClose={() => closeToHome("down", false)}
+            onLogoClick={() => closeToHome(true)}
             handheld={handheld}
             onMenuOpen={() => setMenuOpen(true)}
           />
@@ -405,10 +216,10 @@ export default function Hub() {
                 anchorRef={anchorDotRef}
                 onOpen={openCard}
                 onStep={stepCard}
-                // The HOME button, moved onto the rail's own corner — the
+                // The BACK button, moved onto the rail's own corner — the
                 // desktop keeps it at the bottom of the frame, where on a
                 // phone it landed on top of the rail itself.
-                onHome={() => closeToHome("down", true)}
+                onHome={() => closeToHome(true)}
               />
             ) : (
               <div className="flex-1 flex items-center w-full">
@@ -429,24 +240,20 @@ export default function Hub() {
               moved into the full-screen menu, and the bottom-right corner the
               copyright sat in is the card rail's now — at 390px the privacy
               link ran off the frame there anyway, measured. */}
-          {!handheld && <HubDock isJa={isJa} openTerminal={openTerminal} pageOpen={pageOpen} />}
+          {!handheld && <HubDock isJa={isJa} openTerminal={openTerminal} withFooter />}
         </div>
       </div>
 
-      {/* HOME button — zoomed into an area, page not yet open. About has one
-          too now: reading the hologram to the end still takes the reader
-          back, but the crawl that made reading the only way out is gone, and
-          with it the reason for a second exit to compete with.
-
-          On a phone only where there is no card rail (the desk, About): the
-          bottom of the frame is otherwise the rail — the button landed on
-          top of the rail, the links button and the copyright all at once
-          (measured at 390x844) — and the rail carries its own copy, just
-          above the card; see `CardRail`. */}
-      {activeSection && !pageOpen && (!handheld || !cardShowing) && (
+      {/* BACK button — zoomed into an area. On a phone only where there is no
+          card rail (the desk, About): the bottom of the frame is otherwise
+          the rail — the button landed on top of the rail, the links button
+          and the copyright all at once (measured at 390x844) — and the rail
+          carries its own copy, just above the card; see `CardRail`. */}
+      {activeSection && (!handheld || !cardShowing) && (
         <HomeButton
-          onClick={() => closeToHome("down", true)}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2"
+          onClick={() => closeToHome(true)}
+          isJa={isJa}
+          className="fixed bottom-7 sm:bottom-9 left-1/2 -translate-x-1/2 z-50"
         />
       )}
 
@@ -457,47 +264,20 @@ export default function Hub() {
           <MobileMenu
             isJa={isJa}
             current={navItemForSection(section)}
-            onNavClick={handleNav}
             onClose={() => setMenuOpen(false)}
             openTerminal={openTerminal}
           />
         )}
       </AnimatePresence>
 
-      {/* The badge a tap on empty sky leaves behind. Keyed by the nonce so a
-          second tap restarts the animation rather than leaving the first
-          one's where it finished, and unmounted when it is done — it is a
-          full-screen fixed layer, and one left behind at `opacity: 0` sits
-          in every later hit-test for nothing. */}
-      {pauseFlash && (
-        <PauseFlash
-          key={pauseFlash.nonce}
-          paused={pauseFlash.paused}
-          onDone={() => setPauseFlash((current) =>
-            // Only clear the badge that just finished: a tap during the fade
-            // has already replaced it, and that one has its own life left.
-            current && current.nonce === pauseFlash.nonce ? null : current
-          )}
-        />
-      )}
-
-      {/* --- PAGE CONTENT (detail reading) --- */}
-      <Sheet
-        pageOpen={pageOpen}
-        activeSection={section}
-        exitDirection={exitDirection}
-        scrollerRef={scroller}
-        onScroll={handleScroll}
-      />
-
       {/* Dotted trail from the card out to the marker over its area. It only
-          has a job in the free orbit view: it is what says "the card is about
-          that spot over there". Focusing an area answers that question by
-          filling the frame with the spot itself, so the trail — and the marker
-          it points at — both withdraw. Unmounting cleanly here (rather than
+          has a job in the free view: it is what says "the card is about that
+          spot over there". Focusing an area answers that question by filling
+          the frame with the spot itself, so the trail — and the marker it
+          points at — both withdraw. Unmounting cleanly here (rather than
           just losing its anchor when the dot above disappears) keeps it from
           freezing mid-draw at its last position. */}
-      <CardLeaderLine anchorRef={anchorDotRef} hidden={pageOpen || !!activeSection} />
+      <CardLeaderLine anchorRef={anchorDotRef} hidden={!!activeSection} />
 
       {/* Terminal easter egg */}
       <TerminalOverlay />

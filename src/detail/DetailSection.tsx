@@ -21,7 +21,7 @@ export default function DetailSection({ id, title, children, className = "" }: D
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.5 }}
         >
-          <SectionHeading className="mb-10 md:mb-14">{title}</SectionHeading>
+          <SectionHeading as="h1" className="mb-10 md:mb-14">{title}</SectionHeading>
           {children}
         </motion.div>
       </div>

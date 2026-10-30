@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { BookOpen, FileText, FolderOpen, Mail, Map as MapIcon, NotebookPen, Power, Terminal, X } from "lucide-react";
+import { BookOpen, Fan, FileText, FolderOpen, Mail, Map as MapIcon, NotebookPen, Power, Terminal, X } from "lucide-react";
 import type { SectionType } from "@/types";
 import { NAV, PAGE_LINKS } from "@/hub/nav";
 import { GithubIcon, XIcon } from "@/ui/icons";
@@ -13,9 +13,12 @@ import Experience from "@/detail/Experience";
 import Contact from "@/detail/Contact";
 import NoteList from "@/reading/NoteList";
 import { DESK_SCREEN_PX } from "@/scene/room/screens";
+import { fanShowNow, setFanShow } from "@/scene/holoFanShow";
+import { setDeskView } from "@/scene/deskView";
 
 /**
  * The PC's own screen: a desktop with a file for each area, the notes, and
+ * `自己紹介.holo`, which puts the self-introduction on the hologram fan,
  * shortcuts to GitHub, X and the terminal — everything the dock's PC icon
  * holds, and everything the five areas hold (docs/room-migration.md).
  *
@@ -52,11 +55,13 @@ function fileName(key: FileKey, label: string): string {
 }
 
 /**
- * How much larger the window's contents are drawn than on the detail sheet.
- * **Provisional (仮).** At the seated zoom the screen spans roughly 870 of a
- * 1600px frame's pixels, so the GUI's 1240px come out at about 0.7 of their
- * size and the sheet's 16px body text at about 11px. The prototype read
- * comfortably at 22px; 1.3 brings 16px to about 21px.
+ * How much larger the window's contents are drawn than on their own pages
+ * (`/products`, …), where the same components are laid out.
+ * **Provisional (仮).** At the seated zoom the GUI's px come out at about 0.7
+ * of their size on a 1600px frame (measured on the first, 1240px screen;
+ * the larger monitor keeps the same px to the metre, `DESK_SCREEN_PX`), so
+ * a page's 16px body text is about 11px. The prototype read comfortably
+ * at 22px; 1.3 brings 16px to about 21px.
  */
 const WINDOW_ZOOM = 1.3;
 
@@ -95,13 +100,26 @@ export default function DeskScreen({
   openTerminal: () => void;
 }) {
   const [open, setOpen] = useState<FileKey | null>(null);
-  // The project an Experience milestone asked Products to open with — the
-  // same hand-off the detail sheet makes (`Sheet.tsx`).
+  // The project an Experience milestone asked Products to open with: the
+  // window switches to Products with that project's popup already open.
   const [project, setProject] = useState<string | null>(null);
 
   const openFile = (key: FileKey) => {
     if (key !== "products") setProject(null);
     setOpen(key);
+  };
+  /**
+   * The hologram fan (2026-10-25, the user): from the time to the
+   * self-introduction, and the head turned to it; opened again while it
+   * rolls, back to the time.
+   */
+  const toggleHolo = () => {
+    if (fanShowNow() === "about") {
+      setFanShow("clock");
+      return;
+    }
+    setFanShow("about");
+    setDeskView("fan");
   };
   const current = FILES.find((file) => file.key === open);
   const title = current ? fileName(current.key, isJa ? current.ja : current.en) : "";
@@ -123,6 +141,7 @@ export default function DeskScreen({
         {FILES.map((file) => (
           <Icon key={file.key} label={fileName(file.key, isJa ? file.ja : file.en)} icon={FILE_ICONS[file.key]} onOpen={() => openFile(file.key)} />
         ))}
+        <Icon label={isJa ? "自己紹介.holo" : "About.holo"} icon={<Fan size={40} strokeWidth={1.5} />} onOpen={toggleHolo} />
         <Icon label="GitHub" icon={<GithubIcon size={36} />} href="https://github.com/miiiwa1121" />
         <Icon label="X" icon={<XIcon size={32} />} href="https://x.com/miiiwa3330" />
         <Icon label={isJa ? "ターミナル" : "Terminal"} icon={<Terminal size={40} strokeWidth={1.5} />} onOpen={openTerminal} />

@@ -8,12 +8,11 @@ type Props = {
 };
 
 const BUTTON =
-  "flex-1 py-3.5 sm:py-4 px-5 flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl font-bold text-sm sm:text-base transition-all";
+  "flex-1 py-3 px-5 flex items-center justify-center gap-2 whitespace-nowrap rounded-none font-mono font-bold text-xs sm:text-sm uppercase transition-all";
 
 /**
  * "Play Now" and "View Code", for a product's own page — the popup's pair,
- * with the popup's labels and shapes, since this page is where its Read More
- * leads.
+ * with the popup's labels and shapes, in the site's box style.
  *
  * Trying the product is the one thing these pages exist to lead to, so Play
  * is the only filled button on them. The hub's `ProjectLinks` intercepts a
@@ -29,19 +28,19 @@ export default function ProductActions({ project }: Props) {
   const hasCode = !isPlaceholderUrl(project.githubUrl);
 
   return (
-    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 font-mono">
       {playable ? (
         <a
           href={project.demoUrl}
-          className={`${BUTTON} bg-[#ea580c] hover:bg-[#c2410c] text-white shadow-[0_4px_0_#9a3412] hover:shadow-[0_2px_0_#9a3412] hover:translate-y-[2px] active:shadow-none active:translate-y-1`}
+          className={`${BUTTON} bg-neutral-900 hover:bg-black text-white border border-black active:scale-95`}
         >
-          <ExternalLink size={18} aria-hidden="true" />
+          <ExternalLink size={16} aria-hidden="true" />
           Play Now
         </a>
       ) : (
         // Not a button, so it may wrap: at 320px the sentence is wider than
         // the column, and `BUTTON` would hold it to one line.
-        <p className="flex-1 py-3.5 sm:py-4 px-5 flex items-center justify-center text-center rounded-2xl border border-dashed border-black/15 font-bold text-sm sm:text-base text-gray-600">
+        <p className="flex-1 py-3 px-5 flex items-center justify-center text-center rounded-none border border-dashed border-black/20 font-bold text-xs sm:text-sm text-neutral-600">
           開発中のため、まだ公開していません
         </p>
       )}
@@ -50,9 +49,9 @@ export default function ProductActions({ project }: Props) {
           href={project.githubUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className={`${BUTTON} bg-white hover:bg-gray-50 border border-black/10 text-gray-800 hover:scale-[1.01] active:scale-95`}
+          className={`${BUTTON} bg-white hover:bg-neutral-100 border border-black/20 text-neutral-900 active:scale-95`}
         >
-          <GithubIcon size={18} />
+          <GithubIcon size={16} />
           View Code
         </a>
       )}

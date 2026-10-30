@@ -3,6 +3,7 @@
 import { useState } from "react";
 import DetailSection from "./DetailSection";
 import { motion } from "framer-motion";
+import CornerBrackets from "@/ui/CornerBrackets";
 import { useLanguage } from "@/state/LanguageContext";
 import { useHandheld } from "@/state/useHandheld";
 import {
@@ -174,16 +175,16 @@ export default function Skills() {
       <div className="space-y-12">
         {CATEGORIES.map((cat, catIdx) => (
           <div key={cat.id} className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 border-b border-black/5 pb-2">
+            <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 border-b border-black/10 pb-2">
               <div className="flex items-center gap-2.5">
-                <h3 className="text-xl font-bold text-gray-900">
+                <h3 className="text-xl font-black text-neutral-900 tracking-tight">
                   {isJa ? cat.titleJa : cat.titleEn}
                 </h3>
-                <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200/50">
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-none bg-neutral-900 text-neutral-100 border border-neutral-700">
                   {cat.skills.length}
                 </span>
               </div>
-              <p className="text-xs text-gray-500 font-medium">
+              <p className="text-xs text-neutral-500 font-mono">
                 {isJa ? cat.descriptionJa : cat.descriptionEn}
               </p>
             </div>
@@ -208,23 +209,26 @@ export default function Skills() {
                         ? () => setLitSkill((current) => (current === skill.name ? null : skill.name))
                         : undefined
                     }
-                    className={`flex flex-col items-center justify-center p-4 sm:p-5 rounded-2xl bg-white border shadow-sm transition-all duration-200 cursor-default group ${
+                    className={`relative flex flex-col items-center justify-center p-4 sm:p-5 rounded-none bg-white border transition-all duration-200 cursor-default group shadow-none ${
                       lit
-                        ? "border-[var(--hover-color)] shadow-md"
-                        : "border-black/5 hover:border-[var(--hover-color)] hover:shadow-md"
+                        ? "border-black shadow-none"
+                        : "border-black/20 hover:border-black"
                     }`}
                     style={{ "--hover-color": skill.color } as React.CSSProperties}
                   >
+                    {lit && (
+                      <CornerBrackets size="xs" offset="tight" strokeWidth="2" colorClass="border-neutral-900" />
+                    )}
                     <Icon
                       className={`w-8 h-8 sm:w-10 sm:h-10 mb-2.5 transition-transform duration-200 ${
                         lit
-                          ? "scale-110 text-[var(--hover-color)]"
-                          : "text-gray-400 group-hover:scale-110 group-hover:text-[var(--hover-color)]"
+                          ? "scale-105 text-[var(--hover-color)]"
+                          : "text-neutral-400 group-hover:scale-105 group-hover:text-[var(--hover-color)]"
                       }`}
                     />
                     <span
-                      className={`text-xs sm:text-sm font-bold transition-colors text-center leading-tight ${
-                        lit ? "text-gray-950" : "text-gray-700 group-hover:text-gray-950"
+                      className={`text-xs font-mono font-bold transition-colors text-center leading-tight ${
+                        lit ? "text-neutral-950" : "text-neutral-700 group-hover:text-black"
                       }`}
                     >
                       {skill.name}

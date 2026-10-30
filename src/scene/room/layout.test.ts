@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { NAV } from "@/hub/nav";
+import { HHKB } from "./keyboard";
+import { M0110 } from "./macKeyboard";
+import { M0100, M0100_TRAVEL } from "./macMouse";
+import { MAC_PROFILE, MAC_TOP } from "./macCase";
 import {
   EYE_HEIGHT,
   MIN_PIECE_GAP,
@@ -35,8 +39,30 @@ import {
   zoomView,
   CHAIR_BACK_HEIGHT,
   HANDHELD_STANDARD_HFOV as PHONE_HFOV,
-  MONITOR_SCREEN,
-  MONITOR_Y,
+  MONITORS,
+  MONITOR_STANDS,
+  monitorFrameMiddle,
+  KEYBOARD,
+  monitorBottomOverDesk,
+  monitorFace,
+  monitorToDesk,
+  monitorCorners,
+  kickstand,
+  KICKSTAND,
+  armJoints,
+  MAC,
+  MONITOR_ARM,
+  macToDesk,
+  macKeyboardPlace,
+  PEN_POT,
+  DESK_MAT,
+  MAC_MOUSE,
+  lampJoints,
+  HOLO_FAN,
+  holoFanPlace,
+  holoFanToDesk,
+  holoFanJoints,
+  seatedEyeOnDesk,
   chairBackZ,
   wallRibAngles,
   floorGridLines,
@@ -204,7 +230,7 @@ describe("zoomView", () => {
     const halfV = Math.atan(Math.tan((STANDARD_HFOV / 2) * DEG) / (16 / 9)) / DEG;
     const desk = pieceCentreDistance(PIECES.desk);
     const angle = (y: number, away: number) => Math.atan2(y - SEATED_EYE_HEIGHT, away) / DEG - view.pitch;
-    const screenTop = angle(MONITOR_Y + MONITOR_SCREEN.height / 2, subjectDistance("desk") - view.forward);
+    const screenTop = angle(MONITORS.gui.y + MONITORS.gui.screen.height / 2, subjectDistance("desk") - view.forward);
     // The nearer hand, the one lowest in the frame.
     const hands = angle(HAND_Y, desk - Math.max(DESK_HANDS[0][2], DESK_HANDS[1][2]) - view.forward);
     expect(screenTop).toBeLessThan(halfV - 1);
@@ -295,9 +321,334 @@ describe("the chair", () => {
   it("stays below the line of sight from the middle of the room to the bottom of the PC's screen", () => {
     // Step 2's trap: a 1.19 m back blacked out the lower half of the screen at home.
     const screenDistance = subjectDistance("desk");
-    const screenBottom = MONITOR_Y - MONITOR_SCREEN.height / 2;
+    const screenBottom = MONITORS.gui.y - MONITORS.gui.screen.height / 2;
     const sightAtChair = EYE_HEIGHT + ((screenBottom - EYE_HEIGHT) * backFromCentre) / screenDistance;
     expect(CHAIR_BACK_HEIGHT).toBeLessThan(sightAtChair);
+  });
+});
+
+describe("the main monitor (U3223QE)", () => {
+  const main = MONITORS.gui;
+
+  it("keeps its screen's surface where the seat was framed from", () => {
+    // The first monitor's face, 2.5 cm in front of z −0.15: the seat, the chair
+    // and the seated pitch were all measured from it.
+    expect(monitorFace("gui").centre[2]).toBeCloseTo(-0.125, 9);
+  });
+
+  it("is the maker's panel round the maker's screen, the frame never thinner than the sides", () => {
+    const sides = (main.bezel.width - main.screen.width) / 2;
+    const over = (main.bezel.height - main.screen.height - main.chin) / 2;
+    expect(sides).toBeCloseTo(0.00765, 9);
+    expect(over).toBeCloseTo(sides, 9);
+    expect(over + main.chin).toBeCloseTo(0.41 - 0.3922 - 0.00765, 9);
+  });
+
+  it("has its base on the desk, behind the keyboard", () => {
+    const front = main.z + main.bezel.depth / 2;
+    const baseBack = front - MONITOR_STANDS.gui.depth;
+    const baseFront = front - MONITOR_STANDS.gui.base.setBack;
+    expect(baseBack).toBeGreaterThan(-PIECES.desk.depth / 2);
+    expect(baseFront).toBeLessThan(KEYBOARD.z - HHKB.depth / 2);
+  });
+});
+
+describe("the main monitor's stand", () => {
+  it("holds the panel's middle where the stand reaches", () => {
+    // The stand holds the panel by its middle, half the frame's height over
+    // its bottom edge, which the stand can raise from `lowest` by `travel`.
+    const stand = MONITOR_STANDS.gui;
+    const half = MONITORS.gui.bezel.height / 2;
+    const middle = monitorToDesk("gui", monitorFrameMiddle("gui"))[1] - KEYBOARD.y;
+    expect(middle).toBeGreaterThanOrEqual(stand.lowest + half);
+    expect(middle).toBeLessThanOrEqual(stand.lowest + stand.travel + half);
+  });
+});
+
+describe("the video monitor (P2422H, on end, on a kickstand)", () => {
+  const video = MONITORS.video;
+  const corners = monitorCorners("video");
+  const k = kickstand();
+
+  it("is the maker's panel round the maker's screen", () => {
+    const sides = (video.bezel.width - video.screen.width) / 2;
+    expect(sides).toBeCloseTo(0.00538, 9);
+    expect(video.bezel.height - video.screen.height - 2 * sides - video.chin).toBeCloseTo(0, 12);
+  });
+
+  it("stands on end, leaning back, its lowest corner on the desk", () => {
+    expect(monitorBottomOverDesk("video")).toBeCloseTo(0, 12);
+    const ys = corners.map((c) => c[1]);
+    // On end: the long side is the tall one, shortened only by the lean.
+    expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(video.bezel.width * 0.9);
+    // Leaning back: its face looks a little up.
+    expect(monitorToDesk("video", [0, 0, 1])[1]).toBeGreaterThan(video.y);
+  });
+
+  it("has its thicker strip of frame on the left", () => {
+    // Turned a quarter clockwise, the bottom of the frame goes to the left.
+    const middle = monitorToDesk("video", monitorFrameMiddle("video"));
+    const screen = monitorToDesk("video", [0, 0, 0]);
+    const across = [Math.cos(video.yaw), 0, -Math.sin(video.yaw)];
+    expect((middle[0] - screen[0]) * across[0] + (middle[2] - screen[2]) * across[2]).toBeLessThan(0);
+  });
+
+  it("is held up by its kickstand: hinged on the back of its housing, standing on the desk behind it", () => {
+    expect(k.foot[1]).toBeCloseTo(KEYBOARD.y, 12);
+    // Behind the panel: the foot is on the far side of the panel's back from its face.
+    const normal = monitorToDesk("video", [0, 0, 1]).map((v, i) => v - [video.x, video.y, video.z][i]);
+    const toFoot = k.foot.map((v, i) => v - k.hinge[i]);
+    expect(toFoot[0] * normal[0] + toFoot[1] * normal[1] + toFoot[2] * normal[2]).toBeLessThan(0);
+    expect(k.hinge[1]).toBeGreaterThan(KEYBOARD.y + 0.1);
+    expect(k.foot[2]).toBeGreaterThan(-PIECES.desk.depth / 2);
+  });
+
+  it("stands clear of the main monitor's frame and the arm's post, in front of the arm", () => {
+    const mainRight = MONITORS.gui.bezel.width / 2;
+    for (const c of corners) expect(c[0]).toBeGreaterThan(mainRight + 0.005);
+    // The kickstand's foot, with its width, keeps off the post.
+    const [px, , pz] = armJoints().clamp;
+    const post = 0.024;
+    const footHalf = KICKSTAND.width / 2 + 0.003;
+    const apartX = Math.abs(k.foot[0] - px) - footHalf - post;
+    const apartZ = Math.abs(k.foot[2] - pz) - 0.008 - post;
+    expect(Math.max(apartX, apartZ)).toBeGreaterThan(0.01);
+    for (const c of corners) expect(c[2]).toBeGreaterThan(pz + post);
+  });
+
+  it("keeps inside the room's wall", () => {
+    for (const c of corners) {
+      const [x, , z] = pieceToWorld(PIECES.desk, c);
+      expect(Math.hypot(x, z)).toBeLessThan(ROOM_RADIUS - 0.05);
+    }
+  });
+});
+
+describe("the Macintosh and its keyboard", () => {
+  /** A footprint's corners on the desk: `w` × `d` round a middle, turned by `yaw`. */
+  const footprint = (x: number, z: number, yaw: number, w: number, d: number) =>
+    [-1, 1].flatMap((sx) =>
+      [-1, 1].map((sz) => {
+        const lx = (sx * w) / 2;
+        const lz = (sz * d) / 2;
+        return [x + lx * Math.cos(yaw) + lz * Math.sin(yaw), z - lx * Math.sin(yaw) + lz * Math.cos(yaw)] as const;
+      })
+    );
+  const mac = footprint(MAC.x, MAC.z, MAC.yaw, MAC.width, MAC.depth);
+  const place = macKeyboardPlace();
+  const board = footprint(place.x, place.z, place.yaw, M0110.width, M0110.depth);
+  /** The nearest distance from a circle's middle to a convex footprint's edges, less its radius. */
+  const clearance = (corners: (readonly [number, number])[], c: { x: number; z: number; radius: number }) => {
+    const ring = [corners[0], corners[1], corners[3], corners[2]];
+    let best = Infinity;
+    for (let i = 0; i < 4; i++) {
+      const [ax, az] = ring[i];
+      const [bx, bz] = ring[(i + 1) % 4];
+      const t = Math.max(0, Math.min(1, ((c.x - ax) * (bx - ax) + (c.z - az) * (bz - az)) / ((bx - ax) ** 2 + (bz - az) ** 2)));
+      best = Math.min(best, Math.hypot(c.x - (ax + t * (bx - ax)), c.z - (az + t * (bz - az))) - c.radius);
+    }
+    return best;
+  };
+
+  it("stands on the desk's left, clear of the main monitor's frame", () => {
+    for (const [x, z] of mac) {
+      expect(x).toBeLessThan(-MONITORS.gui.bezel.width / 2 - 0.02);
+      expect(z).toBeGreaterThan(-PIECES.desk.depth / 2);
+    }
+  });
+
+  it("turns its screen in towards the chair", () => {
+    const front = macToDesk([0, 0, 1]);
+    expect(front[0]).toBeGreaterThan(MAC.x);
+  });
+
+  it("has its keyboard in front of it, on the desk", () => {
+    for (const [x, z] of board) {
+      expect(z).toBeLessThan(PIECES.desk.depth / 2);
+      expect(x).toBeGreaterThan(-PIECES.desk.width / 2);
+    }
+    const [, , macFront] = macToDesk([0, 0, MAC.depth / 2]);
+    expect(place.z).toBeGreaterThan(macFront);
+  });
+
+  it("keeps its keyboard off the desk mat and the HHKB", () => {
+    for (const [x] of board) expect(x).toBeLessThan(DESK_MAT.x - DESK_MAT.width / 2 - 0.003);
+    for (const [x] of board) expect(x).toBeLessThan(KEYBOARD.x - HHKB.width / 2);
+  });
+
+  it("carries the pen pot on its top's left half, clear of the handle's notch and on the top's slope", () => {
+    const [x, y, z] = PEN_POT.local;
+    // Inside the left half, between the case's side and the notch.
+    expect(x - PEN_POT.radius).toBeGreaterThanOrEqual(-MAC.width / 2);
+    expect(x + PEN_POT.radius).toBeLessThanOrEqual(-MAC_TOP.notch.width / 2);
+    // On the top, between its back corner and the front plate.
+    expect(z - PEN_POT.radius).toBeGreaterThanOrEqual(MAC_PROFILE.topBack[0]);
+    expect(z + PEN_POT.radius).toBeLessThanOrEqual(MAC_PROFILE.topSeam[0]);
+    // Standing on it: below the top's highest point, and tilted as it rises to the front.
+    expect(y).toBeGreaterThan(0.33);
+    expect(y).toBeLessThan(MAC.height);
+    expect(PEN_POT.tilt).toBeGreaterThan(0.07);
+    expect(PEN_POT.tilt).toBeLessThan(0.085);
+  });
+
+  it("has its mouse slide clear of both keyboards, round where it rests", () => {
+    // Every place the mouse can reach, grown by half its size: the rectangle it sweeps.
+    const halfX = M0100_TRAVEL.width / 2 + M0100.width / 2;
+    const halfZ = M0100_TRAVEL.depth / 2 + M0100.length / 2;
+    const sweep = { minX: MAC_MOUSE.x - halfX, maxX: MAC_MOUSE.x + halfX, minZ: MAC_MOUSE.z - halfZ, maxZ: MAC_MOUSE.z + halfZ };
+    // The Mac's keyboard: none of its corners inside the sweep, and the sweep's corners outside its footprint (both are convex).
+    const inside = (p: readonly [number, number]) => p[0] > sweep.minX && p[0] < sweep.maxX && p[1] > sweep.minZ && p[1] < sweep.maxZ;
+    for (const corner of board) expect(inside(corner)).toBe(false);
+    for (const x of [sweep.minX, sweep.maxX])
+      for (const z of [sweep.minZ, sweep.maxZ]) expect(clearance(board, { x, z, radius: 0 })).toBeGreaterThan(0);
+    // The HHKB: entirely to the right.
+    expect(sweep.maxX).toBeLessThan(KEYBOARD.x - HHKB.width / 2);
+    expect(sweep.maxZ).toBeLessThan(PIECES.desk.depth / 2);
+  });
+});
+
+describe("the arm lamp", () => {
+  const j = lampJoints();
+  const upper = MONITORS.camera;
+
+  it("hangs off the upper monitor's arm, behind the monitor, and comes out past its left edge", () => {
+    const head = armJoints().head;
+    expect(j.clamp[0]).toBeCloseTo(head[0], 12);
+    expect(j.clamp[2]).toBeLessThan(head[2]);
+    expect(j.shoulder[0]).toBeLessThan(upper.x - upper.bezel.width / 2);
+    expect(j.shoulder[1]).toBeCloseTo(j.clamp[1], 12);
+  });
+
+  it("lights the desk's left from in front of the monitors, left of the main screen", () => {
+    expect(j.bulb[2]).toBeGreaterThan(monitorFace("gui").centre[2]);
+    expect(j.bulb[0]).toBeLessThan(-MONITORS.gui.bezel.width / 2);
+    expect(j.bulb[1]).toBeGreaterThan(MAC.height + KEYBOARD.y + 0.15);
+  });
+});
+
+describe("the upper monitor and its arm", () => {
+  const upper = MONITORS.camera;
+  const j = armJoints();
+
+  it("turns a monitor's frame yaw first, then pitch, the way its \"YXZ\" group does", () => {
+    // The main monitor is neither turned nor tipped: its frame is the desk's, moved.
+    expect(monitorToDesk("gui", [0.1, 0.2, 0.3])).toEqual([0.1, MONITORS.gui.y + 0.2, MONITORS.gui.z + 0.3]);
+    // The video one is turned in to the left and leans back: its face swings
+    // round towards −X by the yaw, shortened by the lean.
+    const { x, y, yaw, pitch } = MONITORS.video;
+    const out = monitorToDesk("video", [0, 0, 1]);
+    expect(out[0] - x).toBeCloseTo(Math.sin(yaw) * Math.cos(pitch), 12);
+    expect(out[1] - y).toBeCloseTo(-Math.sin(pitch), 12);
+    // The upper one tips its face down, towards the seat.
+    const face = monitorToDesk("camera", [0, 0, 1]);
+    expect(face[1] - upper.y).toBeCloseTo(-Math.sin(upper.pitch), 12);
+    expect(face[2] - upper.z).toBeCloseTo(Math.cos(upper.pitch), 12);
+  });
+
+  it("stands clear above the main monitor, every corner of its frame", () => {
+    const mainTop = MONITORS.gui.y + (MONITORS.gui.bezel.height - MONITORS.gui.chin) / 2;
+    const { width, height, depth } = upper.bezel;
+    for (const x of [-width / 2, width / 2])
+      for (const z of [-depth / 2, depth / 2]) expect(monitorToDesk("camera", [x, -height / 2, z])[1]).toBeGreaterThan(mainTop + 0.02);
+  });
+
+  it("is a reversed 「く」 seen from the front: out to the right at the elbow, back in to the monitor", () => {
+    expect(j.elbow[0]).toBeGreaterThan(j.shoulder[0]);
+    expect(j.elbow[0]).toBeGreaterThan(j.wrist[0]);
+    expect(j.elbow[1]).toBeGreaterThan(j.shoulder[1]);
+    expect(j.elbow[1]).toBeLessThan(j.wrist[1]);
+    expect(j.wrist[0]).toBeGreaterThan(j.head[0]);
+  });
+
+  it("is clamped to the desk's back edge, on its right", () => {
+    expect(j.clamp[0]).toBeGreaterThan(MONITORS.gui.bezel.width / 2);
+    expect(j.clamp[2]).toBeGreaterThan(-PIECES.desk.depth / 2);
+    expect(j.clamp[2]).toBeLessThan(-PIECES.desk.depth / 2 + 0.05);
+  });
+
+  it("holds the monitor from behind: the head is behind its back plate, the beams behind the head", () => {
+    const plateBack = MONITOR_ARM.plate.z - MONITOR_ARM.plate.thickness / 2;
+    expect(MONITOR_ARM.head[2]).toBeLessThan(plateBack);
+    expect(j.wrist[2]).toBeLessThan(j.head[2]);
+    expect(j.elbow[2]).toBeLessThan(j.wrist[2]);
+  });
+});
+
+describe("the hologram fan", () => {
+  const place = holoFanPlace();
+  const r = HOLO_FAN.sweep / 2;
+  const half = HOLO_FAN.bladeThickness / 2;
+  // The blades' sweep, front and back, all round.
+  const rim: [number, number, number][] = [];
+  for (let i = 0; i < 96; i++)
+    for (const z of [-half, half]) {
+      const a = (i / 96) * 2 * Math.PI;
+      rim.push(holoFanToDesk([r * Math.cos(a), r * Math.sin(a), z]));
+    }
+  const videoCorners = monitorCorners("video");
+  const videoTop = Math.max(...videoCorners.map((c) => c[1]));
+  const toSegment = (p: readonly number[], a: readonly number[], b: readonly number[]) => {
+    const d = [0, 1, 2].map((i) => b[i] - a[i]);
+    const t = Math.max(0, Math.min(1, [0, 1, 2].reduce((sum, i) => sum + (p[i] - a[i]) * d[i], 0) / [0, 1, 2].reduce((sum, i) => sum + d[i] ** 2, 0)));
+    return Math.hypot(...[0, 1, 2].map((i) => p[i] - (a[i] + t * d[i])));
+  };
+
+  it("hangs just clear over the video monitor, over it", () => {
+    const lowest = Math.min(...rim.map((p) => p[1]));
+    expect(lowest - videoTop).toBeGreaterThan(0.01);
+    expect(lowest - videoTop).toBeLessThan(0.03);
+    const xs = videoCorners.map((c) => c[0]);
+    expect(place.centre[0]).toBeGreaterThan(Math.min(...xs));
+    expect(place.centre[0]).toBeLessThan(Math.max(...xs));
+    // Left of the monitor's middle, towards the upper monitor (the user moved it, 2026-10-25).
+    expect(place.centre[0]).toBeLessThan(MONITORS.video.x - 0.04);
+  });
+
+  it("faces the seated eye", () => {
+    const front = holoFanToDesk([0, 0, 1]);
+    const out = [0, 1, 2].map((i) => front[i] - place.centre[i]);
+    const eye = seatedEyeOnDesk();
+    const toEye = [0, 1, 2].map((i) => eye[i] - place.centre[i]);
+    const cos = [0, 1, 2].reduce((sum, i) => sum + out[i] * toEye[i], 0) / Math.hypot(...toEye);
+    expect(cos).toBeGreaterThan(0.9999);
+    // Turned in to the left and tipped down, as the seat is left of it and below.
+    expect(out[0]).toBeLessThan(-0.3);
+    expect(out[1]).toBeLessThan(-0.2);
+  });
+
+  it("is only as thick as its blades: no cover (the user)", () => {
+    expect(HOLO_FAN.bladeThickness).toBeLessThan(0.01);
+  });
+
+  it("keeps right of the upper monitor's frame", () => {
+    const right = Math.max(...monitorCorners("camera").map((c) => c[0]));
+    for (const p of rim) expect(p[0]).toBeGreaterThan(right + 0.03);
+  });
+
+  it("keeps its blades off the monitor arm's beams", () => {
+    // 4 cm for the beam's half-section and the tension bar beside it, and 2 cm of air.
+    const j = armJoints();
+    for (const p of rim) {
+      expect(toSegment(p, j.shoulder, j.elbow)).toBeGreaterThan(0.06);
+      expect(toSegment(p, j.elbow, j.wrist)).toBeGreaterThan(0.06);
+    }
+  });
+
+  it("hangs from the arm's head beside the lamp, up over the wrist and behind the upper monitor, out past its right edge", () => {
+    const j = holoFanJoints();
+    expect(j.clamp).toEqual(lampJoints().clamp);
+    // Over the wrist's joint block (5.6 cm) and its bolts, with the bar's own half.
+    expect(j.riser[1] - armJoints().wrist[1]).toBeGreaterThan(0.045);
+    expect(j.shoulder[1]).toBeCloseTo(j.riser[1], 12);
+    const upper = monitorCorners("camera");
+    expect(j.riser[2]).toBeLessThan(Math.min(...upper.map((c) => c[2])));
+    expect(j.shoulder[0]).toBeGreaterThan(Math.max(...upper.map((c) => c[0])));
+    // The link comes forward and down to the back of the fan's hub, behind its blades.
+    expect(j.ball[2]).toBeGreaterThan(j.shoulder[2]);
+    expect(j.ball[1]).toBeLessThan(j.shoulder[1]);
+    const back = holoFanToDesk([0, 0, -half]);
+    const out = [0, 1, 2].map((i) => holoFanToDesk([0, 0, 1])[i] - place.centre[i]);
+    expect([0, 1, 2].reduce((sum, i) => sum + (j.ball[i] - back[i]) * out[i], 0)).toBeLessThan(0);
   });
 });
 

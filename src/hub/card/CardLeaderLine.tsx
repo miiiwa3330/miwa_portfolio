@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import { MARKER_TRAIL_GLOW, MARKER_TRAIL_INK, markerClearance } from "@/scene/markerBolt";
 import { onMarkerScreen, type MarkerScreenPoint } from "@/scene/camera/markerScreen";
 import { useFacing } from "@/state/facingChannel";
-import { lightningPath } from "./lightningPath";
 
 /**
  * The bolt of lightning from the card out to the marker floating over its area.
@@ -38,14 +37,10 @@ import { lightningPath } from "./lightningPath";
  * rather than as two animations sharing a screen.
  */
 
-const STROKE_WIDTH = 2.4;
+const STROKE_WIDTH = 2;
 
-/** Forks are secondary: thinner than the trunk, and dimmer. */
-const FORK_STROKE_WIDTH = 1.8;
-const FORK_OPACITY = 0.7;
-
-/** The halo, laid down as a much wider stroke along the trunk's own path. */
-const GLOW_STROKE_WIDTH = 7;
+/** The halo, laid down as a wider stroke along the dotted path. */
+const GLOW_STROKE_WIDTH = 5;
 
 /**
  * A round linecap puts ink half a stroke beyond the last vertex, at both ends.
@@ -87,7 +82,7 @@ type Props = {
    * whenever this is absent.
    */
   anchorRef: React.RefObject<HTMLElement | null>;
-  /** Suppressed while the detail page covers everything. */
+  /** Suppressed while an area is focused: the area itself fills the frame. */
   hidden: boolean;
 };
 
@@ -95,7 +90,6 @@ export default function CardLeaderLine({ anchorRef, hidden }: Props) {
   const groupRef = useRef<SVGGElement | null>(null);
   const glowRef = useRef<SVGPathElement | null>(null);
   const trunkRef = useRef<SVGPathElement | null>(null);
-  const forksRef = useRef<SVGPathElement | null>(null);
 
   // Not to draw with — the trail never names an area — but to know when the
   // card underneath it has been swapped, which is the one thing that moves the
@@ -125,12 +119,11 @@ export default function CardLeaderLine({ anchorRef, hidden }: Props) {
 
     window.addEventListener("resize", remeasure);
 
-    const draw = ({ x, y, halfHeight, strike, visible }: MarkerScreenPoint) => {
+    const draw = ({ x, y, halfHeight, visible }: MarkerScreenPoint) => {
       const group = groupRef.current;
       const glow = glowRef.current;
       const trunk = trunkRef.current;
-      const forks = forksRef.current;
-      if (!group || !glow || !trunk || !forks) return;
+      if (!group || !glow || !trunk) return;
 
       /**
        * The dot on the card is the trail's near end, so it goes with the
@@ -174,9 +167,6 @@ export default function CardLeaderLine({ anchorRef, hidden }: Props) {
 
       const unitX = dx / span;
       const unitY = dy / span;
-      // Perpendicular to the trail, for the kinks to stand off along.
-      const sideX = -unitY;
-      const sideY = unitX;
 
       // Where the ink starts and stops, both a fixed clearance out from the
       // edge of the mark at that end. The marker's extent comes from the scene:
@@ -191,27 +181,14 @@ export default function CardLeaderLine({ anchorRef, hidden }: Props) {
       group.style.opacity = "1";
       setAnchorShown(true);
 
-      // `lightningPath` works in (along, lift): distance down the trail, and
-      // offset from its axis. Turning that into screen pixels is this file's
-      // only geometric job — which is what keeps the shape itself testable
-      // without a DOM, and keeps it from depending on which way the trail
-      // happens to be pointing.
-      const subpath = (line: readonly (readonly [number, number])[]) =>
-        line
-          .map(([along, lift], i) => {
-            const px = startX + unitX * along + sideX * lift;
-            const py = startY + unitY * along + sideY * lift;
-            return `${i === 0 ? "M" : "L"}${px.toFixed(1)} ${py.toFixed(1)}`;
-          })
-          .join("");
+      const x1 = startX + unitX * from;
+      const y1 = startY + unitY * from;
+      const x2 = startX + unitX * reach;
+      const y2 = startY + unitY * reach;
 
-      const bolt = lightningPath(from, reach, strike);
-      const trunkPath = subpath(bolt.trunk);
-      trunk.setAttribute("d", trunkPath);
-      glow.setAttribute("d", trunkPath);
-      // Every fork in one element, as separate subpaths — three more <path>
-      // nodes to keep in sync would buy nothing, since they all share a stroke.
-      forks.setAttribute("d", bolt.forks.map(subpath).join(""));
+      const linePath = `M${x1.toFixed(1)} ${y1.toFixed(1)} L${x2.toFixed(1)} ${y2.toFixed(1)}`;
+      trunk.setAttribute("d", linePath);
+      glow.setAttribute("d", linePath);
     };
 
     const unsubscribe = onMarkerScreen(draw);
@@ -228,31 +205,20 @@ export default function CardLeaderLine({ anchorRef, hidden }: Props) {
   return (
     <svg className="fixed inset-0 w-full h-full pointer-events-none z-30" aria-hidden="true">
       <g ref={groupRef} style={{ opacity: 0, transition: "opacity 240ms ease" }}>
-        {/* The halo first, so the trunk is drawn over its own light. */}
+        {/* The halo first, with dashed stroke */}
         <path
           ref={glowRef}
           fill="none"
           stroke={MARKER_TRAIL_GLOW}
           strokeWidth={GLOW_STROKE_WIDTH}
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
-        <path
-          ref={forksRef}
-          fill="none"
-          stroke={MARKER_TRAIL_INK}
-          strokeOpacity={FORK_OPACITY}
-          strokeWidth={FORK_STROKE_WIDTH}
-          strokeLinejoin="round"
-          strokeLinecap="round"
+          strokeDasharray="4 4"
         />
         <path
           ref={trunkRef}
           fill="none"
           stroke={MARKER_TRAIL_INK}
           strokeWidth={STROKE_WIDTH}
-          strokeLinejoin="round"
-          strokeLinecap="round"
+          strokeDasharray="4 4"
         />
       </g>
     </svg>

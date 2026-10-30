@@ -77,8 +77,7 @@ export function sectionCardShare(handheld: boolean): number {
  * to turn it closes in one frame of `delta` seconds — `MathUtils.damp`'s
  * `1 - exp(-λΔt)`, applied to yaw and pitch alike.
  *
- * Real time, never the room's clock: the pause button freezes the room, not
- * the reader, and a turn the reader asks for while it is paused still has to
+ * Real time, never the room's clock: a turn the reader asks for still has to
  * arrive.
  *
  * (On the planet this was capped on the way back from a drag, at twice the
@@ -105,9 +104,9 @@ const TURN = Math.PI * 2;
 const DEG = Math.PI / 180;
 
 /**
- * The idle sway at time `t` (seconds on the room's clock, so the pause button
- * stops it): offsets in yaw and pitch (radians, at most `SWAY_YAW_DEG` and
- * `SWAY_PITCH_DEG`) and eye height (metres, at most `SWAY_BREATH_M`).
+ * The idle sway at time `t` (seconds on the room's clock): offsets in yaw and
+ * pitch (radians, at most `SWAY_YAW_DEG` and `SWAY_PITCH_DEG`) and eye height
+ * (metres, at most `SWAY_BREATH_M`).
  *
  * Each is two slow sine waves whose periods do not divide each other, so the
  * movement never visibly repeats; the eye height follows the slower pitch
@@ -130,11 +129,12 @@ export function idleSway(t: number): { yaw: number; pitch: number; height: numbe
  * Symmetrical rather than an ease-*out*, which is what camera-controls' own
  * `smoothTime` damping gives you. A damped flight spends most of its travel in
  * its first moments, and the flight that matters most here — backing out of a
- * section once the detail page is dismissed — begins with the sheet still
+ * section once the detail sheet was dismissed — began with the sheet still
  * sliding off the screen. Nearly all of the movement therefore happened behind
  * an opaque panel, and what was left when the canvas came back into view was
  * the last tenth of it: a snap, not a camera pulling back. Holding the start
- * still buys that half-second back.
+ * still bought that half-second back. (The sheet went on 2026-10-30; a flight
+ * still starts and ends still, which is what a head turning does.)
  */
 export function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;

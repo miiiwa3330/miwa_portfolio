@@ -73,3 +73,11 @@ export function neonTheme(lights: RoomLights): NeonTheme {
  * readable by the neon's cool light beside it.
  */
 export const AMBIENT_FLOOR = { hemisphere: 1.2, ambient: 0.5 } as const;
+
+/**
+ * The renderer's exposure for the room. The prototype's value for its
+ * placeholder lights, not a design value — it means nothing once the
+ * lighting is rebuilt. Named so the lab (`src/lab/`) lights a part the way
+ * the room does: one number, read by both.
+ */
+export const ROOM_EXPOSURE = 1.75;

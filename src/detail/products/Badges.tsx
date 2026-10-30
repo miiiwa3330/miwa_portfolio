@@ -23,18 +23,18 @@ export function StatusBadge({ status, label, size = "sm" }: StatusProps) {
   const lg = size === "lg";
   return (
     <span
-      className={`inline-flex items-center rounded-full font-bold backdrop-blur-md border shadow-sm ${lg ? "gap-2 px-3.5 py-1.5 text-xs sm:text-sm" : "gap-1.5 px-2.5 py-1 text-xs"
-        } ${isPublic
-          ? "bg-emerald-50/90 text-emerald-700 border-emerald-300/40"
-          : "bg-orange-50/90 text-orange-700 border-orange-300/40"
-        }`}
+      className={`inline-flex items-center rounded-none font-mono font-bold border ${
+        lg ? "gap-2 px-3 py-1.5 text-xs sm:text-sm" : "gap-1.5 px-2 py-0.5 text-[11px]"
+      } ${
+        isPublic
+          ? "bg-white text-emerald-800 border-emerald-600/40"
+          : "bg-white text-neutral-800 border-neutral-400"
+      }`}
     >
-      {/* A glow, not a shadow under a surface — see docs/tech.md. */}
       <span
-        className={`rounded-full ${lg ? "w-2 h-2" : "w-1.5 h-1.5"} ${isPublic
-            ? `bg-emerald-500 ${lg ? "shadow-[0_0_8px_#22c55e]" : "shadow-[0_0_6px_#22c55e]"}`
-            : `bg-orange-500 ${lg ? "shadow-[0_0_8px_#f97316]" : "shadow-[0_0_6px_#f97316]"}`
-          }`}
+        className={`rounded-none ${lg ? "w-2 h-2" : "w-1.5 h-1.5"} ${
+          isPublic ? "bg-emerald-600" : "bg-neutral-600"
+        }`}
       />
       <span>{label}</span>
     </span>
@@ -49,10 +49,9 @@ type CategoryProps = {
 export function CategoryBadge({ category, size = "sm" }: CategoryProps) {
   return (
     <span
-      className={`shrink-0 rounded-full text-xs font-bold border ${size === "lg" ? "px-3 py-1" : "px-2.5 py-0.5"} ${category === "WEB"
-          ? "bg-emerald-50 text-emerald-700 border-emerald-200/50"
-          : "bg-purple-50 text-purple-700 border-purple-200/50"
-        }`}
+      className={`shrink-0 rounded-none font-mono text-[10px] font-bold uppercase tracking-wider border border-black/20 ${
+        size === "lg" ? "px-2.5 py-1" : "px-2 py-0.5"
+      } bg-neutral-900 text-neutral-100`}
     >
       {category}
     </span>

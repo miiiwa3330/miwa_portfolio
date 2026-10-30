@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * A single transient message. The timer is owned by a ref and cleared on
- * unmount, so a message raised just before the detail page closes cannot
+ * unmount, so a message raised just before the page is left cannot
  * fire into a component that is no longer there.
  */
 export function useToast(durationMs = 3000) {

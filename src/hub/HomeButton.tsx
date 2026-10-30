@@ -1,6 +1,7 @@
 "use client";
 
-import { X } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import CornerBrackets from "@/ui/CornerBrackets";
 
 /**
  * The way back to the default view, from an area the camera has flown into.
@@ -11,27 +12,35 @@ import { X } from "lucide-react";
  * that is a prop — the label, the icon and the shape are stated once here
  * rather than in two places that would drift.
  *
- * Both callers show it under the same condition: an area is focused and the
- * detail page is not open. Offering "go home" while already home is a control
- * that does nothing, and About is excluded because reading its column to the
- * end is what leaves it — a button beside that would be a second, competing
- * way out of the one area that already has a natural one.
+ * The site's box style (square corners, a box label, a fine border), with the
+ * corner brackets ("「」") on hover.
  */
 export default function HomeButton({
   onClick,
+  isJa = true,
   className = "",
 }: {
   onClick: () => void;
+  isJa?: boolean;
   /** Where it sits. Everything else about it is fixed. */
   className?: string;
 }) {
+  const label = isJa ? "戻る" : "BACK";
   return (
     <button
       onClick={onClick}
-      aria-label="HOME"
-      className={`z-30 pointer-events-auto flex items-center gap-2 bg-white text-gray-800 font-bold py-3 px-7 rounded-full border border-black/5 shadow-lg shadow-black/20 hover:scale-105 active:scale-95 transition-transform ${className}`}
+      aria-label={label}
+      className={`group z-40 pointer-events-auto h-12 flex items-center gap-2 font-mono font-bold text-xs sm:text-sm tracking-wider px-5 rounded-none shadow-sm active:scale-95 transition-all uppercase backdrop-blur-md bg-white/85 text-neutral-800 border border-black/20 hover:bg-white shadow-md ${className}`}
     >
-      <X size={18} /> HOME
+      <CornerBrackets
+        size="xs"
+        offset="tight"
+        strokeWidth="2"
+        colorClass="border-neutral-900"
+        className="opacity-0 group-hover:opacity-100 transition-opacity"
+      />
+      <ArrowLeft size={16} className="group-hover:-translate-x-0.5 transition-transform" />
+      <span>{label}</span>
     </button>
   );
 }

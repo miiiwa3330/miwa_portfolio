@@ -20,7 +20,7 @@ import { useHandheld } from "@/state/useHandheld";
  * zoom, through the fisheye's cube map whenever the lens is bent at all.
  *
  * The fisheye cannot be a camera setting: a perspective camera can only draw
- * k = 1 (`camera/fisheye.ts`). So, as in `sandbox/room-lab.html`, the room is
+ * k = 1 (`camera/fisheye.ts`). So, as in the room-lab prototype, the room is
  * drawn six times from where the camera stands, into the faces of a cube, and
  * a full-screen quad looks every pixel's direction up in it through the lens.
  * **That is six draws of the room per frame**, only in the fisheye and on the

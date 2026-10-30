@@ -11,9 +11,11 @@ import ReadingDock from "@/reading/ReadingDock";
  * whose words mostly exist inside WebGL or behind interactions; everything a
  * search engine or an ad reviewer is meant to read lives here instead.
  *
- * They are dressed as the hub's detail sheet — its cream, its header, its
- * section headings and cards — so that arriving here from the hub (the
- * popup's Read More, the Note entry) does not feel like leaving the site.
+ * Since 2026-10-30 these are also the areas' own pages (`/about`,
+ * `/products`, `/skills`, `/experience`, `/contact`), which until then were a
+ * sheet sliding up over the room. They are dressed in the hub's own parts —
+ * its header, its section headings and cards — so that arriving here from the
+ * hub does not feel like leaving the site.
  * `safe-inset` for the same reason as the hub's chrome: the root layout draws
  * the page under the notch (`viewportFit: "cover"`).
  */

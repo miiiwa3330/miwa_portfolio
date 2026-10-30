@@ -1,0 +1,5 @@
+Mouse sounds: "Press & Click FREE" by Makoto Hiramatsu
+https://makotohiramatsu.itch.io/press-click-free
+Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+Changes: single clicks cut from CLICK_001-005, 007, 009 and 010 into
+button-down and button-up clips, levelled, converted to MP3.

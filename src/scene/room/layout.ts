@@ -2,6 +2,8 @@ import type { Stop } from "@/types";
 import type { Direction } from "../direction";
 import { RECTILINEAR, STEREOGRAPHIC } from "../camera/fisheye";
 import { FIGURE, HIP_OVER_SEAT, PELVIS_BACK, seatedHipsFromEye } from "./figure";
+import { M0110 } from "./macKeyboard";
+import { MAC_HALF_WIDTH, MAC_NOTCH_HALF, MAC_SIZE, MAC_TOP_SLOPE, macTopAt } from "./macCase";
 
 /**
  * The room the camera stands in: one round room inside a rocket colony, seen
@@ -19,7 +21,7 @@ const DEG = Math.PI / 180;
 export type { Stop };
 
 /**
- * Chosen by the user in `sandbox/room-lab.html` (2026-10-01) at 3.3 m, and
+ * Chosen by the user in the room-lab prototype (2026-10-01) at 3.3 m, and
  * brought in to 3.0 m by the user (2026-10-02): the floor between the
  * furniture, about 5 m across, read as empty space.
  */
@@ -175,42 +177,372 @@ export type Subject = {
 };
 
 /**
- * The PC's three monitors, in the desk's own frame (`Piece`): the left plays
- * a video, the middle is the PC's own screen — the GUI the reader operates —
- * and the right shows the security camera (docs/room-migration.md). The side
- * ones are turned in towards the chair and stand a little forward.
+ * The PC's three monitors, in the desk's own frame (`Piece`): one stood on
+ * end on the desk's right, leaning back on a kickstand, plays a video, the
+ * middle is the PC's own screen — the GUI the reader operates — and the one
+ * above it shows the security camera (docs/room-migration.md; rearranged on
+ * 2026-10-22, the Macintosh taking the desk's left).
+ *
+ * Each has its own size, given as it stands upright and level: `bezel`,
+ * `screen` and `chin` (the frame may run further below the screen than
+ * above it, the way a real monitor's does). Then it is placed: `x` and `y`
+ * are the middle of its screen, `z` the middle of its front frame's depth
+ * (not the housing behind it); `roll` turns the panel about its own face
+ * (−π/2 is a quarter turn clockwise seen from the front — a pivoting stand
+ * stood on end), then `pitch` tips its face down, then `yaw` turns it about
+ * +Y (radians; a three.js `"YXZ"` Euler). `mount` is what holds it: its own
+ * stand (`MONITOR_STANDS`), the arm (`MONITOR_ARM`), or a kickstand on its
+ * back (`kickstand`).
  *
  * Both the monitors' meshes (`RoomScene`) and the HTML laid on the middle
  * screen (`room/screens.ts`) read these, so the two cannot drift apart.
  */
 export type MonitorKey = "video" | "gui" | "camera";
-export const MONITOR_Y = 1.08;
-export const MONITOR_BEZEL = { width: 0.66, height: 0.42, depth: 0.04 } as const;
-export const MONITOR_SCREEN = { width: 0.62, height: 0.38 } as const;
-/** The lit glass in front of the bezel: its centre's depth in the monitor's frame, and its thickness. */
-export const MONITOR_GLASS = { z: MONITOR_BEZEL.depth / 2 + 0.002, thickness: 0.005 } as const;
-/**
- * The screen's surface — where HTML is laid on it (`room/screens.ts`): half a
- * millimetre proud of the glass, so the cut-out that shows the HTML through
- * (`ScreenHole`) wins the depth test against the glass behind it.
- */
-export const MONITOR_FACE_Z = MONITOR_GLASS.z + MONITOR_GLASS.thickness / 2 + 0.0005;
-export const MONITORS: Record<MonitorKey, { x: number; z: number; yaw: number }> = {
-  video: { x: -0.7, z: -0.066, yaw: 0.35 },
-  gui: { x: 0, z: -0.15, yaw: 0 },
-  camera: { x: 0.7, z: -0.066, yaw: -0.35 },
+export type Monitor = {
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+  pitch: number;
+  roll: number;
+  mount: "stand" | "arm" | "kickstand";
+  /** The front frame: its outside size and its depth. */
+  bezel: { width: number; height: number; depth: number };
+  /** The lit area inside it. */
+  screen: { width: number; height: number };
+  /** How much more frame there is under the screen than over it. */
+  chin: number;
 };
+
+/** The desk's working surface: where the keyboard, the mouse and the monitors' stands stand. */
+export const DESK_TOP_Y = 0.775;
+
+/** The monitors the desk was first built with, all one size. */
+const PLAIN_MONITOR = {
+  y: 1.08,
+  pitch: 0,
+  roll: 0,
+  mount: "stand",
+  bezel: { width: 0.66, height: 0.42, depth: 0.04 },
+  screen: { width: 0.62, height: 0.38 },
+  chin: 0,
+} as const;
+
+/**
+ * The main monitor is a **Dell UltraSharp U3223QE** (31.5", 16:9; 2026-10-22,
+ * the user asked for a larger one): the panel without its stand is 712.6 ×
+ * 410.0 × 55.8 mm and its viewable area 697.3 × 392.2 mm (the maker's spec
+ * as resellers list it). The side frames are (712.6 − 697.3) / 2 = 7.65 mm;
+ * the top is taken to be as thin as the sides (**仮**), which leaves 10.15 mm
+ * under the screen. `depth` is the panel's thickness at its edge (**仮**,
+ * 18 mm); the housing behind it bulges out to the full 55.8 mm
+ * (`MONITOR_STANDS.gui.housingDepth`).
+ *
+ * Its screen's surface stays where the first, smaller monitor's was (z −0.125 m
+ * in the desk's frame): the seat is framed from it, and the seat does not
+ * move (docs/scene-invariants.md).
+ */
+const MAIN_FRAME_SIDE = 0.00765;
+const MAIN_MONITOR: Omit<Monitor, "x" | "z" | "yaw"> = {
+  y: 1.08,
+  pitch: 0,
+  roll: 0,
+  mount: "stand",
+  bezel: { width: 0.7126, height: 0.41, depth: 0.018 },
+  screen: { width: 0.6973, height: 0.3922 },
+  chin: 0.41 - 0.3922 - 2 * MAIN_FRAME_SIDE,
+};
+
+/**
+ * The monitor above the main one, on the arm: the first monitor, as it was,
+ * tipped 10° down towards the seat (**仮**) and set back behind the main
+ * one's housing, 3 cm clear of its top edge (**仮**).
+ */
+const UPPER_PITCH = 0.17;
+const UPPER_GAP = 0.03;
+const MAIN_TOP = MAIN_MONITOR.y + (MAIN_MONITOR.bezel.height - MAIN_MONITOR.chin) / 2;
+const UPPER_Y = MAIN_TOP + UPPER_GAP + PLAIN_MONITOR.bezel.height / 2;
+
+/** A point in a monitor's own frame turned as the monitor is (roll, then pitch, then yaw; three.js "YXZ"), not yet moved to its place. */
+function turnMonitor(m: Pick<Monitor, "yaw" | "pitch" | "roll">, local: readonly [number, number, number]): [number, number, number] {
+  const { yaw, pitch, roll } = m;
+  const rx = local[0] * Math.cos(roll) - local[1] * Math.sin(roll);
+  const ry = local[0] * Math.sin(roll) + local[1] * Math.cos(roll);
+  const py = ry * Math.cos(pitch) - local[2] * Math.sin(pitch);
+  const pz = ry * Math.sin(pitch) + local[2] * Math.cos(pitch);
+  return [rx * Math.cos(yaw) + pz * Math.sin(yaw), py, -rx * Math.sin(yaw) + pz * Math.cos(yaw)];
+}
+
+/** The corners of a monitor's frame, in its own frame. */
+function frameCorners(m: Pick<Monitor, "bezel" | "chin">): [number, number, number][] {
+  const out: [number, number, number][] = [];
+  for (const x of [-1, 1])
+    for (const y of [-1, 1])
+      for (const z of [-1, 1]) out.push([(x * m.bezel.width) / 2, -m.chin / 2 + (y * m.bezel.height) / 2, (z * m.bezel.depth) / 2]);
+  return out;
+}
+
+/**
+ * The video monitor is a **Dell P2422H** (23.8", 16:9) without its stand,
+ * stood on end on the desk's right in front of the arm, leaning back on a
+ * kickstand on its back (2026-10-22, the user: 「立てかけ式」, 「モニターに
+ * 支えをつけて」). 537.8 × 318.5 × 52.1 mm, a viewable area of 527.04 ×
+ * 296.46 mm (the maker's spec as resellers list it). Side frames
+ * (537.8 − 527.04) / 2 = 5.38 mm, the top taken to be as thin (**仮**), so
+ * 16.66 mm under the screen; turned a quarter clockwise, that strip is on
+ * its left. **仮**: it leans back 15°, is turned 0.3 rad in towards the
+ * chair, and where it stands. Its height is not chosen: it rests its lowest
+ * corner on the desk.
+ */
+const PIVOT_FRAME_SIDE = (0.5378 - 0.52704) / 2;
+const LEANING_MONITOR: Omit<Monitor, "y"> = {
+  x: 0.56,
+  z: -0.16,
+  yaw: -0.3,
+  pitch: -0.26,
+  roll: -Math.PI / 2,
+  mount: "kickstand",
+  bezel: { width: 0.5378, height: 0.3185, depth: 0.018 },
+  screen: { width: 0.52704, height: 0.29646 },
+  chin: 0.3185 - 0.29646 - 2 * PIVOT_FRAME_SIDE,
+};
+const LEANING_Y = DESK_TOP_Y - Math.min(...frameCorners(LEANING_MONITOR).map((c) => turnMonitor(LEANING_MONITOR, c)[1]));
+
+export const MONITORS: Record<MonitorKey, Monitor> = {
+  video: { ...LEANING_MONITOR, y: LEANING_Y },
+  gui: { ...MAIN_MONITOR, x: 0, z: -0.139, yaw: 0 },
+  camera: { ...PLAIN_MONITOR, x: 0, y: UPPER_Y, z: -0.2, yaw: 0, pitch: UPPER_PITCH, mount: "arm" },
+};
+
+/**
+ * A point in a monitor's own frame — as it stands upright: origin at its
+ * screen's middle and frame's mid-depth, +X right, +Y up, +Z out of the
+ * screen — in the desk's frame.
+ */
+export function monitorToDesk(key: MonitorKey, local: readonly [number, number, number]): [number, number, number] {
+  const m = MONITORS[key];
+  const [tx, ty, tz] = turnMonitor(m, local);
+  return [m.x + tx, m.y + ty, m.z + tz];
+}
+
+/**
+ * The two Dell monitors' whole depth, from the frame's front to the back of
+ * the housing: the U3223QE's 55.8 mm and the P2422H's 52.1 mm (the maker's
+ * spec, without stands).
+ */
+export type DellMonitorKey = "gui" | "video";
+export const DELL_HOUSING_DEPTH: Record<DellMonitorKey, number> = { gui: 0.0558, video: 0.0521 };
+
+/**
+ * The video monitor's kickstand: a leg hinged on the back of its housing,
+ * `hingeUp` above the screen's middle along the panel, opened `spread` off
+ * the panel's back and reaching down to the desk. **仮**, both.
+ */
+export const KICKSTAND = { hingeUp: 0.06, spread: 0.55, width: 0.06, thickness: 0.004 } as const;
+
+/** The kickstand's hinge and foot, in the desk's frame. */
+export function kickstand(): { hinge: [number, number, number]; foot: [number, number, number] } {
+  const m = MONITORS.video;
+  const normal = turnMonitor(m, [0, 0, 1]);
+  // Up along the panel as it leans: at right angles to its face and to the horizontal along it.
+  const across: [number, number, number] = [Math.cos(m.yaw), 0, -Math.sin(m.yaw)];
+  const up: [number, number, number] = [
+    normal[1] * across[2] - normal[2] * across[1],
+    normal[2] * across[0] - normal[0] * across[2],
+    normal[0] * across[1] - normal[1] * across[0],
+  ];
+  const back = m.bezel.depth / 2 - DELL_HOUSING_DEPTH.video;
+  const hinge: [number, number, number] = [0, 1, 2].map((i) => [m.x, m.y, m.z][i] + up[i] * KICKSTAND.hingeUp + normal[i] * back) as [number, number, number];
+  // Down the panel's back and out behind it.
+  const leg = [0, 1, 2].map((i) => -up[i] * Math.cos(KICKSTAND.spread) - normal[i] * Math.sin(KICKSTAND.spread));
+  const reach = (hinge[1] - DESK_TOP_Y) / -leg[1];
+  return { hinge, foot: [0, 1, 2].map((i) => hinge[i] + leg[i] * reach) as [number, number, number] };
+}
+
+/**
+ * The stands of the monitors that have one — the U3223QE's. `lowest` is
+ * how far the panel's bottom edge is over the desk with the stand at its
+ * lowest; `travel` how far it rises; `depth` the panel's front to the back
+ * of the base. From the maker's spec: 469.3 mm tall at its lowest, so its
+ * bottom is 59.3 mm over the desk; it rises 150 mm; 233.2 mm deep.
+ *
+ * **仮**: the base's width, thickness, corners and how far it is set back
+ * from the panel's front, and the column's section — no photo of the stand
+ * from the side.
+ */
+export type MonitorStand = {
+  lowest: number;
+  travel: number;
+  depth: number;
+  base: { width: number; thickness: number; corner: number; setBack: number };
+  column: { width: number; depth: number };
+};
+export const MONITOR_STANDS: { readonly gui: MonitorStand } = {
+  gui: {
+    lowest: 0.4693 - 0.41,
+    travel: 0.15,
+    depth: 0.2332,
+    base: { width: 0.25, thickness: 0.012, corner: 0.035, setBack: 0.012 },
+    column: { width: 0.07, depth: 0.028 },
+  },
+};
+
+/**
+ * The Macintosh on the desk, left of the main monitor (2026-10-22, the
+ * user; first planned on the right, then swapped with the video monitor):
+ * the middle of its footprint, its turn in towards the chair, and its size —
+ * the Macintosh 128K's (`MAC_SIZE`; its shape is `room/macCase.ts`).
+ * **仮**: the place and the turn.
+ */
+export const MAC = { x: -0.55, z: -0.15, yaw: 0.25, ...MAC_SIZE } as const;
+
+/** A point in the Macintosh's own frame (origin on the desk under its middle, +Z out of its screen), in the desk's frame. */
+export function macToDesk(local: readonly [number, number, number]): [number, number, number] {
+  const c = Math.cos(MAC.yaw);
+  const s = Math.sin(MAC.yaw);
+  return [MAC.x + local[0] * c + local[2] * s, DESK_TOP_Y + local[1], MAC.z - local[0] * s + local[2] * c];
+}
+
+/**
+ * The pen pot (`DeskSet`), on the Mac's top (2026-10-22, the user: 「ペン立て
+ * はマッキントッシュの上に」): on the left half, beside the handle's notch, over
+ * its vents. Its middle in the Mac's frame, standing on the top; its radius;
+ * and its tilt — it stands on the top, which rises 4.4° to the front.
+ */
+const POT_RADIUS = 0.037;
+const POT_Z = -0.045;
+export const PEN_POT = {
+  local: [-(MAC_HALF_WIDTH + MAC_NOTCH_HALF) / 2, macTopAt(POT_Z), POT_Z] as [number, number, number],
+  radius: POT_RADIUS,
+  tilt: MAC_TOP_SLOPE,
+} as const;
+
+/** How far in front of the Mac's front its keyboard's case starts (**仮**: the cord's slack, as in マッキントッシュ3). */
+const MAC_KEYBOARD_GAP = 0.025;
+
+/** The Mac's keyboard (an M0110, `room/macKeyboard.ts`): straight in front of the Mac, turned as it is. */
+export function macKeyboardPlace(): { x: number; z: number; yaw: number } {
+  const [x, , z] = macToDesk([0, 0, MAC.depth / 2 + MAC_KEYBOARD_GAP + M0110.depth / 2]);
+  return { x, z, yaw: MAC.yaw };
+}
+
+/**
+ * The Mac's mouse, an M0100 (`room/macMouse.ts`): where it rests on the mat,
+ * right of the Mac's keyboard and left of the HHKB (**仮**).
+ */
+export const MAC_MOUSE = { x: -0.235, z: 0.19, y: DESK_TOP_Y } as const;
+
+/**
+ * The upper monitor's arm (2026-10-22, the user: from the back of the desk's
+ * right — where the Macintosh was first to go, the video monitor now leaning
+ * in front of it — a reversed 「く」, ">" seen from the front, in angular
+ * metal). Its joints, in the desk's frame: clamped to the desk's back edge, a
+ * post up, the lower beam leaning out to the right to the elbow, the upper
+ * beam back in over the main monitor to the wrist, and a short bracket to
+ * the tilt head on the monitor's back plate (`head`, in the monitor's own
+ * frame). **仮**: every joint's place — chosen for the shape, not measured.
+ */
+export const MONITOR_ARM = {
+  /** The clamp's middle on the desk's top, its post's foot. */
+  clamp: [0.66, 0, -PIECES.desk.depth / 2 + 0.035],
+  postHeight: 0.14,
+  /** How far the elbow stands out right of the post, and how high (desk frame). */
+  elbow: { out: 0.24, y: 1.33, z: -0.345 },
+  /** The wrist: this far right of the head and behind it. */
+  wrist: { right: 0.13, back: 0.045 },
+  /** The back plate screwed to the monitor's housing (VESA 100), in the monitor's own frame: its middle, size and thickness. */
+  plate: { y: 0.01, z: -0.058, size: 0.12, thickness: 0.006 },
+  /** The tilt head, in the monitor's own frame: behind the middle of its back plate. */
+  head: [0, 0.01, -0.085],
+} as const;
+
+/** The arm's joints in the desk's frame, from the desk up to the monitor. */
+export function armJoints(): Record<"clamp" | "shoulder" | "elbow" | "wrist" | "head", [number, number, number]> {
+  const [cx, , cz] = MONITOR_ARM.clamp;
+  const top = DESK_TOP_Y;
+  const head = monitorToDesk("camera", MONITOR_ARM.head);
+  return {
+    clamp: [cx, top, cz],
+    shoulder: [cx, top + MONITOR_ARM.postHeight, cz],
+    elbow: [cx + MONITOR_ARM.elbow.out, MONITOR_ARM.elbow.y, MONITOR_ARM.elbow.z],
+    wrist: [head[0] + MONITOR_ARM.wrist.right, head[1], head[2] - MONITOR_ARM.wrist.back],
+    head,
+  };
+}
+
+/**
+ * The arm lamp, on the upper monitor's arm (2026-10-22, the user: 「アーム
+ * ランプは上のモニターのアームスタンドに接続し、上のモニターの左側から出て
+ * いる感じ」): a bar clamped to the arm's head runs left behind the monitor;
+ * past its left edge the lamp's own two arms come out, the first up and out,
+ * the second down and forward to the shade over the desk's left. The bulb is
+ * the desk light. **仮**: every joint's place.
+ */
+export const DESK_LAMP = {
+  /** How far behind the monitor's back the bar runs, and how far past its left edge it reaches. */
+  bar: { back: 0.035, past: 0.03 },
+  elbow: [-0.5, 1.64, -0.14] as [number, number, number],
+  head: [-0.45, 1.4, -0.01] as [number, number, number],
+  /** The bulb, this far under the head, in the shade's mouth. */
+  drop: 0.08,
+} as const;
+
+/** The lamp's joints in the desk's frame: where its bar is clamped to the arm, where the bar ends and the lamp's arms begin, the elbow, the head and the bulb. */
+export function lampJoints(): Record<"clamp" | "shoulder" | "elbow" | "head" | "bulb", [number, number, number]> {
+  const head = armJoints().head;
+  const upper = MONITORS.camera;
+  const z = head[2] - DESK_LAMP.bar.back;
+  const left = upper.x - upper.bezel.width / 2 - DESK_LAMP.bar.past;
+  return {
+    clamp: [head[0], head[1], z],
+    shoulder: [left, head[1], z],
+    elbow: DESK_LAMP.elbow,
+    head: DESK_LAMP.head,
+    bulb: [DESK_LAMP.head[0], DESK_LAMP.head[1] - DESK_LAMP.drop, DESK_LAMP.head[2]],
+  };
+}
+
+/** The middle of a monitor's frame (where its stand or arm holds it), in its own frame: off the screen's middle by half the chin. */
+export function monitorFrameMiddle(key: MonitorKey): [number, number, number] {
+  return [0, -MONITORS[key].chin / 2, 0];
+}
+
+/** The corners of a monitor's frame in the desk's frame, however it is turned. */
+export function monitorCorners(key: MonitorKey): [number, number, number][] {
+  return frameCorners(MONITORS[key]).map((c) => monitorToDesk(key, c));
+}
+
+/** How far the lowest corner of a monitor's frame is above the desk's top. */
+export function monitorBottomOverDesk(key: MonitorKey): number {
+  return Math.min(...monitorCorners(key).map((c) => c[1])) - DESK_TOP_Y;
+}
+
+/** The lit glass in front of a monitor's frame: its centre's depth in the monitor's frame, and its thickness. */
+export function monitorGlass(key: MonitorKey): { z: number; thickness: number } {
+  return { z: MONITORS[key].bezel.depth / 2 + 0.002, thickness: 0.005 };
+}
+
+/**
+ * The screen's surface, in the monitor's frame — where HTML is laid on it
+ * (`room/screens.ts`): half a millimetre proud of the glass, so the cut-out
+ * that shows the HTML through (`ScreenHole`) wins the depth test against the
+ * glass behind it.
+ */
+export function monitorFaceZ(key: MonitorKey): number {
+  const glass = monitorGlass(key);
+  return glass.z + glass.thickness / 2 + 0.0005;
+}
 
 /** A monitor's screen surface in the desk's frame: its centre, and how far it is turned about +Y (radians). */
 export function monitorFace(key: MonitorKey): { centre: [number, number, number]; yaw: number } {
-  const { x, z, yaw } = MONITORS[key];
-  return { centre: [x + Math.sin(yaw) * MONITOR_FACE_Z, MONITOR_Y, z + Math.cos(yaw) * MONITOR_FACE_Z], yaw };
+  return { centre: monitorToDesk(key, [0, 0, monitorFaceZ(key)]), yaw: MONITORS[key].yaw };
 }
 
 export const SUBJECTS: Record<Stop, Subject> = {
   // The middle monitor's face. Framed on the one monitor, not the whole desk:
-  // framing the desk shrank the 22px body text to about 6px.
-  desk: { piece: "desk", local: monitorFace("gui").centre, frameWidth: 0.8, zoomEyeHeight: SEATED_EYE_HEIGHT, markerY: 1.5 },
+  // framing the desk shrank the 22px body text to about 6px. The marker
+  // floats over the monitor above it (its top is at about 1.73 m).
+  desk: { piece: "desk", local: monitorFace("gui").centre, frameWidth: 0.8, zoomEyeHeight: SEATED_EYE_HEIGHT, markerY: 1.95 },
   // The hologram stands on the same desk, to the PC's right.
   about: { piece: "desk", local: [0.95, 1.45, 0.05], frameWidth: 0.9, zoomEyeHeight: 1.45, markerY: 1.85 },
   products: { piece: "shelf", local: [0, 1.2, PIECES.shelf.depth / 2], frameWidth: 1.6, zoomEyeHeight: EYE_HEIGHT, markerY: 2.2 },
@@ -312,9 +644,24 @@ export function zoomView(stop: Stop, hfovDeg: number = STANDARD_HFOV): RoomView 
  * hands rest over them. **Provisional (仮)** placement: the keyboard stands
  * 8 cm out from the desk's middle, close enough under the screen that a
  * seated reader sees both their hands and the whole screen at once.
+ * `KEYBOARD` is where it stands: the middle of its case, on the desk's top
+ * (`y`). Its size is the HHKB's (`room/keyboard.ts`). `MOUSE` likewise:
+ * where the mouse rests, the middle of its outline on the desk's top — it
+ * slides from there (`MOUSE_TRAVEL`, `room/mouse.ts`), and the right hand
+ * goes with it.
  */
-export const KEYBOARD = { x: 0, z: 0.08, y: 0.785, width: 0.5, depth: 0.18 } as const;
-export const MOUSE = { x: 0.36, z: 0.1, y: 0.79 } as const;
+export const KEYBOARD = { x: 0, z: 0.08, y: DESK_TOP_Y } as const;
+export const MOUSE = { x: 0.36, z: 0.1, y: DESK_TOP_Y } as const;
+/** The mug's coaster on the desk, right of the mouse (the mouse's travel keeps clear of it). */
+export const MUG = { x: 0.55, z: 0.2, radius: 0.052 } as const;
+/** The mat under the keyboard and the mouse: its middle, size and thickness. */
+export const DESK_MAT = { x: 0.1, z: 0.09, width: 0.8, depth: 0.3, thickness: 0.003 } as const;
+
+/** How high the desk's surface is at a point (desk frame): its top, or the mat's where the mat lies. */
+export function deskSurfaceAt(x: number, z: number): number {
+  const onMat = Math.abs(x - DESK_MAT.x) <= DESK_MAT.width / 2 && Math.abs(z - DESK_MAT.z) <= DESK_MAT.depth / 2;
+  return DESK_TOP_Y + (onMat ? DESK_MAT.thickness : 0);
+}
 export const HAND_Y = 0.82;
 /**
  * Where the seated hands rest, in the desk's frame: the left on the near
@@ -336,7 +683,7 @@ export const DESK_HANDS: readonly [readonly [number, number, number], readonly [
  */
 export function seatedPitch(forward: number): number {
   const desk = pieceCentreDistance(PIECES.desk);
-  const top = MONITOR_Y + MONITOR_SCREEN.height / 2;
+  const top = MONITORS.gui.y + MONITORS.gui.screen.height / 2;
   const screenAway = desk - monitorFace("gui").centre[2] - forward;
   const handsAway = desk - Math.max(DESK_HANDS[0][2], DESK_HANDS[1][2]) - forward;
   const up = Math.atan2(top - SEATED_EYE_HEIGHT, screenAway);
@@ -463,6 +810,103 @@ export const CHAIR_SEAT = { width: 0.5, depth: 0.48 } as const;
  */
 export function chairBackZ(): number {
   return pieceCentreDistance(PIECES.desk) - (zoomView("desk").forward - CHAIR_BACK_BEHIND_EYE);
+}
+
+/** The seated eye in the desk's frame: square in front of the main screen, where sitting down at the PC puts it. */
+export function seatedEyeOnDesk(): [number, number, number] {
+  return [0, SEATED_EYE_HEIGHT, pieceCentreDistance(PIECES.desk) - zoomView("desk").forward];
+}
+
+/**
+ * The hologram fan (2026-10-25, the user: 「3Dホログラムディスプレイファンを
+ * アームで取り付けたい（上のモニター裏から接続して、縦型PCの上らへんに配置）」
+ * — the 縦型 one is the video monitor stood on end): a fan of LED blades spun
+ * fast enough that what they light hangs in the air. It shows the time
+ * (`room/holoFan.ts`).
+ *
+ * The model is SuperbHolo's SH-30 (the maker's spec): a 30 cm sweep, 256
+ * LEDs across it, 512 × 512 px, 800 rpm. Without its clear cover (the user,
+ * 2026-10-25: 「本来厚みは棒の太さ分だけ」): the fan is only as thick as
+ * its blades. **仮**: the blades' thickness, the hub's size, `gap`, `left`
+ * and `forward`.
+ *
+ * Its own frame: origin at the middle of the blades' sweep (the picture's
+ * plane), +Y up, +Z out of the picture.
+ */
+export const HOLO_FAN = {
+  sweep: 0.3,
+  leds: 256,
+  px: 512,
+  rpm: 800,
+  /** How thick the blades are: a board with LEDs on it. */
+  bladeThickness: 0.006,
+  /** The motor's hub behind the blades, its back where the arm's ball joint holds it. */
+  hub: { radius: 0.028, depth: 0.05 },
+  /** How far its lowest point is over the video monitor's highest corner (the user moved it down, 2026-10-25: from 3 cm). */
+  gap: 0.015,
+  /** How far left of the video monitor's middle it hangs (the user moved it left, 2026-10-25). */
+  left: 0.06,
+  /**
+   * How far in front of the upper monitor's middle it hangs. Level with it,
+   * the first fan's clear cover (33.6 cm across, 7 cm deep) went into the
+   * monitor arm's upper beam (its rim 1.2 cm from the beam's middle line).
+   */
+  forward: 0.06,
+} as const;
+
+/** A point in the fan's own frame, turned by `yaw` and `pitch` (as a monitor is), not yet moved to its place. */
+function turnFan(place: { yaw: number; pitch: number }, local: readonly [number, number, number]): [number, number, number] {
+  return turnMonitor({ ...place, roll: 0 }, local);
+}
+
+/**
+ * Where the fan hangs: `left` of the video monitor's middle, `forward` of
+ * the upper monitor, turned and tipped to face the seated eye, and just high
+ * enough that its blades' lowest point is `gap` over the video monitor's top.
+ * The tip lowers the blades' bottom edge, and the tip depends on the height,
+ * so the two are settled together; a few rounds are plenty, as tipping
+ * hardly moves the bottom edge.
+ */
+export function holoFanPlace(): { centre: [number, number, number]; yaw: number; pitch: number } {
+  const x = MONITORS.video.x - HOLO_FAN.left;
+  const z = MONITORS.camera.z + HOLO_FAN.forward;
+  const top = Math.max(...monitorCorners("video").map((c) => c[1]));
+  const eye = seatedEyeOnDesk();
+  const yaw = Math.atan2(eye[0] - x, eye[2] - z);
+  const across = Math.hypot(eye[0] - x, eye[2] - z);
+  const r = HOLO_FAN.sweep / 2;
+  let y = top + HOLO_FAN.gap + r;
+  let pitch = 0;
+  for (let i = 0; i < 6; i++) {
+    pitch = Math.atan2(y - eye[1], across);
+    y = top + HOLO_FAN.gap + r * Math.cos(pitch) + (HOLO_FAN.bladeThickness / 2) * Math.sin(pitch);
+  }
+  return { centre: [x, y, z], yaw, pitch };
+}
+
+/** A point in the fan's own frame, in the desk's frame. */
+export function holoFanToDesk(local: readonly [number, number, number]): [number, number, number] {
+  const place = holoFanPlace();
+  const [tx, ty, tz] = turnFan(place, local);
+  return [place.centre[0] + tx, place.centre[1] + ty, place.centre[2] + tz];
+}
+
+/**
+ * The fan's arm, from the back of the upper monitor (the user): clamped to
+ * the monitor arm's head beside the lamp's bar, a riser up over the arm's
+ * wrist and its bracket (which leave the head to the right), a bar right
+ * behind the monitor and out past its right edge, and a link down and
+ * forward to a ball joint on the back of the fan's hub. **仮**: `rise`.
+ */
+export const HOLO_FAN_ARM = { rise: 0.06, bar: 0.016 } as const;
+
+/** The fan's arm's joints in the desk's frame, from the monitor arm's head out to the fan. */
+export function holoFanJoints(): Record<"clamp" | "riser" | "shoulder" | "ball", [number, number, number]> {
+  const head = armJoints().head;
+  const z = head[2] - DESK_LAMP.bar.back;
+  const y = head[1] + HOLO_FAN_ARM.rise;
+  const ball = holoFanToDesk([0, 0, -HOLO_FAN.hub.depth]);
+  return { clamp: [head[0], head[1], z], riser: [head[0], y, z], shoulder: [ball[0], y, z], ball };
 }
 
 /** The wall's upright ribs: one every 22.5°, at the panels' seams. */

@@ -11,8 +11,10 @@ describe("sitemap", () => {
     for (const { slug } of NOTES) expect(urls).toContain(`${SITE_URL}/notes/${slug}`);
   });
 
-  it("lists the two indexes, the top page and the privacy policy", () => {
-    for (const path of ["", "/products", "/notes", "/privacy"]) expect(urls).toContain(`${SITE_URL}${path}`);
+  it("lists every section page, the top page and the privacy policy", () => {
+    for (const path of ["", "/about", "/products", "/skills", "/experience", "/contact", "/notes", "/privacy"]) {
+      expect(urls).toContain(`${SITE_URL}${path}`);
+    }
   });
 
   it("lists nothing twice and nothing off the site", () => {

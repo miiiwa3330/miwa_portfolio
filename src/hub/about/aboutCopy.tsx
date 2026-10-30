@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { plainText } from "./plainText";
 
 /**
  * The self-introduction, in both languages — read in the PC's
@@ -82,4 +83,9 @@ export function aboutParagraphs(isJa: boolean): ReactNode[] {
         </>,
       ];
   return paragraphs;
+}
+
+/** The same paragraphs as plain text, for where they are drawn rather than laid out: the hologram fan. */
+export function aboutPlainParagraphs(isJa: boolean): string[] {
+  return aboutParagraphs(isJa).map((paragraph) => plainText(paragraph).replace(/[ \t\r\n]+/g, " ").trim());
 }

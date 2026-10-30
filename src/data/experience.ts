@@ -10,6 +10,8 @@ export type ExperienceSource = {
    * switches to Products with that project's modal already open.
    */
   project?: string;
+  /** Optional external URL opened in a new tab when the milestone is clicked. */
+  url?: string;
 };
 
 /**
@@ -23,8 +25,8 @@ export const EXPERIENCE: ExperienceSource[] = [
     period: "2019",
     title: { ja: "コンピュータの世界への覚醒", en: "Awakening to the Computer World" },
     description: {
-      ja: "漫画『王様達のヴァイキング』を読んだことをきっかけに、コード一つで世界と対峙するサイバー空間の可能性に衝撃を受け、コンピュータとプログラミングの世界へ強く惹きつけられる。",
-      en: "Inspired by the manga \"Kings' Viking\", I was shocked by the possibility of confronting the world with just a single piece of code in cyberspace, which strongly drew me to the world of computers and programming.",
+      ja: "もともとスパイ系やアクション系の映画が好きで、その中で裏方としてシステムをハッキングするハッカーのシーンに強い魅力を感じていた。そんな中で漫画『王様達のヴァイキング』に出会い、コード一つで世界と対峙する姿にさらに強く惹きつけられ、コンピュータとプログラミングの世界へ踏み出す。",
+      en: "Always a fan of spy and action movies, I was drawn to scenes where hackers worked behind the scenes to break into systems. Reading the manga \"Kings' Viking\" captivated me even further with its depiction of confronting the world through code, inspiring me to step into the world of computers and programming.",
     },
   },
   {
@@ -41,6 +43,14 @@ export const EXPERIENCE: ExperienceSource[] = [
     description: {
       ja: "C言語を主軸に、アルゴリズムやメモリ管理などプログラミングの基礎を徹底的に習得。コンピュータの本質的な動作原理の理解を深める。",
       en: "Mastered programming basics centering on C language, including algorithms and memory management. Deepened my understanding of the fundamental operating principles of computers.",
+    },
+  },
+  {
+    period: "2023.07",
+    title: { ja: "ITパスポート・基本情報技術者試験の取得", en: "Passed IT Passport & Fundamental IT Engineer Exams" },
+    description: {
+      ja: "最初はがむしゃらに資格取得に励んでいた時期。学習を進めていくと、堅苦しい勉強や暗記という感覚ではなく、コンピュータやITに関する「面白い雑学」を聞いているような感覚で、楽しみながら前向きに取り組むことができた。",
+      en: "At first, I threw myself headlong into earning certifications. As I kept studying, rather than feeling like rote memorization or dry study, it felt like listening to fascinating trivia about computers and IT, allowing me to tackle the learning process with a positive mindset.",
     },
   },
   {
@@ -68,11 +78,19 @@ export const EXPERIENCE: ExperienceSource[] = [
     },
   },
   {
-    period: "2025.05",
-    title: { ja: "産学連携プロジェクトの完遂", en: "Completed Industry-Academia Project" },
+    period: "2025.04",
+    title: { ja: "3度目の応用情報技術者試験に1点差で落ちる", en: "Missed Applied IT Engineer Exam by 1 Point on 3rd Attempt" },
     description: {
-      ja: "産学連携プロジェクトのリーダーとしてチーム開発を牽引。実社会の課題解決に向けたアプローチを実践し、翌年2月の最終発表に向けてプロジェクトを完遂させる。",
-      en: "Led team development as the leader of an industry-academia collaboration project. Practiced approaches to solving real-world problems and successfully completed the project leading up to the final presentation in February of the following year.",
+      ja: "3度目の挑戦となった応用情報技術者試験にて、午後試験わずか1点差で不合格となる。かねてより情報系資格試験そのものの価値に疑念を感じていたこともあり、これを機に資格試験に注力することをやめ、実践的なプロダクト制作などにシフトすることとなった。",
+      en: "On my third attempt at the Applied Information Technology Engineer Examination, I missed passing the afternoon exam by just 1 point. Having already felt doubts about the practical value of IT certification exams, I took this as a turning point to stop focusing on certifications and shift toward building practical products.",
+    },
+  },
+  {
+    period: "2025.05",
+    title: { ja: "産学連携プロジェクトの開始", en: "Started Industry-Academia Project" },
+    description: {
+      ja: "産学連携プロジェクトのリーダーとしてチーム開発を開始。実社会の課題解決に向けたアプローチを実践し、翌年2月の最終発表に向けてプロジェクトを牽引する。",
+      en: "Started team development as the leader of an industry-academia collaboration project. Practiced approaches to solving real-world problems and led the project toward the final presentation in February of the following year.",
     },
   },
   {
@@ -86,11 +104,12 @@ export const EXPERIENCE: ExperienceSource[] = [
   },
   {
     period: "2025.11",
-    title: { ja: "エンジニアインターンの開始", en: "Started Engineering Internship" },
+    title: { ja: "株式会社Yagishにてエンジニアインターンを開始", en: "Started Engineering Internship at Yagish Inc." },
     description: {
-      ja: "実務レベルでの技術力向上を目指し、エンジニアとしてインターンシップを開始。現場でのチーム開発やコード品質、ビジネス視点での開発手法を実践的に吸収する。",
-      en: "Started an internship as an engineer aiming to improve technical skills at a practical level. Practically absorbing team development, code quality, and business-perspective development methodologies on-site.",
+      ja: "実務レベルでの技術力向上を目指し、株式会社Yagishにてエンジニアとしてインターンシップを開始。現場でのチーム開発やコード品質、ビジネス視点での開発手法を実践的に吸収する。",
+      en: "Started an internship as an engineer at Yagish Inc., aiming to improve technical skills at a practical level. Practically absorbing team development, code quality, and business-perspective development methodologies on-site.",
     },
+    url: "https://rirekisho.yagish.jp/",
   },
   {
     period: "2025.12",
@@ -98,6 +117,14 @@ export const EXPERIENCE: ExperienceSource[] = [
     description: {
       ja: "P2Pスペースシェアリングプラットフォーム「Sukima Park」の開発を推進。モダンな技術選定を行い、要件定義からアーキテクチャ設計に深く取り組む。",
       en: "Promoted the development of \"Sukima Park\", a P2P space-sharing platform. Made modern technology selections and deeply engaged in everything from requirements definition to architecture design.",
+    },
+  },
+  {
+    period: "2026.02",
+    title: { ja: "産学連携プロジェクトの完遂", en: "Completed Industry-Academia Project" },
+    description: {
+      ja: "前年5月からリーダーとして牽引してきた産学連携プロジェクトの最終発表を行い、プロジェクトを完遂。チーム開発を通じて実社会の課題解決を最後までやり切る。",
+      en: "Delivered the final presentation and completed the industry-academia collaboration project led since May of the previous year, seeing real-world problem solving through to completion as a team.",
     },
   },
   {
@@ -165,11 +192,36 @@ export const EXPERIENCE: ExperienceSource[] = [
   },
   {
     period: "2026.10",
+    title: { ja: "ポートフォリオの刷新（現ポートフォリオ）", en: "Rebuilt This Portfolio (Current Site)" },
+    description: {
+      ja: "現在ご覧いただいているこのポートフォリオサイトへ全面刷新。「3Dの惑星（v1）」から、Three.js で手続き的に生成した「ロケットのコロニーの中の部屋」へ作り替え、部屋の中央に立って見渡し、PCの画面やホログラムにも本物のHTMLを組み込む構成へと進化させる。",
+      en: "Completely rebuilt this portfolio into the current site you are viewing now. Transitioned from the 3D planet (v1) to a procedurally generated room inside a rocket colony with Three.js, combining a 3D room with real HTML inside the desktop PC and hologram.",
+    },
+  },
+  {
+    period: "2026.10",
     title: { ja: "「漏洩百貨店」の公開", en: "Released \"loo100\"" },
     description: {
       ja: "日本企業の情報漏洩事件を、時系列・原因・対策の3つの視点で解説するセキュリティ学習サイト「漏洩百貨店（loo100）」を公開。Astro で記事を静的に書き出し、匿名コメントの API を Hono で組む。",
       en: "Released \"loo100\", a site for learning security from data breaches at Japanese companies through their timeline, cause and countermeasures. Articles are rendered statically with Astro, and the anonymous comment API is built with Hono.",
     },
     project: "loo100",
+  },
+  {
+    period: "2026.10",
+    title: { ja: "CEATECへの出展", en: "Exhibited at CEATEC" },
+    description: {
+      ja: "日本最大級のIT・エレクトロニクス総合展示会「CEATEC」へ出展。来場者に直接プロダクトを触ってもらい、多様なフィードバックを受けながら自身の制作物を伝える貴重な機会を得る。",
+      en: "Exhibited at CEATEC, one of Japan's largest IT and electronics exhibitions, gaining valuable experience presenting my work directly to visitors and receiving live feedback.",
+    },
+  },
+  {
+    period: "2026.11",
+    title: { ja: "株式会社Yagishを退職", en: "Completed Internship at Yagish Inc." },
+    description: {
+      ja: "約1年間にわたりエンジニアインターンとして携わった株式会社Yagishを退職。実務でのチーム開発やコード品質、ビジネス視点での開発経験を通じて大きく成長し、次の挑戦へと進む。",
+      en: "Left Yagish Inc. after about a year as an engineering intern, having grown significantly through practical team development, code quality, and business-oriented engineering experience.",
+    },
+    url: "https://rirekisho.yagish.jp/",
   },
 ];

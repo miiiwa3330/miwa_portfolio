@@ -5,8 +5,8 @@ import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
 import { Terminal, X } from "lucide-react";
 import { GithubIcon, XIcon } from "@/ui/icons";
-import type { SectionType } from "@/types";
-import { NAV, PAGE_LINKS, leadsToHub, navKey, offHubHref, type NavEntry } from "./nav";
+import CornerBrackets from "@/ui/CornerBrackets";
+import { NAV, PAGE_LINKS, navKey, type NavEntry } from "./nav";
 
 /**
  * The handheld navigation, as a panel over the whole screen.
@@ -23,18 +23,15 @@ import { NAV, PAGE_LINKS, leadsToHub, navKey, offHubHref, type NavEntry } from "
  * under, and the close button lands exactly where that hamburger was, so the
  * button reads as having opened into the panel rather than been replaced.
  *
- * The reading pages open the same panel. There an area is not a camera
- * flight but a link to the hub (`offHubHref`; a plain <a>, see
- * `leadsToHub`), and there is no terminal to open, so both of those props are
- * optional.
+ * The reading pages open the same panel. An area is a link to its own page
+ * either way (2026-10-30); what differs is that there is no terminal to open
+ * there, so that prop is optional.
  */
 
 type Props = {
   isJa: boolean;
   /** The row drawn lit. */
   current: NavEntry | undefined;
-  /** On the hub: an area's row flies the camera instead of linking. */
-  onNavClick?: (id: NonNullable<SectionType>) => void;
   onClose: () => void;
   /** On the hub only — the terminal overlay lives there. */
   openTerminal?: () => void;
@@ -70,8 +67,8 @@ const ROW_VARIANTS: Variants = {
  */
 
 const rowClass = (lit: boolean) =>
-  `group flex items-baseline gap-4 px-2 py-3 [@media(max-height:760px)]:py-1.5 rounded-2xl text-left transition-colors active:bg-white/10 ${
-    lit ? "text-orange-400" : "text-white"
+  `relative group flex items-baseline gap-4 px-3 py-3 [@media(max-height:760px)]:py-1.5 rounded-none text-left transition-colors active:bg-white/10 ${
+    lit ? "text-white bg-white/15 border border-white/30" : "text-white/80 hover:text-white border border-transparent hover:bg-white/5"
   }`;
 
 /**
@@ -82,17 +79,24 @@ const rowClass = (lit: boolean) =>
 function RowFace({ lit, marker, label, other }: { lit: boolean; marker: string; label: string; other: string }) {
   return (
     <>
+      <CornerBrackets
+        size="xs"
+        offset="tight"
+        strokeWidth="2"
+        colorClass="border-white"
+        className="opacity-0 group-hover:opacity-100 transition-opacity"
+      />
       <span
         aria-hidden="true"
-        className={`font-mono text-xs tabular-nums shrink-0 ${lit ? "text-orange-400" : "text-white/35"}`}
+        className={`font-mono text-xs tabular-nums shrink-0 ${lit ? "text-white font-bold" : "text-white/35"}`}
       >
         {marker}
       </span>
       <span className="flex flex-col">
         <span className="text-3xl [@media(max-height:760px)]:text-2xl font-black tracking-tight leading-tight">{label}</span>
         <span
-          className={`text-[11px] [@media(max-height:640px)]:hidden font-bold uppercase tracking-[0.2em] ${
-            lit ? "text-orange-400/70" : "text-white/40"
+          className={`text-[11px] [@media(max-height:640px)]:hidden font-mono font-bold uppercase tracking-[0.2em] ${
+            lit ? "text-white/80" : "text-white/40"
           }`}
         >
           {other}
@@ -105,7 +109,6 @@ function RowFace({ lit, marker, label, other }: { lit: boolean; marker: string; 
 export default function MobileMenu({
   isJa,
   current,
-  onNavClick,
   onClose,
   openTerminal,
 }: Props) {
@@ -149,7 +152,7 @@ export default function MobileMenu({
           <button
             onClick={onClose}
             aria-label={isJa ? "メニューを閉じる" : "Close menu"}
-            className="w-11 h-11 rounded-full flex items-center justify-center bg-[#ea580c] text-white shadow-md active:scale-95 transition-transform"
+            className="w-11 h-11 rounded-none flex items-center justify-center bg-neutral-900 text-white border border-white/20 active:scale-95 transition-transform"
           >
             <X size={20} />
           </button>
@@ -171,33 +174,15 @@ export default function MobileMenu({
               />
             );
 
-            if (onNavClick) {
-              const id = item.section;
-              return (
-                <motion.button
-                  key={navKey(item)}
-                  variants={ROW_VARIANTS}
-                  onClick={() => {
-                    onNavClick(id);
-                    onClose();
-                  }}
-                  aria-current={lit ? "page" : undefined}
-                  className={rowClass(lit)}
-                >
-                  {content}
-                </motion.button>
-              );
-            }
-            const href = offHubHref(item);
             const linkProps = {
-              href,
+              href: item.page,
               onClick: onClose,
               "aria-current": lit ? ("page" as const) : undefined,
               className: rowClass(lit),
             };
             return (
               <motion.div key={navKey(item)} variants={ROW_VARIANTS}>
-                {leadsToHub(href) ? <a {...linkProps}>{content}</a> : <Link {...linkProps}>{content}</Link>}
+                <Link {...linkProps}>{content}</Link>
               </motion.div>
             );
           })}
@@ -237,18 +222,18 @@ export default function MobileMenu({
             target="_blank"
             rel="noopener noreferrer"
             aria-label="GitHub"
-            className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 text-white border border-white/10 active:scale-95 transition-transform"
+            className="w-11 h-11 rounded-none flex items-center justify-center bg-white/5 text-white border border-white/20 active:scale-95 transition-transform"
           >
-            <GithubIcon size={20} />
+            <GithubIcon size={18} />
           </a>
           <a
             href="https://x.com/miiiwa3330"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="X"
-            className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 text-white border border-white/10 active:scale-95 transition-transform"
+            className="w-11 h-11 rounded-none flex items-center justify-center bg-white/5 text-white border border-white/20 active:scale-95 transition-transform"
           >
-            <XIcon size={18} />
+            <XIcon size={16} />
           </a>
           {openTerminal && (
             <button
@@ -257,9 +242,9 @@ export default function MobileMenu({
                 onClose();
               }}
               aria-label="Terminal mode"
-              className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 text-emerald-400 border border-white/10 active:scale-95 transition-transform"
+              className="w-11 h-11 rounded-none flex items-center justify-center bg-white/5 text-emerald-400 border border-white/20 active:scale-95 transition-transform"
             >
-              <Terminal size={20} />
+              <Terminal size={18} />
             </button>
           )}
         </motion.div>

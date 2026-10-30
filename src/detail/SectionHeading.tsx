@@ -24,7 +24,7 @@ const SIZES = {
 export default function SectionHeading({ children, as: Tag = "h2", size = "lg", id, className = "" }: Props) {
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      <span aria-hidden="true" className={`${SIZES[size].bar} shrink-0 bg-orange-600 rounded-full inline-block`} />
+      <span aria-hidden="true" className={`${SIZES[size].bar} shrink-0 bg-orange-600 rounded-none inline-block`} />
       <Tag id={id} className={`${SIZES[size].text} min-w-0 font-black tracking-tight text-gray-950 [overflow-wrap:anywhere]`}>
         {children}
       </Tag>
