@@ -74,6 +74,7 @@ export default function Experience({ onOpenProject }: Props = {}) {
                   } = row;
                   const title = exp.title[language];
                   const project = exp.project ? projects.get(exp.project) : undefined;
+                  const externalUrl = exp.url;
                   const open = project
                     ? () => {
                         if (onOpenProject) {
@@ -82,8 +83,12 @@ export default function Experience({ onOpenProject }: Props = {}) {
                           router.push(productPath(project.slug));
                         }
                       }
-                    : undefined;
-                  const buttonProps = project && open
+                    : externalUrl
+                      ? () => {
+                          window.open(externalUrl, "_blank", "noopener,noreferrer");
+                        }
+                      : undefined;
+                  const buttonProps = open
                     ? {
                         role: "button",
                         tabIndex: 0,
@@ -94,7 +99,9 @@ export default function Experience({ onOpenProject }: Props = {}) {
                             open();
                           }
                         },
-                        "aria-label": `${title} - ${isJa ? `${project.title} の紹介を開く` : `Open ${project.title}`}`,
+                        "aria-label": project
+                          ? `${title} - ${isJa ? `${project.title} の紹介を開く` : `Open ${project.title}`}`
+                          : `${title} - ${externalUrl}`,
                       }
                     : {};
 
@@ -187,6 +194,18 @@ export default function Experience({ onOpenProject }: Props = {}) {
                                   <ChevronRight size={14} className="transition-transform duration-200 group-hover/card:translate-x-0.5" />
                                 </span>
                               </div>
+                            </div>
+                          )}
+
+                          {!project && externalUrl && (
+                            <div className="mt-4 pt-4 border-t border-black/10 flex items-center justify-between gap-3">
+                              <span className="min-w-0 text-xs sm:text-sm font-mono font-bold text-neutral-900 truncate">
+                                {externalUrl}
+                              </span>
+                              <span className="inline-flex items-center gap-0.5 shrink-0 text-xs font-mono font-bold text-neutral-900 group-hover/card:text-[#ea580c] group-hover/card:underline uppercase transition-colors">
+                                {isJa ? "サイトを見る" : "Visit"}
+                                <ChevronRight size={14} className="transition-transform duration-200 group-hover/card:translate-x-0.5" />
+                              </span>
                             </div>
                           )}
                         </div>

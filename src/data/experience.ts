@@ -10,6 +10,8 @@ export type ExperienceSource = {
    * switches to Products with that project's modal already open.
    */
   project?: string;
+  /** Optional external URL opened in a new tab when the milestone is clicked. */
+  url?: string;
 };
 
 /**
@@ -76,6 +78,14 @@ export const EXPERIENCE: ExperienceSource[] = [
     },
   },
   {
+    period: "2025.04",
+    title: { ja: "3度目の応用情報技術者試験に1点差で落ちる", en: "Missed Applied IT Engineer Exam by 1 Point on 3rd Attempt" },
+    description: {
+      ja: "3度目の挑戦となった応用情報技術者試験にて、午後試験わずか1点差で不合格となる。かねてより情報系資格試験そのものの価値に疑念を感じていたこともあり、これを機に資格試験に注力することをやめ、実践的なプロダクト制作などにシフトすることとなった。",
+      en: "On my third attempt at the Applied Information Technology Engineer Examination, I missed passing the afternoon exam by just 1 point. Having already felt doubts about the practical value of IT certification exams, I took this as a turning point to stop focusing on certifications and shift toward building practical products.",
+    },
+  },
+  {
     period: "2025.05",
     title: { ja: "産学連携プロジェクトの開始", en: "Started Industry-Academia Project" },
     description: {
@@ -99,6 +109,7 @@ export const EXPERIENCE: ExperienceSource[] = [
       ja: "実務レベルでの技術力向上を目指し、株式会社Yagishにてエンジニアとしてインターンシップを開始。現場でのチーム開発やコード品質、ビジネス視点での開発手法を実践的に吸収する。",
       en: "Started an internship as an engineer at Yagish Inc., aiming to improve technical skills at a practical level. Practically absorbing team development, code quality, and business-perspective development methodologies on-site.",
     },
+    url: "https://rirekisho.yagish.jp/",
   },
   {
     period: "2025.12",
@@ -211,5 +222,6 @@ export const EXPERIENCE: ExperienceSource[] = [
       ja: "約1年間にわたりエンジニアインターンとして携わった株式会社Yagishを退職。実務でのチーム開発やコード品質、ビジネス視点での開発経験を通じて大きく成長し、次の挑戦へと進む。",
       en: "Left Yagish Inc. after about a year as an engineering intern, having grown significantly through practical team development, code quality, and business-oriented engineering experience.",
     },
+    url: "https://rirekisho.yagish.jp/",
   },
 ];
