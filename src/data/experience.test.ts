@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import { EXPERIENCE } from "./experience";
 import { PROJECTS } from "./projects";
 
-/** "2025" sorts before "2025.01": a bare year stands for the whole year's start. */
-const sortKey = (period: string) => {
-  const [year, month = "0"] = period.split(".");
-  return Number(year) * 100 + Number(month);
+const parsePeriod = (period: string) => {
+  const [year, month] = period.split(".");
+  return {
+    year: Number(year),
+    month: month !== undefined ? Number(month) : undefined,
+  };
 };
 
 describe("the Experience timeline", () => {
@@ -18,9 +20,15 @@ describe("the Experience timeline", () => {
   // Rendered in array order, so an entry filed in the wrong place would sit in
   // the wrong place on screen with nothing to say so.
   it("runs oldest first", () => {
-    const keys = EXPERIENCE.map((e) => sortKey(e.period));
-    for (let i = 1; i < keys.length; i++) {
-      expect(keys[i], `${EXPERIENCE[i].period} ${EXPERIENCE[i].title.ja}`).toBeGreaterThanOrEqual(keys[i - 1]);
+    const parsed = EXPERIENCE.map((e) => parsePeriod(e.period));
+    for (let i = 1; i < parsed.length; i++) {
+      const prev = parsed[i - 1];
+      const curr = parsed[i];
+      const label = `${EXPERIENCE[i].period} ${EXPERIENCE[i].title.ja}`;
+      expect(curr.year, label).toBeGreaterThanOrEqual(prev.year);
+      if (curr.year === prev.year && prev.month !== undefined && curr.month !== undefined) {
+        expect(curr.month, label).toBeGreaterThanOrEqual(prev.month);
+      }
     }
   });
 
