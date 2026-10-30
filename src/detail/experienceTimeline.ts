@@ -49,3 +49,43 @@ export function buildTimelineRows<T extends { period: string }>(
 
 export type ExperienceTimelineRow = TimelineRow<ExperienceSource>;
 
+export type TimelineIndexedRow<T extends { period: string }> = TimelineRow<T> & {
+  index: number;
+  isFirstOverall: boolean;
+  isLastOverall: boolean;
+};
+
+export type TimelineYearGroup<T extends { period: string }> = {
+  year: string;
+  rows: TimelineIndexedRow<T>[];
+};
+
+/**
+ * Groups chronological timeline rows by 4-digit year so each year's label can
+ * act as a `position: sticky` header spanning all milestones of that year.
+ */
+export function groupTimelineByYear<T extends { period: string }>(
+  entries: readonly T[],
+): TimelineYearGroup<T>[] {
+  const flat = buildTimelineRows(entries);
+  const groups: TimelineYearGroup<T>[] = [];
+
+  flat.forEach((row, index) => {
+    const indexed: TimelineIndexedRow<T> = {
+      ...row,
+      index,
+      isFirstOverall: index === 0,
+      isLastOverall: index === flat.length - 1,
+    };
+    const lastGroup = groups[groups.length - 1];
+    if (!lastGroup || lastGroup.year !== row.year) {
+      groups.push({ year: row.year, rows: [indexed] });
+    } else {
+      lastGroup.rows.push(indexed);
+    }
+  });
+
+  return groups;
+}
+
+
