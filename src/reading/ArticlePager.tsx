@@ -3,8 +3,12 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 
 export type PagerTarget = {
   href: string;
-  /** App name (or note title) shown in the slide-out title card and mobile bottom nav. */
+  /** Full title shown in the peeking side card and bottom nav. */
   title: string;
+  /** Subtitle / description for the peeking side card. */
+  subtitle?: string;
+  /** Optional badge text (e.g. date or category). */
+  badge?: string;
 };
 
 type Props = {
@@ -14,13 +18,13 @@ type Props = {
 };
 
 /**
- * Wraps a product or note detail page with prev/next navigation:
+ * Wraps a product or note detail page in a carousel-like layout inspired by
+ * bukka_now's result screen:
  * - Main content sits in the standard `max-w-6xl` container (matching the index).
- * - Floating vermilion round buttons (`#ea580c`) with arrow-only icons sit at the
- *   exact midpoint between the viewport edge (`0`) and the main card edge
- *   (`50% - 34rem`), i.e. `25% - 17rem`.
- * - Hovering a button slides out a title card from the viewport edge right above
- *   the button, displaying only the app/entry name.
+ * - On wide screens, the previous and next entries peek in from the left and
+ *   right viewport edges.
+ * - Floating vermilion round arrow buttons (`#ea580c`) sit at the exact midpoint
+ *   between the viewport edge and the main card edge (`25% - 17rem`).
  */
 export default function ArticlePager({ prev, next, children }: Props) {
   return (
@@ -29,42 +33,72 @@ export default function ArticlePager({ prev, next, children }: Props) {
       <Link
         href={prev.href}
         aria-label={`前の記事: ${prev.title}`}
-        className="peer/prev hidden xl:flex fixed left-[calc(25%-17rem)] -translate-x-1/2 top-1/2 -translate-y-1/2 z-30 w-14 h-14 rounded-full bg-[#ea580c] hover:bg-[#c2410c] text-white shadow-lg items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer select-none"
+        title={prev.title}
+        className="hidden xl:flex fixed left-[calc(25%-17rem)] -translate-x-1/2 top-1/2 -translate-y-1/2 z-30 w-20 h-20 rounded-full bg-[#ea580c] hover:bg-[#c2410c] text-white shadow-lg items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer select-none"
       >
-        <ArrowLeft className="w-6 h-6 stroke-[2.5]" />
+        <ArrowLeft className="w-8 h-8 stroke-[2.5]" />
       </Link>
-
-      {/* Left title card — emerges from the left screen edge above the button on hover */}
-      <div
-        aria-hidden="true"
-        className="hidden xl:block fixed left-0 bottom-[calc(50%+3.25rem)] z-30 w-[calc(50%-35rem)] -translate-x-full opacity-0 peer-hover/prev:translate-x-0 peer-hover/prev:opacity-100 peer-focus-visible/prev:translate-x-0 peer-focus-visible/prev:opacity-100 transition-all duration-300 ease-out pointer-events-none"
-      >
-        <div className="rounded-none bg-white border border-l-0 border-black/25 px-4 py-3.5 shadow-sm">
-          <div className="text-sm font-black text-neutral-950 leading-snug break-words line-clamp-2">
-            {prev.title}
-          </div>
-        </div>
-      </div>
 
       {/* Right floating arrow button — centered between right screen edge and card right edge */}
       <Link
         href={next.href}
         aria-label={`次の記事: ${next.title}`}
-        className="peer/next hidden xl:flex fixed right-[calc(25%-17rem)] translate-x-1/2 top-1/2 -translate-y-1/2 z-30 w-14 h-14 rounded-full bg-[#ea580c] hover:bg-[#c2410c] text-white shadow-lg items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer select-none"
+        title={next.title}
+        className="hidden xl:flex fixed right-[calc(25%-17rem)] translate-x-1/2 top-1/2 -translate-y-1/2 z-30 w-20 h-20 rounded-full bg-[#ea580c] hover:bg-[#c2410c] text-white shadow-lg items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer select-none"
       >
-        <ArrowRight className="w-6 h-6 stroke-[2.5]" />
+        <ArrowRight className="w-8 h-8 stroke-[2.5]" />
       </Link>
 
-      {/* Right title card — emerges from the right screen edge above the button on hover */}
+      {/* Left peeking card on desktop viewports */}
       <div
         aria-hidden="true"
-        className="hidden xl:block fixed right-0 bottom-[calc(50%+3.25rem)] z-30 w-[calc(50%-35rem)] translate-x-full opacity-0 peer-hover/next:translate-x-0 peer-hover/next:opacity-100 peer-focus-visible/next:translate-x-0 peer-focus-visible/next:opacity-100 transition-all duration-300 ease-out pointer-events-none"
+        className="hidden xl:block absolute right-[calc(50%+41rem)] top-4 w-[32rem] pointer-events-auto opacity-60 hover:opacity-95 transition-opacity"
       >
-        <div className="rounded-none bg-white border border-r-0 border-black/25 px-4 py-3.5 shadow-sm text-right">
-          <div className="text-sm font-black text-neutral-950 leading-snug break-words line-clamp-2">
+        <Link
+          href={prev.href}
+          tabIndex={-1}
+          className="block rounded-none bg-white border border-black/25 p-8 shadow-none"
+        >
+          {prev.badge && (
+            <span className="inline-block font-mono text-xs font-bold text-neutral-100 bg-neutral-900 px-2.5 py-0.5 mb-3">
+              {prev.badge}
+            </span>
+          )}
+          <div className="text-xl font-black text-neutral-950 truncate border-b border-black/10 pb-3 mb-4">
+            {prev.title}
+          </div>
+          {prev.subtitle && (
+            <p className="text-sm text-neutral-600 line-clamp-3 leading-relaxed">
+              {prev.subtitle}
+            </p>
+          )}
+        </Link>
+      </div>
+
+      {/* Right peeking card on desktop viewports */}
+      <div
+        aria-hidden="true"
+        className="hidden xl:block absolute left-[calc(50%+41rem)] top-4 w-[32rem] pointer-events-auto opacity-60 hover:opacity-95 transition-opacity"
+      >
+        <Link
+          href={next.href}
+          tabIndex={-1}
+          className="block rounded-none bg-white border border-black/25 p-8 shadow-none"
+        >
+          {next.badge && (
+            <span className="inline-block font-mono text-xs font-bold text-neutral-100 bg-neutral-900 px-2.5 py-0.5 mb-3">
+              {next.badge}
+            </span>
+          )}
+          <div className="text-xl font-black text-neutral-950 truncate border-b border-black/10 pb-3 mb-4">
             {next.title}
           </div>
-        </div>
+          {next.subtitle && (
+            <p className="text-sm text-neutral-600 line-clamp-3 leading-relaxed">
+              {next.subtitle}
+            </p>
+          )}
+        </Link>
       </div>
 
       {/* Main container — exact same width (`max-w-6xl`) as the index pages */}
@@ -81,6 +115,7 @@ export default function ArticlePager({ prev, next, children }: Props) {
               <ArrowLeft size={18} />
             </span>
             <div className="min-w-0">
+              <div className="text-[10px] font-mono font-bold uppercase text-neutral-500">Prev</div>
               <div className="text-xs sm:text-sm font-bold text-neutral-900 truncate">{prev.title}</div>
             </div>
           </Link>
@@ -90,6 +125,7 @@ export default function ArticlePager({ prev, next, children }: Props) {
             className="flex items-center justify-end gap-2.5 p-3.5 sm:p-4 bg-white border border-black/20 hover:border-black transition-colors text-right"
           >
             <div className="min-w-0">
+              <div className="text-[10px] font-mono font-bold uppercase text-neutral-500">Next</div>
               <div className="text-xs sm:text-sm font-bold text-neutral-900 truncate">{next.title}</div>
             </div>
             <span className="w-9 h-9 rounded-full bg-[#ea580c] text-white flex items-center justify-center shrink-0">

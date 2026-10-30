@@ -46,10 +46,14 @@ export default async function NotePage({ params }: Params) {
       prev={{
         href: notePath(prev.slug),
         title: prev.title,
+        subtitle: prev.description,
+        badge: formatNoteDate(prev.date),
       }}
       next={{
         href: notePath(next.slug),
         title: next.title,
+        subtitle: next.description,
+        badge: formatNoteDate(next.date),
       }}
     >
       <article>

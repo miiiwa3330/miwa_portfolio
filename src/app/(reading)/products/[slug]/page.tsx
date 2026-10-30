@@ -58,10 +58,14 @@ export default async function ProductPage({ params }: Params) {
       prev={{
         href: productPath(prev.slug),
         title: prev.title,
+        subtitle: prev.description,
+        badge: prev.category.toUpperCase(),
       }}
       next={{
         href: productPath(next.slug),
         title: next.title,
+        subtitle: next.description,
+        badge: next.category.toUpperCase(),
       }}
     >
       <article>
@@ -69,7 +73,7 @@ export default async function ProductPage({ params }: Params) {
         <header className="relative group rounded-none bg-white border border-black/20 overflow-hidden">
           <CornerBrackets size="lg" offset="card" strokeWidth="2" colorClass="border-neutral-900" />
 
-          <div className="relative h-64 sm:h-80 md:h-[26rem] w-full border-b border-black/10 bg-neutral-100">
+          <div className="relative h-64 sm:h-80 md:h-[26rem] w-full bg-neutral-100">
             <Image
               src={project.image}
               alt={`${project.title} の画面`}
