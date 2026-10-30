@@ -1,0 +1,104 @@
+In October 2026, this portfolio underwent a comprehensive architectural transformation: shifting away from a floating voxel planet in outer space (v1) to an intimate indoor chamber constructed inside a repurposed rocket colony (the current build).
+
+In this updated world, visitors stand directly in the center of the room, looking around at five distinct living zones. Resting on the central workstation is a triple-monitor desktop PC, and across in the self-introduction zone hovers a glowing 3D hologram of text.
+
+When designing the PC monitors and hologram, I established a strict rule: never draw UI screens or text as flat textures (images). Baking text into textures renders it completely invisible to search engines and screen readers—reversing the hard-won lessons from my earlier Google AdSense rejection for "low-value content."
+
+To keep the content readable, I chose a hybrid approach: **placing real HTML elements (DOM) inside the Three.js 3D scene using `CSS3DRenderer` (or `@react-three/drei`'s `<Html transform>`)**.
+
+However, the moment I wired this up, I ran into one of the most baffling bugs in modern front-end graphics: **the monitors looked pixel-perfect inside the 3D space, yet mouse clicks, hovers, and hit-tests failed across 100% of the surface**.
+
+Here is how I isolated this invisible hit-testing failure using a grid of `document.elementFromPoint` probes, alongside the architectural mechanics of "punch-through occlusion masking" in 3D WebGL.
+
+## Overlaying Holograms vs. Punching Holes for Monitors
+
+When embedding HTML into 3D environments, there are two fundamentally opposing ways to layer WebGL canvases and DOM elements.
+
+| Technique | Layering Strategy | Advantage | Disadvantage | Used In |
+| --- | --- | --- | --- | --- |
+| **Foreground Overlay** | Position CSS3D HTML directly **over** the WebGL canvas | Effortless semi-transparency and glowing effects | Cannot be occluded by foreground 3D props; always renders in front | **Self-Intro Hologram** |
+| **Punch-Through Occlusion Masking** | Place HTML **behind** the WebGL canvas, masking the 3D screen geometry to render as transparent | Naturally occluded by foreground 3D props (chair backs, desk lamps) | Requires clean background color staging behind the transparent hole | **Desktop PC Monitors** |
+
+The self-introduction hologram is an ethereal projection of light floating in mid-air, making a simple foreground overlay ideal.
+
+However, using foreground overlay for the desktop PC created an absurd visual artifact: the monitors' taskbar and windows floated on top of the office chair backrest (height: 0.98 m) sitting in front of the desk. The monitors belong physically behind the furniture.
+
+To fix this, I implemented **punch-through occlusion masking** for the monitors.
+
+The interactive HTML container is placed in a layer *behind* the WebGL canvas. On the Three.js side, the display surface geometry is assigned a material with `transparent: true`, `blending: THREE.NoBlending`, and an alpha value of `0.0`. This instructs the WebGL fragment shader to overwrite the monitor glass pixels with total transparency, effectively cutting a physical window in the canvas that reveals the underlying HTML screen underneath.
+
+Foreground objects like the chair's backrest or desk lamp are rendered with standard opaque shaders on top, establishing physically accurate occlusion.
+
+## The Bug: Visually Flawless, Physically Unclickable
+
+With punch-through masking in place, the visuals were breathtaking. The monitors displayed an OS-style desktop with folders, text files, and windows with functional close buttons.
+
+Yet when I hovered my mouse over an icon, the cursor never changed to a pointer. Clicking, double-clicking, and dragging fired zero events.
+
+Inspecting elements via Chrome DevTools confirmed that `<div class="desktop-icon">` existed at those screen coordinates. Yet every pointer interaction vanished into thin air.
+
+I initially suspected standard CSS3D pitfalls:
+
+- Was `pointer-events: none` failing to pass through the foreground canvas?
+- Was the extreme 0.0005× scaling factor (`scale(0.0005)`) breaking floating-point hit-testing?
+- Was the placement of the `perspective()` transform function mathematically flawed?
+
+Toggling each of these made zero difference.
+
+## Diagnostic Grid Probing with `elementFromPoint`
+
+Abandoning guesswork, I wrote a diagnostic script to physically map where Chrome's rendering engine (Blink) registered interactive hits across the screen:
+
+```javascript
+// Scan the viewport in a 20px grid and count hit elements
+let hitCount = 0;
+const step = 20;
+for (let x = 0; x < window.innerWidth; x += step) {
+  for (let y = 0; y < window.innerHeight; y += step) {
+    const el = document.elementFromPoint(x, y);
+    if (el && el.closest('.css3d-screen')) {
+      hitCount++;
+    }
+  }
+}
+console.log(`Hit test count: ${hitCount}`);
+```
+
+Running this probe while systematically adding and removing suspicious CSS properties exposed the failure pattern:
+
+| Probe State | Hit Count | Deduction |
+| --- | --- | --- |
+| Initial state (full 3D transforms) | **0 hits** | Hit-testing completely dead |
+| Changed scale from 0.0005 to 1.0 | **0 hits** | Not caused by floating-point precision |
+| Swapped `perspective` function for property | **0 hits** | Not a syntax nuance |
+| Stripped all 3D transforms entirely | **485 hits** | Flat DOM registers hits perfectly |
+| Stripped only the perspective transform | **134 hits** | Tilted 3D surfaces register partial hits without perspective |
+| **Removed `overflow: hidden` from 3D ancestor** | **252 hits** | **Hit-testing instantly revived!** |
+
+The culprit was **`overflow: hidden`**, which had been placed on the monitor container to clip content to rounded corners.
+
+## The Chrome Engine Trap: 3D Transforms + `overflow: hidden` Equals Zero Hits
+
+In Chrome's Blink engine, when an element subtree undergoing 3D transformation (`transform-style: preserve-3d` combined with rotations) contains `overflow: hidden`, **the planar projection calculation bugs out, causing the compositor to evaluate the interactive hit-test bounds as an empty set (zero area)**.
+
+Even though the GPU renders the transformed pixels accurately on screen, the CPU-side hit-testing pipeline concludes that the clipped 3D geometry occupies zero screen space.
+
+The fix was straightforward: remove `overflow: hidden` from all 3D container elements, allowing the physical 3D bezel mesh of the monitor to naturally crop any overflowing HTML edges (internal scroll containers with `overflow-y: auto` remained completely harmless).
+
+The moment `overflow: hidden` was removed, the probe count jumped from 0 to 252 hits. The cursor snapped to a pointer over folder icons, and double-clicking smoothly opened windows inside the 3D world.
+
+## Seeing the Entire Room: Stereographic Fisheye Projection
+
+With real HTML screens embedded in the 3D room, one last optical challenge remained: providing a comprehensive view of the chamber from a fixed center viewpoint.
+
+At a standard field of view (67° horizontal), visitors could only see one wall at a time. To provide an expansive overview, I added a third camera zoom level: a **161° ultra-wide fisheye mode**.
+
+However, cranking Three.js's standard `PerspectiveCamera` to 161° squashes the central desk into a speck while drastically stretching furniture at the edges. Standard rectilinear perspective projects onto a flat plane, causing tangential magnification to diverge toward infinity as FOV approaches 180°.
+
+To overcome this, I implemented **stereographic fisheye projection ($r \propto \tan(\theta/2)$)** rendered through a `CubeCamera` and a custom post-processing shader.
+
+Because stereographic projection is conformal (preserving angles locally), **furniture at the periphery retains its true proportions and shapes without unnatural horizontal stretching**, even at 161°. The central monitors remain readable while the workbench on the left and the exhibition shelves on the right fit into a single panorama.
+
+Because this fisheye shader distorts the entire viewport in post-processing, interactive CSS3D elements are temporarily hidden in fisheye mode and replaced with lightweight texture baked stills, restoring full live DOM interaction when zooming into standard and close-up views.
+
+Visual craftsmanship and technical accessibility do not have to be mutually exclusive. By diagnosing the points of friction where 3D graphics meet the standard DOM, this rocket colony bedroom became more than a visual spectacle—it became a real, readable, and interactive home for my work.

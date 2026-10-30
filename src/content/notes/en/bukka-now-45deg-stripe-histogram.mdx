@@ -1,0 +1,89 @@
+I built a web app called `bukka_now` where players type in the prices of everyday groceries and household goods on a calculator ten-key to test how closely their price sense matches reality.
+
+The centerpiece of the results screen is a **10-bin horizontal distribution histogram** for every question. For a prompt like "How much is a carton of 10 eggs?", the bars show the bell-shaped distribution of what everyone guessed, highlighted with three key markers: **Your Answer**, **Official Price (Truth)**, and **Everyone's Median / Average**.
+
+However, once I rendered this chart in the browser, I ran straight into two visual traps. First, **what was supposed to be a distribution histogram looked like an incomplete progress gauge**. Second, whenever Your Answer, the Official Price, and the Median landed in the exact same price bin, **blending their colors with a gradient turned the bar into an unreadable muddy smear**.
+
+## Throwing Away a "Snack Box" Theme in One Day for Cream Paper and Solid Ink
+
+Before diving into the histogram bars, it helps to explain how the overall visual identity of `bukka_now` arrived here.
+
+I actually redesigned the entire UI twice after the initial prototype. The very first version was a dark-navy fintech dashboard with neon accents. Next, I built a playful theme inspired by "Tabekko Doubutsu" animal-biscuit boxes—complete with biscuit-shaped selector chips and golden medal emblems. Yet as soon as I tried displaying ten question cards, each holding five summary metrics and a 10-bin chart, the biscuit decorations overwhelmed the screen. Surrounded by heavy borders, shadows, and badges, the actual numbers and bars became impossible to scan. Even though I had spent a full day building that theme, I threw it away the same day.
+
+In its place, I pivoted to a clean, minimal illustration aesthetic inspired by the work and website of illustrator unpis: **warm cream paper (`#faf6ef` / `#f5f2eb`), uniform 2px solid black ink outlines (`#1e1e1e` / `#191919`), flat offset shadows, and zero emojis**.
+
+On top of that paper-and-ink canvas, I assigned a distinct, high-contrast flat color to each of the three protagonists on every question card:
+
+| Metric | Role | Assigned Color |
+| --- | --- | --- |
+| Your Answer | The price you typed on the ten-key | Vibrant Orange-Red / Poppy Red (`#ff4d00` / `#eb4634`) |
+| Official Price (Truth) | Public price from the Retail Price Survey | Bold Blue / Leaf Green (`#2563eb` / `#25a25a`) |
+| Everyone's Guess (Median / Avg) | Aggregated crowd estimate | Emerald Green / Mustard (`#10b981` / `#f5a623`) |
+| Other Price Bins | Ordinary bins containing none of the three | Warm Greige that recedes into the paper (`#d4cfc5`) |
+
+By strictly matching the text color of the numbers in the top stats grid to the fill color of the bars below, a player's eye immediately knows which bar is theirs and which is the truth without stopping to read a legend.
+
+## Trap 1: A Full-Width Gray Background Track Made a 25% Mode Look Like an Incomplete Gauge
+
+When I first built the 10-bin horizontal chart, I reflexively placed a `100%`-width light-gray background track behind every single bar—the classic CSS pattern where a `.bar-track { width: 100%; }` wraps a percentage-width `.bar-fill`.
+
+On screen, it looked completely wrong.
+
+When human guesses spread across 10 price bins, even the most popular bin (the mode) typically captures only **25% to 30%** of total responses. When a 25% bar sits inside a full-width 100% gray frame, the human eye refuses to read the 10 rows together as a vertical bell curve. Instead, it reads each row individually as **an incomplete progress bar that is only a quarter full**. Every single bin looked sparse and unfinished, hiding the shape of the crowd distribution.
+
+The fix came down to two changes:
+
+1. **Delete the gray background track entirely.** Each bar now grows directly out from the right edge of its price label as a standalone shape bordered in solid black ink
+2. **Scale the mode bin to 82% of the plot width (78–82% after removing inline text badges) and scale all other bins relative to the mode.** Rather than stopping a 25% peak a quarter of the way across the card, the tallest bin stretches boldly across the chart area, and the remaining nine bins scale proportionally against it
+
+The instant I removed the background frame and rescaled the mode, ten "unfinished progress gauges" snapped into an unmistakable bell-shaped distribution histogram. I also stripped out the wordy inline text badges (`You (250 yen)`, `Truth (258 yen)`) that had been hanging off the ends of the bars, leaving only a crisp percentage figure (`28%`) at each bar's tip.
+
+## Trap 2: What Happens When Answer, Truth, and Median Collide in the Same Bin?
+
+Once the 10-bin histogram read cleanly, the next problem surfaced immediately.
+
+In a price-guessing game, the sharper a player's intuition is, the more often **Your Answer** lands in the exact same price bin as the **Official Price** or **Everyone's Guess**. If the official price of an item is 175 yen, the crowd median is 168 yen, and you guess 170 yen, all three markers fall into the single `160–180 yen` bar. There are three ways for two markers to collide (You + Truth, You + Crowd, Truth + Crowd) and one way for all three to collide at once.
+
+If a bar can only hold a single solid color, one marker has to overwrite the others. Painting the bar in "Your Answer" red makes the Official Price vanish from the chart; painting it in the "Official Price" color makes your own guess disappear.
+
+My first instinct was to blend the colliding colors with a smooth CSS `linear-gradient(90deg, ...)`. I tried it, and on a 13px-tall horizontal bar, **a smooth gradient turned the colors into a muddy intermediate smear where you could no longer tell which two (or three) colors were mixed.** Worse, when all three markers collided, the bar looked like a blurry rainbow smudge that clashed badly with the crisp 2px ink-and-paper aesthetic of the rest of the page.
+
+So I threw out smooth gradients and replaced them with **hard-edged 45-degree diagonal stripes** using `repeating-linear-gradient(45deg, ...)`. By placing adjacent color stops at the exact same pixel offset, each stripe switches colors with a razor-sharp edge:
+
+```css
+/* Collision: Your Answer + Official Price (6px 45-degree stripes) */
+.stripe-user-actual {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-user) 0px,
+    var(--color-user) 6px,
+    var(--color-actual) 6px,
+    var(--color-actual) 12px
+  );
+}
+
+/* Collision: All 3 markers in the same bin (5px 3-color stripes) */
+.stripe-all {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-user) 0px,
+    var(--color-user) 5px,
+    var(--color-actual) 5px,
+    var(--color-actual) 10px,
+    var(--color-avg) 10px,
+    var(--color-avg) 15px
+  );
+}
+```
+
+With 6px diagonal bands (5px when all three collide), **every original color stays 100% pure and recognizable**, even inside a compact 13px-tall bar. Better still, against a stack of solid-colored bars, a diagonal candy-striped bar stands out with its own visual texture—turning the moment when your guess nails the official price (or matches the crowd) into a celebratory badge right inside the chart.
+
+| Collision Case | Smooth Gradient (Rejected) | 45-Degree Hard Stripes (Adopted) |
+| --- | --- | --- |
+| 2 markers collide (3 pairs) | Blends into a muddy middle hue that matches neither swatch in the legend | Crisp 6px diagonal bands where both legend colors remain unmistakably distinct |
+| All 3 markers collide | Collapses into an unreadable smear inside a 13px bar | 5px three-color bands that immediately signal "all three landed right here" |
+| Fit with ink-and-paper UI | Soft color transitions clash with flat ink linework | Sharp color boundaries sit naturally inside a 1.5px solid black border |
+
+I exported the same `getBarColorClass` helper and shared those CSS stripe rules with the second slide of the results view—the 1-yen-unit vertical plot chart—so both charts speak the exact same visual language.
+
+When multiple meanings collide on a single UI element, blending them together with a gradient actually destroys information. Refusing to blend—and instead laying the colors side by side with hard 45-degree edges—became my favorite small CSS detail in `bukka_now`.

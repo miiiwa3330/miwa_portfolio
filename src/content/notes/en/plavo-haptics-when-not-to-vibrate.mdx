@@ -1,0 +1,83 @@
+I am currently building an iOS app called Plavo, where pointing your phone's camera at a houseplant makes a speech bubble rise up from the foliage, allowing the plant to talk to you in its own words. The app follows a strict foundational principle: never display sensor metrics on screen as raw numbers. The moment soil moisture is shown as "28%", the plant stops feeling like a living companion and begins looking like an IoT sensor terminal under management.
+
+To communicate the plant's state without numbers, I initially relied on two channels: visuals (the color of the leaves and ambient scene tone) and words (lines spoken inside speech bubbles). As a third channel, I introduced tactile feedback felt directly in the user's hands—haptics.
+
+However, adding haptics simply because "it feels nice" quickly leads to design bankruptcy. If pressing every button returns a generic vibration, the feedback communicates nothing more than "you tapped the glass," and tactile cues in crucial moments become completely drowned out.
+
+In Plavo, the haptics design started with deciding **where not to vibrate** just as much as deciding where and what to buzz.
+
+## Why Haptics Instead of Sound?
+
+Choosing haptics as the third communication channel was driven by three practical constraints unique to AR and live exhibition venues:
+
+1. **Conveying thirst and hydration without raw numbers.** Visuals and dialogue live inside the rectangular screen, but vibrations travel straight into the palms holding the device. By contrasting a crisp, dry vibration with a soft, ascending pulse like water being drawn into stems, the plant's condition can be felt tactilely without ever displaying percentages.
+2. **Exhibition floors are too noisy for sound.** Plavo is designed with trade shows and interactive galleries in mind. The venue is crowded with chatter and ambient noise, and visitors rarely wear headphones. Sound effects from the phone's speakers are easily buried, not to mention the risk of audio sessions conflicting with ARKit's camera pipeline. Tactile sensations reach the user's hand reliably no matter how loud the room gets.
+3. **Holding an AR device one-handed leaves no room to scan screen edges.** When holding up a phone with one hand to inspect a plant, the user's gaze is locked onto the center of the screen, focusing on the plant and its dialogue. When they snap a photo or slide their thumb along the arc at the bottom to switch targets, they lack the visual attention to check whether icons at the edge flashed. A crisp physical click in the hand assures them instantly that the photo was captured or the switch was registered without tearing their eyes away from the plant.
+
+## Strictly Separating Mechanical Feedback from Plant Presence
+
+The very first rule established during design was to divide all haptics into **two distinct layers and never mix them**.
+
+| Layer | What It Communicates | Underlying API | Vocabulary Examples |
+| --- | --- | --- | --- |
+| **Mechanical Feedback** | The UI successfully received an input | Standard iOS APIs (`UIFeedbackGenerator` / `.sensoryFeedback`) | `tick` (graduation step), `tap` (light response), `snap` (confirmation), `thud` (destructive delete), `caution` (limit/warning) |
+| **Plant Presence** | The plant is physically present, and how it feels | Core Haptics custom waveforms | `pulse` (detection), `meet` (naming / welcoming), `thirst` (dryness), `drink` (watering), `unease` (overwatering), `farewell` (parting) |
+
+Why must these two layers never mix? If a custom plant waveform is triggered when a user taps a UI button, a mechanical response masquerades as a living creature's pulse, leaving the user confused about what they just interacted with.
+
+Conversely, if the standard iOS success vibration (`.success`) fires the moment a newly discovered plant is welcomed and given a name, that magical first encounter instantly degrades into **a bureaucratic confirmation that a registration form has been submitted**. Because Plavo is built around treating plant adoption as an encounter rather than a database entry, the feedback must not be a machine's task-complete chime; it requires a warm, 0.35-second custom waveform that swells from gentle to full (`meet`).
+
+Additionally, I established the constraint that **plant presence haptics must only fire when the plant speaks**. The vibration acts strictly as an accompaniment to dialogue, ensuring the phone never suddenly buzzes in isolation without any corresponding visual change on screen.
+
+## Banning the Standard `error` and `success` Vibrations
+
+The standard iOS notification generator (`UINotificationFeedbackGenerator`) provides `.error` (a triple buzz) and `.success` (a brisk completion cadence). In standard mobile apps, these are the first tools engineers reach for. In Plavo, both are **strictly forbidden**.
+
+### Never Ring an Error for Something That Isn't a Failure (H-2)
+
+When someone points the camera around and no plant has been detected yet, the bubble says, "I can't seem to find anyone." When they open the gallery before taking any shots, it says, "No photos here yet."
+
+If the system triggered the standard `.error` triple buzz in these moments, the device would effectively be scolding the visitor: "Your action was invalid." But neither the absence of a plant in frame nor an empty album is the user's fault. Only when a real limit is hit (such as "You've already saved 10 diary entries today") or when sensor pairing fails does the app produce a `caution` feedback using `.warning`. The harsh `.error` pattern was banned from the entire codebase.
+
+### Deletion Is a Farewell, Not a Successful Task (H-5)
+
+Similarly, firing `.success` when deleting a registered plant was discarded. If a plant were merely a database row, "record deleted successfully" might make sense. But in an app that treats plants as living companions, hearing a cheerful success chime upon deleting a plant feels remarkably callous.
+
+For irreversible reset operations, the app returns a heavy, dull `thud` (`.impact(.heavy)`). When the user executes a plant deletion, the phone plays `farewell`: a unique 0.9-second waveform that decays into silence. The tactile feedback represents parting ways, not finishing chores.
+
+## Documenting "Where Not to Vibrate" in the Specification
+
+While drafting the haptics specification, I realized an uncomfortable truth: **if an interaction isn't explicitly documented as "do not vibrate," someone—including future me—will eventually add a vibration there on a whim.** Therefore, in every screen's assignment table, I documented the decisions and rationales for where vibrations are withheld with the exact same rigor as where they fire.
+
+| Interaction | Decision | Rationale |
+| --- | --- | --- |
+| Losing plant tracking in AR | **Silent** | Silence itself signals that the presence is gone. It is not an error |
+| Moisture enters `comfortable` or `drying` | **Silent** | Adding tactile noise to a tranquil state disrupts peace. Vibrating at `drying` (20–30%) blurs the distinction with critical `thirst` |
+| Dragging the demo moisture mock slider | **Silent** | Moving the slider rapidly traverses multiple moisture bands; buzzing would trigger erratic alternating bursts of `thirst` and `drink` |
+| Pressing the "Water Plant" button | **Silent on tap** | Vibrating immediately upon the tap would cause a double-buzz with the `drink` pattern fired an instant later when moisture enters `watered` and dialogue updates |
+| Tapping the "Talk" button | **Mechanical `tap` only (no `meet`)** | Playing `meet` on "Nice to meet you" and playing it again seconds later when confirming a name confuses which moment actually finalized the adoption |
+| Switching bottom tab bar tabs | **Silent** | Deferred to standard OS behavior; avoid layering unnecessary semantic meaning |
+| Swiping between photos in full-screen gallery | **Silent** | Full-screen viewing is meant for quiet appreciation; buzzing on every swipe distracts the eye |
+
+Furthermore, I refrained from mapping soil moisture percentages directly to vibration intensity on a continuous scale. Plavo categorizes plant moisture into six discrete bands, which are adequately expressed through tiered steps. If intensity were continuously modulated, running the demo mock (which dries out at 0.6% per second) would cause constant micro-fluctuations in tactile pressure within the same band, obscuring actual state changes. By adhering strictly to **"vibrate only at the instant of transition, and stay silent while the state persists (H-1),"** each individual buzz retains its narrative weight.
+
+## The Implementation Trap: Instantiating Generators on Every Arc Step
+
+When translating these guidelines into Swift code (`Haptics.swift`), I discovered a critical bug lurking in the existing arc UI.
+
+At the bottom of the camera viewfinder sits a fan-shaped selector arc (`PlantSelectorArc`) for switching between tracked plants. As the user's thumb rotates the arc, a `tick` feedback clicks whenever a plant name passes the apex. The original code looked like this:
+
+```swift
+// Before: A new instance was created every single time a name passed the apex
+UISelectionFeedbackGenerator().selectionChanged()
+```
+
+Classes in the `UIFeedbackGenerator` family require a tiny warmup window for the underlying Taptic Engine to wake up from its low-power sleep state. The recommended pattern is to call `prepare()` shortly before triggering feedback to prime the hardware.
+
+By instantiating a new `UISelectionFeedbackGenerator()` and immediately calling `selectionChanged()`, the initial tick was noticeably delayed. Worse, when spinning the arc quickly, the motor couldn't keep pace with the continuous allocations, resulting in dropped or sluggish clicks.
+
+I refactored the lifecycle so that a single `Haptics.Ticker` instance is created and held the moment rotation begins (`beginTurning`). Each tick queues a `prepare()` for the subsequent graduation, and the instance is discarded only when the thumb lifts (`onEnded`). For the Core Haptics engine (`CHHapticEngine`), rather than keeping it awake at app launch, it is warmed up specifically when opening the camera view (`Haptics.prepare()`). The very first plant haptic fired is the `pulse` (a subtle 0.2-second double-beat) upon detecting a plant in the camera feed; if the engine were sleeping, this critical opening moment would arrive with an awkward delay.
+
+At the same time, setting `engine.playsHapticsOnly = true` prevented audio session contention. When returning from the background, entering Low Power Mode, or running on unsupported hardware, the system automatically falls back from custom Core Haptics patterns to standard `UIFeedbackGenerator` equivalents (such as mapping `meet` to `snap`), and silently skips execution if haptics are completely disabled, guaranteeing that the core AR experience never crashes or stalls.
+
+In haptics, holding back is far harder than piling on. By deciding where not to vibrate first, that subtle "thump-thump" upon discovering a leafy companion in the camera viewfinder remains a vivid, living presence in the palm of your hand, even in the middle of a bustling exhibition hall.

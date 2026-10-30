@@ -1,0 +1,87 @@
+I am currently building an iOS app called gashaan in Unity 6 (Universal Render Pipeline), designed around a single visceral premise: tapping your screen to shatter a wine glass sitting on a pedestal into smithereens.
+
+The heart of this product experience is pure physical synchronization: the exact millisecond a finger taps the glass, the visuals, PhysX dynamics, breaking audio, and sharp Core Haptics impulses must fire in lockstep without a single frame of latency. During early architecture design, we established a foundational principle (`D10`): **never introduce an artificial completion lock. Even when an item is 99% obliterated, tapping the remaining shards must recursively fracture them further.**
+
+After the first strike shatters the glass, tapping a jagged fragment resting on the booth floor should snap it into even smaller pieces. The player should be able to keep striking until reaching a natural lower bound where further subdivision feels like pounding sand (10 mm for thin bowl shards, 16 mm for solid stem chunks).
+
+However, when trying to implement this with real 3D meshes (a photorealistic wine glass modeled with true glass thickness in Blender), following the standard game dev textbook pattern of **"nested pre-fractured trees"** collapsed under the weight of roughly 3,200 nodes on physical iPhones. Here is the story of how that architecture failed, and how I pivoted to a hybrid pipeline combining **a single-layer pre-fractured shell with runtime planar mesh slicing** (`D15`).
+
+## Why I Attempted a Deep Pre-Fracture Tree
+
+In the earliest prototype (Step A), I procedurally generated wine glasses as mathematical bodies of revolution in code, slicing polygons at runtime in parametric coordinates (angle and height). While this allowed infinite runtime splitting, the visual fidelity suffered severely: the shards looked like paper-thin polygonal shells with zero physical volume.
+
+To evoke the tactile crunch of real glass, the bowl must be a curved 1.5 mm shell, while the stem and base must be solid volumes. The fractured edges must have true thickness, bevels, and refractive specular highlights, which requires shipping real authored FBX assets. In Step B, I turned to the standard game industry workflow: using Blender's Cell Fracture (Voronoi decomposition) to pre-fracture the glass into an FBX asset, swapping the intact model for the fractured hierarchy on impact.
+
+The challenge was recursive subdivision: how to bake multi-tier fragmentation down to 10 mm shards into a pre-computed FBX hierarchy.
+
+My initial attempt was top-down recursion: taking the largest shards from Tier 1 (~30 pieces) and running Cell Fracture recursively inside Blender, nesting Tier 2 and Tier 3 child fragments within the FBX hierarchy. This immediately hit two brick walls:
+
+1. **Voronoi seed points missed the thin, curved bowl shell.** When generating random seed points within a shard's bounding box, over 90% of the box's volume is empty air because of the bowl's curved thin walls. Voronoi seeds frequently missed the solid glass geometry entirely, generating large 20–35 mm shards that stubbornly refused to break when tapped.
+2. **Recursive Cell Fracture operators took 4 hours and crashed Blender.** When I switched seed generation to surface-triangle sampling (area-weighted with blue-noise distribution) to eliminate missed hits, Blender was forced to execute thousands of boolean operations across an unbounded tree. Generating a single variant took over an hour before crashing with out-of-memory errors.
+
+## The 3,200-Node Single-Pass Fracture and the 7 mm Seam Dilemma
+
+To drastically reduce generation times, I redesigned the pipeline from scratch. Instead of fracturing top-down from parent to child, I implemented a bottom-up algorithm: **(1) Shatter the glass down to its finest 10 mm shards (leaf nodes) using ~2,500 seed points in a single pass; (2) Compute adjacency graphs between fragments using a KD-Tree; (3) Spatially cluster leaf nodes and weld internal cross-sections together to synthesize parent nodes up to Tier 1.**
+
+This slashed variant generation time from over an hour to roughly 5 minutes, producing clean FBX hierarchies containing 4 to 5 tiers and 3,100 to 3,250 total nodes.
+
+However, the moment I built this to an iPhone and tapped the glass, a glaring visual defect appeared: **the entire surface of large shards was covered in an ugly, dense 7 mm grid of fine seams.**
+
+The culprit was the fundamental nature of boolean Voronoi fracturing. Once a continuous, smooth glass surface is sliced into 2,500 tiny leaf fragments, its topology is chopped into irregular 7 mm triangles. Even if you subsequently weld internal vertices and snap them back to the original smooth surface, the underlying tessellation remains permanently broken. Glass shaders—relying on high-frequency screen-space refraction and intense specular highlights—amplified these microscopic normal discrepancies into visible hairline cracks across every shard.
+
+### Testing "Genuine" Tier 1 Shells and Hitting an Architectural Dead End
+
+To eliminate the surface seams, I introduced another refinement: "Make the ~34 Tier 1 (L1) shards genuine meshes carved directly from the intact glass rather than welded leaves, and nest welded clusters exclusively underneath as L2+ children."
+
+The first impact looked dramatically cleaner, and FBX file sizes dropped from 24 MB to 15 MB. But physical device testing immediately delivered two fatal verdicts:
+
+| Device Issue | Root Cause |
+| --- | --- |
+| **Issue A: Severe frame-drop lag on the first strike** | Calling `Instantiate(variantPrefab)` forced Unity to instantiate **~3,200 GameObjects and MeshFilters in a single frame**, uncompressing a 15 MB prefab into memory |
+| **Issue B: Beautiful on Hit 1, but the 7 mm seams returned on Hit 2** | Because only the L1 shell was genuine, tapping a fallen shard to reveal its L2 welded children instantly exposed the same ugly 7 mm seams on the second strike |
+
+This was a total architectural dead end. **Issue A and Issue B were mutually exclusive.** If I tried to fix Issue B by keeping L2 and L3 intermediate nodes as genuine, non-welded meshes, the vertex count and hierarchy depth would explode, multiplying the instantiation lag of Issue A and exhausting mobile VRAM.
+
+Shipping deep pre-fractured hierarchies wholesale was fundamentally incompatible with mobile hardware constraints and realistic glass shading.
+
+## The Pivot: Single-Layer Shell + Runtime Planar Slicing (`D15`)
+
+Stepping back, I recognized a fundamental behavioral truth.
+
+A player never smashes all 30 shards from the first strike down to 3,200 bits of dust. Across an entire session, they only follow up on **a handful of fragments—perhaps 5 to 10 pieces** that land conveniently in front of the camera. Yet the old architecture paid the upfront performance penalty of instantiating 3,200 future shards for the 90% of pieces that were never touched.
+
+This prompted a complete pivot to the **hybrid architecture (`D15`)**:
+
+| Phase | Architecture | Why It Wins |
+| --- | --- | --- |
+| **Hit 1 (Intact to Shattered)** | **Single-Tier Pre-Fracture (Genuine L1)** | Tuned fragment sizing across 5 impact height zones, perfectly smooth outer glass, and only 22–34 shards. FBX sizes dropped to **0.97 MB** (1/15th of the old 15 MB asset), completely eliminating `Instantiate` lag |
+| **Hit 2+ (Follow-up Shard Hits)** | **Runtime Planar Slicing (`MeshSlicer`) on the Struck Shard Only** | Slices only the single tapped shard (hundreds to thousands of triangles) into 2 to 4 pieces along a random cut plane. Execution takes **sub-millisecond compute**, and welded seams are mathematically nonexistent |
+
+Under this hybrid model, massive batch instantiation never occurs. Because Unity does not automatically garbage-collect procedurally generated meshes, sliced fragments carry an `_ownsMesh` flag and explicitly invoke `Destroy` in `OnDestroy` to prevent memory leaks.
+
+### Building `MeshSlicer`: Slicing Real Meshes with Solid Caps
+
+To enable runtime fracturing, I wrote `MeshSlicer.cs` from scratch to split solid 3D meshes along an arbitrary plane.
+
+The algorithm handles two critical tasks: First, based on the Sutherland-Hodgman clipping approach, triangles intersecting the plane are clipped on both sides, with intersection coordinates and surface normals linearly interpolated while preserving vertex winding order. Second—and most crucially—**simply clipping leaves a hollow shell; the algorithm traverses the intersection edge segments to construct closed polygon loops, fan-triangulating from the loop centroid to create a solid end-cap**.
+
+These cap triangles are assigned to a secondary submesh slot with dedicated cross-section materials. This ensures that procedurally sliced shards maintain believable glass thickness, matching the full-resolution screen-space refraction (`_CameraOpaqueTexture`) and premultiplied alpha specular highlights of the original model.
+
+Before building to iOS, I wrote a headless batch verification test (`BuildScript.TestSlice`) that executed **1,105 consecutive recursive slices** across 33 shards. It confirmed zero NaNs, zero degenerate triangles, zero crashes, and 100% valid cap generation before deploying to iPhones.
+
+The outcome was transformative: Blender variant export dropped from 250 seconds to **3 seconds**, FBX asset sizes fell from 15 MB to **0.97 MB**, and first-strike lag vanished completely. Follow-up strikes produce crisp, seam-free shards that shatter cleanly down to the 10 mm floor.
+
+## Two-Mode Camera and the Re-Center Safety Net (`D8`)
+
+Once shards could be smashed down to tiny pebbles, players naturally wanted to lean in and inspect fragments from different angles. This called for two-finger pinch-to-zoom and two-finger orbit controls.
+
+However, gashaan is built around a non-negotiable onboarding tenet: **"Launch the app and instantly smash the item in front of you with zero tutorial or cognitive load."** Exposing free camera controls by default broke this flow: accidental multi-touch while tapping rapidly rotated the view, and users lost track of the glass off-screen.
+
+To protect the core gameplay loop, I split the camera into **two distinct modes (`D8`)**:
+
+1. **Item Focus Fixed Mode (Default at Launch)**: The camera automatically tracks the item. Users can focus entirely on smashing the screen without worrying about camera mechanics.
+2. **Free View Mode**: Tapping the on-screen "Focus Button" toggles free view, unlocking two-finger pinch-to-zoom and rotational orbit.
+
+Most importantly, if a player ever disorients themselves in Free View, **a single tap on the Focus Button re-centers the item in frame, while a double tap immediately locks the camera back into Fixed Focus Mode**.
+
+The shift from 3,200-node pre-fractured trees to single-layer shells with runtime slicing shares the exact same philosophy as this two-mode camera. Rather than burdening the entire system with a monolithic architecture from the first second, **you design the opening tap (Hit 1, launch screen) to be as lightweight and frictionless as humanly possible, while provisioning deeper complexity on-demand**. That clear separation is the surest way to preserve tactile delight within the uncompromising constraints of mobile hardware.

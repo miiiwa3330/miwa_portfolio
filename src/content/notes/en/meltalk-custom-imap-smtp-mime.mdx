@@ -1,0 +1,105 @@
+While developing MelTalk—a mobile client built with React Native (Expo) that displays formal business emails as casual chat bubbles and converts short chat replies into polished business prose—I ran straight into a foundational communications design dilemma.
+
+When building an email app, the unavoidable first question is: which email providers do you support, and how do you connect to them? Initially, I prioritized Gmail due to its overwhelming market share, planning to integrate directly with Google's official REST-based Gmail API.
+
+However, deep technical due diligence revealed a daunting reality: **for an independent developer, publicly releasing an app that reads and sends email via the Gmail API involves an insurmountable gauntlet of review procedures and third-party security audits.**
+
+Confronted with this bureaucratic wall, I paused Gmail integration and pivoted toward a provider anyone can use without waiting for Google's blessing: **iCloud Mail via standard IMAP and SMTP**. Furthermore, because no production-ready IMAP/SMTP libraries existed for modern React Native, **I ended up writing an IMAP client, SMTP client, and MIME parser from scratch in pure TypeScript over low-level raw TCP sockets**. Here is the story of that protocol journey.
+
+## Google's "Restricted Scopes" and the Annual Security Audit Wall
+
+To fetch message lists, read email bodies, and transmit replies via the Gmail API, an application must request OAuth scopes such as `gmail.readonly` and `gmail.send` within Google Cloud.
+
+Under Google's API Services User Data Policy, these scopes are classified as **"Restricted Scopes"**—the highest, most sensitive risk tier.
+
+Investigating the compliance requirements brought several harsh realities to light:
+
+1. **Unverified apps are capped at 100 test users.** Without completing Google's OAuth app verification, only Google accounts explicitly whitelisted by the developer (up to 100 people) can sign in. Distributing the app publicly on the App Store is impossible.
+2. **Public release requires manual review by Google auditors.** Developers must submit video walkthroughs demonstrating user consent flows, justify every requested scope, and undergo rigorous privacy policy audits.
+3. **Transmitting data to backend servers triggers annual third-party audits.** If user email data is stored on or proxied through an external server, the app must undergo an annual security assessment conducted by an authorized third-party lab (CASA Tier 2 / Tier 3). These audits cost thousands to tens of thousands of dollars annually—an impossible recurring expense for an independent creator.
+
+While an app processing all email strictly on-device without external server relays can potentially qualify for audit exemptions, Google's verification process still consumes weeks or months.
+
+"I refused to let development stall for months while waiting on an API review before a single user could try the app."
+
+Consequently, under decision `D-025`, **I deprioritized direct Gmail API integration and pivoted to an open, review-free standard: connecting to iCloud Mail using IMAP and SMTP**.
+
+## Why Build IMAP, SMTP, and MIME from Scratch in TypeScript?
+
+For cross-platform development across iOS and Android, I chose Expo and React Native. However, surveying the React Native ecosystem revealed an absence of robust, maintained IMAP or SMTP client libraries.
+
+Node.js boasts battle-tested packages like `node-imap` and `nodemailer`, but they depend heavily on Node's native `net` module, Node streams, and C++ bindings. They cannot run inside React Native's lightweight JavaScript engine (Hermes).
+
+A few community wrappers existed, but they were unmaintained for years and lacked support for iOS background task execution or opportunistic encryption upgrades via STARTTLS.
+
+This led to decision `D-026`:
+
+**"Delegate only raw OS-level TCP socket networking to `react-native-tcp-socket`, and implement the IMAP client, SMTP client, and MIME parser in pure TypeScript from scratch."**
+
+Decoupling protocol logic from React Native native modules and implementing it as pure TypeScript string and byte-array operations meant I could run automated tests instantly on my development machine using Jest. Without spinning up live servers, I could verify 100% RFC compliance using in-memory mock sockets.
+
+## Japanese Business Email: A Baptism of Character Encoding Traps
+
+Implementing the email stack quickly exposed me to the historical quirks of legacy email specifications.
+
+### 1. Hermes `TextDecoder` Does Not Support `ISO-2022-JP`
+
+Japanese corporate email historically relies on 7-bit JIS encoding (`ISO-2022-JP`) and `Shift_JIS`.
+
+Modern desktop browsers natively decode `ISO-2022-JP` via the standard `TextDecoder` Web API. However, **the embedded `TextDecoder` inside React Native's Hermes engine only supports UTF-8 and a handful of basic encodings**. Invoking `new TextDecoder('iso-2022-jp')` throws an unhandled runtime exception and crashes Hermes.
+
+To handle legacy encodings safely, I integrated the `encoding-japanese` library, routing raw `Uint8Array` byte streams from the socket through an automatic encoding detection and transcoding pipeline before converting them into UTF-8 JavaScript strings.
+
+### 2. The 75-Character RFC 2047 Limit and 45-Byte Subject Folding
+
+When transmitting emails, Japanese subject lines must be Base64-encoded according to RFC 2047, taking the form `=?UTF-8?B?...?=`.
+
+However, RFC 2047 strictly dictates that **an individual encoded-word must not exceed 75 characters, including delimiters**. If a long Japanese subject is Base64-encoded into a single uninterrupted line, legacy mail servers and clients like Microsoft Outlook truncate or corrupt the header.
+
+Because Base64 maps 3 bytes of raw input to 4 ASCII characters, keeping the encoded output under 75 characters requires **splitting the original UTF-8 string into segments of at most 45 bytes before folding**.
+
+Naively slicing by character count (`string.length`) can sever a 3-byte Japanese multibyte character in half, introducing fatal decoding corruption. I implemented an encoding-aware header generator that calculates byte lengths on clean character boundaries, Base64-encodes each chunk, and joins them with CRLF whitespace (`\r\n `). The `References` header was similarly formatted, folding message IDs across multiple lines to preserve thread context without exceeding length limits.
+
+### 3. RFC 2231 Attachment Filenames
+
+Handling attachments presented another challenge. When attachment filenames are long or contain non-ASCII characters, modern clients encode headers according to RFC 2231:
+
+```
+Content-Disposition: attachment;
+ filename*0*=UTF-8''%E5%AD%A6%E7%94%9F%E8%A8%BC;
+ filename*1*=%2Epdf
+```
+
+The MIME parser (`mime.ts`) was engineered to assemble these numbered, percent-encoded parameter segments sequentially, decoding them to restore the original filename (`学生証.pdf`). Across 17 sample `.eml` test files, the custom TypeScript parser produced outputs that matched the industry-standard `postal-mime` library byte-for-byte.
+
+## Low-Level Socket Pitfalls: STARTTLS Double-Reception and Greeting Races
+
+Writing the IMAP/SMTP transport layers directly over raw TCP sockets uncovered subtle network programming traps.
+
+### The STARTTLS Dual-Listener Leak
+
+Secure email communication typically uses either implicit TLS on dedicated ports (e.g., port 993) or an explicit STARTTLS command issued over a plaintext socket to upgrade the connection in-place.
+
+When upgrading a connection via `react-native-tcp-socket`, I encountered a perplexing bug: **incoming packets from the server were delivered twice to my application callbacks**.
+
+Tracing the library's internal lifecycle revealed the cause: when promoting an existing plaintext socket to a TLS socket, `react-native-tcp-socket` left the original plaintext `data` listener active alongside the newly attached TLS `data` listener. Every incoming packet traversed both listeners simultaneously.
+
+I resolved this by inserting an explicit handoff layer: the moment STARTTLS negotiation succeeds, the plaintext `data` listener is cleanly deregistered before attaching the TLS listener.
+
+### Mock Server Greeting Race Conditions
+
+To run fast automated integration tests, I built a mock IMAP server using Node.js's native `net` module, emulating literal strings, `+` continuation requests, and STARTTLS handshakes.
+
+During rapid test runs, tests occasionally hung and timed out. Profiling the packet timings revealed a race condition: **the mock server emitted its `* OK IMAP4rev1 Server Ready` greeting before the client socket finished registering its `on('data')` event listener**.
+
+Because the opening greeting was missed by milliseconds, the client waited indefinitely for the server's welcome banner, while the server waited indefinitely for client commands—a classic deadlock. Buffering the opening banner on the mock server until the client signaled readiness eliminated the race, yielding 100% test reliability across hundreds of continuous runs.
+
+## The Architectural Strength of Owning the Protocol
+
+By authoring our own protocol stack, MelTalk achieved full read and send capabilities with iCloud Mail accounts using Apple app-specific passwords without waiting for Google review approval. User credentials are encrypted inside the iOS Keychain (Secure Enclave) and never leave the physical device.
+
+Had the product been tethered exclusively to the proprietary Gmail API from day one, we would have been at the mercy of Google's shifting platform policies and verification timelines.
+
+By implementing foundational, decades-old open standards—IMAP, SMTP, and MIME—we achieved an architecture where **we can account for every single byte of encrypted traffic entering and leaving the device**.
+
+For an application entrusted with sensitive personal communications, that verifiable autonomy is the strongest security guarantee an engineer can provide.

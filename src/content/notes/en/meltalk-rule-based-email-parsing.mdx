@@ -1,0 +1,98 @@
+I am building a mobile app called MelTalk that displays business email threads as chat bubbles, much like LINE or Slack. Its core concept is "Melting emails into conversations."
+
+If you drop a raw Japanese business email straight into a chat bubble, every single message starts with a ritual greeting ("Thank you as always for your continued support. This is Sato from Example Corp.") and ends with a ten-line signature block followed by a towering stack of quoted replies. Scrolling past all of that just to read a two-line reply doesn't feel like chat at all. Inside each bubble, I wanted to show **only the newly written body of that specific message**.
+
+However, once I actually built a rule-based engine to strip out greetings, signatures, and quoted history, I stepped into several traps I never saw coming while writing the rules. On the 12 sample emails I used while crafting the rules, my parser scored a perfect 12 out of 12. Yet the moment I tested it—without tweaking a single rule—against 5 brand-new "unseen" emails written afterward, it failed on 3 of them.
+
+## Why On-Device Rules Instead of an LLM?
+
+Today, the obvious question is: "Why not just pass the email body to a Large Language Model (LLM) and ask it to extract the main point?" Reading context and telling polite boilerplate apart from the actual message is exactly what LLMs excel at.
+
+Even so, I had clear reasons for insisting on **on-device, rule-based parsing** for incoming emails in MelTalk:
+
+1. **I don't want to send other people's private emails to external servers.** Job-hunting results, university lab discussions, and client messages are packed with sensitive personal information. By keeping no backend server and running all parsing locally on the device, MelTalk can honestly guarantee that received email bodies never leave your phone
+2. **The Gmail verification hurdle.** Gmail's email-reading OAuth scopes are classified by Google as "Restricted Scopes." If your architecture transmits or stores email data on external servers, passing Google's verification for public release becomes vastly harder and can require an annual third-party security assessment. Keeping all processing on-device was a practical requirement for shipping as an solo student developer
+3. **Instant rendering without network latency.** When a user opens their inbox, turning dozens of emails into chat bubbles has to happen in a few milliseconds on the device, not after waiting on external API calls
+
+So I started by building a prototype to find out just how far regular expressions and line-by-line heuristics could go in peeling away greetings, signatures, and quotes.
+
+## 12-for-12 on Training Samples—Because "The Rules Knew the Answers"
+
+For the prototype, I prepared fictional `.eml` files covering job hunting, university research labs, internships, newsletters, and automated notifications, and ran them through a four-stage pipeline:
+
+| Stage | Initial Rule |
+| --- | --- |
+| Classification (Dialog vs. Notification) | If headers like `List-Unsubscribe` or `Auto-Submitted` exist, mark as Notification. If it is a reply (`In-Reply-To` present), mark as Dialog. If the sender is `noreply@` or `info@`, mark as Notification |
+| Quoted History Removal | Strip everything from quote headers onward (Gmail's `On Wed, Oct 14, 2026...`, Outlook's `From: / Sent:`, or `-----Original Message-----`). For lines starting with `>`, keep them as inline replies only if normal body lines appear after them |
+| Signature Removal | (1) Strip 12 or fewer lines following a divider (`-- ` or horizontal rule). (2) Strip sequences of short, unpunctuated lines following a closing greeting. (3) Strip trailing clusters of contact-like lines (`TEL`, postal mark `〒`, `Corp.`, etc.) |
+| Greeting & Salutation Removal | Strip addressee lines ending with honorifics (`-sama`, `-sensei`, `-san`) within the first 4 lines. Strip opening boilerplate greetings and self-introductions ("This is Suzuki.") sentence by sentence |
+
+When I ran this pipeline against the initial 12 sample emails, **all 12 succeeded**, leaving behind the exact body text a human reader would want inside a chat bubble.
+
+For a brief moment I thought, "Rule-based parsing is plenty!"—before catching myself. Those 12 emails were **the exact samples I had been staring at while writing and adjusting the rules**. Getting 12 out of 12 on them was like getting a perfect score on an exam while holding the answer key; it told me nothing about how the parser would handle emails in the wild.
+
+So, without touching a single line of parser code, I wrote 5 brand-new "unseen" holdout emails and ran them through. The results were sobering.
+
+| Sample | Type | Result | What Happened |
+| --- | --- | --- | --- |
+| 01–12 | Rule-building set | 12 / 12 Passed | Reference only—the rules already knew the answers |
+| 13 HTML-only email | Unseen | Passed | Worked normally once HTML tags were stripped |
+| 14 Formal phrasing variant | Unseen | **Failed (Left too much)** | Phrasings like "平素より" and "お願い申し上げます" weren't in the greeting dictionary, leaving greetings in the bubble |
+| 15 Bullet list right above signature | Unseen | **Failed (Over-trimmed body)** | Mistook unpunctuated bullet points (`・Student ID`, etc.) for part of the signature and **deleted the actual body text** |
+| 16 Wrapped quote header | Unseen | Passed (By luck) | Quote detection failed on the line break, but a signature rule (`@` in line) happened to catch it |
+| 17 First human email from `info@` | Unseen | **Failed (Misclassified)** | Not a reply, so it judged solely by `info@` and buried a human message in the Notifications tab |
+
+Out of 5 unseen emails, only 1 genuinely succeeded (another passed by sheer coincidence), meaning **3 out of 5 failed**.
+
+## Not All Failures Are Equal: Polite Noise vs. Deleted Body Text
+
+Looking at those three failures side by side made something click: **the cost of an error in email parsing is deeply asymmetric.**
+
+When Sample 14 failed to strip an unfamiliar polite greeting, the chat bubble simply looked a little wordy. The user can skim past one extra line in half a second, and zero information is lost.
+
+Sample 15, however, was catastrophic. The email was a message from an interviewer listing what to bring on the day of the interview:
+
+```text
+Please bring the following items with you on the day:
+・Student ID card
+・Writing utensils
+・Resume (with photo attached)
+
+Best regards,
+Sato, HR Department, Sample Corp.
+```
+
+My second signature rule said: "If a cluster of short lines without periods (`。`) appears near the end of the email, treat it as a department/name signature block and strip it." That rule swept up the bulleted list (`・Student ID card`...) right above the closing greeting and **erased the most important part of the email**. Worse yet, because the intro sentence ("Please bring the following items...") survived, my fallback safety check—which restores the original text if stripping leaves the body completely empty—didn't trigger. A user looking only at the chat bubble wouldn't even know a checklist had existed.
+
+Sample 17 was just as dangerous. Small companies, university labs, and event organizers frequently send personal, hand-written first emails from a shared `info@` address. Tossing those into the "Automated Notifications" tab based solely on the username prefix means the user might completely miss an important first contact.
+
+## Putting "Keep When in Doubt" at the Center of the Design
+
+Those failures changed my entire design philosophy for MelTalk's parser—from "how cleanly can we strip boilerplate?" to **"never over-trim the body, and never bury a human message (keep when in doubt)."** I codified this as non-functional requirement `NF-03` and implemented four concrete safeguards:
+
+1. **Anchor signatures strictly to contact-info lines.** I removed the rule that stripped arbitrary short, unpunctuated lines. Instead, a divider-less signature only starts where explicit contact patterns appear (`TEL`, `〒`, email addresses, URLs, `株式会社`, `University`, etc.). Bullet lines above it (`・`, `-`, or numbered items) are never absorbed into a signature
+2. **Collapse removed text instead of hiding it forever.** Whenever greetings or signatures are stripped, the bubble shows a small toggle to expand them inline, alongside a one-tap button to view the raw original email. The UI never pretends that stripped text didn't exist
+3. **Never classify as a notification based on `info@` alone.** Only explicit no-reply addresses (`noreply@`, `do-not-reply@`) or bulk headers (`List-Unsubscribe`) trigger automatic notification routing. I also added manual per-sender reclassification (`F-07`) so that if a user moves a thread once, MelTalk remembers that sender forever
+4. **Reuse stripped signatures to infer sender affiliation and honorifics.** Instead of throwing away the parsed signature, MelTalk feeds it into the "Smart Send" reply composer. If the sender's signature contains a company or university name, it pre-fills the formal addressee header; if their title includes "Professor" or "Associate Professor" (`准教授`), MelTalk automatically switches their honorific from `-sama` to `-sensei` (`先生`)
+
+While auditing `cleanBody.ts`, I also spotted three more edge cases that risked over-trimming—body text framed inside decorative ASCII rules, postscripts (`P.S.`) written below the closing greeting, and single-line messages ending with a name (`...san`). I wrote reproduction tests (`overtrim-test.ts`) first, verified the failures, and fixed all three.
+
+## Holdout Round 2: Verifying Zero Over-Trimming on 7 New Unseen Emails
+
+After implementing those safeguards, all 5 of the original unseen samples (13–17) passed. **But the moment I used those 5 emails to design the fixes, they stopped being "unseen."**
+
+To keep myself honest, I added a strict rule (`D-023`) to the project's development guide: whenever we measure parser accuracy, we must write a fresh batch of holdout emails without looking at the rules, run the test suite once without adjustments, and record the raw score before fixing anything. Here is the result of Holdout Batch 2 (`holdout2-test.ts`, 7 new emails):
+
+| Sample | Result | Details |
+| --- | --- | --- |
+| H1 English email | Failed (Left too much) | `Hi Taro,`, `Best regards,`, and the English signature remained |
+| H2 Body ending with a URL | Passed | Kept the trailing URL as body text instead of mistaking it for a signature |
+| H3 Greeting joined to self-intro with a comma | Failed (Left too much) | Single-sentence greeting + intro remained |
+| H4 Stacked modifiers in closing greeting | Failed (Left too much) | "引き続きどうぞよろしくお願いいたします。" missed the dictionary and remained |
+| H5 "Sent from my iPhone" | Failed (Left too much) | Mobile device auto-signature remained |
+| H6 Single-paragraph email ending with first name | Failed (Left too much) | Trailing first name remained |
+| H7 Closing phrase with comma before signature | Passed | Cleanly stripped both the closing phrase and the signature |
+
+The raw score was 2 out of 7 passing and 5 failing. On paper that still looks rough—but the crucial metric for MelTalk was that **all 5 failures erred on the side of leaving polite text in, and 0 out of 7 deleted actual body text.** After logging the benchmark result, I added support for all five patterns and locked them in as regression tests.
+
+In rule-based text processing, staring only at the samples you used while writing the code creates a dangerous illusion that your parser is 100% accurate. Keeping a separate set of unseen holdout tests—and deciding upfront which direction your rules are allowed to fail in—turned out to be the most reliable lifeline I could have built.

@@ -1,0 +1,88 @@
+When I opened my ephemeral location-sharing service "imadoko" in production, the map background across every single screen—the top page, the host view, and the guest view—was completely plastered with watermark tiles reading `API KEY REQUIRED carto.com/basemaps/apikey`.
+
+Checking recent code diffs, TypeScript type checks, and Supabase RPCs turned up nothing unusual. Even more confusingly, the map tile server itself was returning `HTTP 200 OK`. Because of that, my initial automated checks misclassified tile delivery as healthy, costing extra time before I pinpointed what was actually happening.
+
+That investigation ended up triggering a comprehensive overhaul: replacing our map tile provider, cleaning out unused database columns from an earlier prototype, and resolving a fundamental security and privacy dilemma around Row Level Security (RLS) and Supabase Realtime in a service built on the promise of "15-minute ephemeral location sharing."
+
+## A Tile Server Returning Watermark Images with HTTP 200
+
+The first trap I fell into was relying solely on HTTP status codes to verify an external dependency.
+
+In imadoko, we used CARTO raster tiles (such as Voyager) as our Leaflet basemap, referencing their keyless URLs. Following a policy change on CARTO's side, requests without an API key stopped returning map tiles—but instead of responding with an HTTP `401` or `403` error, the server continued returning `200 OK` with a roughly 2 KB PNG image containing the `"API KEY REQUIRED"` watermark.
+
+| What We Checked | Result Returned | Actual State |
+| --- | --- | --- |
+| HTTP request to tile URL | `200 OK` (`image/png`) | Looked healthy (false positive) |
+| Response byte size | ~2 KB (identical across coordinates) | Far smaller than a normal map tile |
+| Visual image content | `"API KEY REQUIRED"` watermark PNG | Completely unusable as a map |
+
+Assuming that a `200 OK` in the network tab or a basic health check means the integration is working makes it easy to miss silent breaking changes like this. For any feature that fetches external images or tiles, verification has to inspect payload size and actual visual output—not just the status code. I recorded this lesson as an explicit project decision (`D-008`).
+
+## Evaluating Map Alternatives and Switching to GSI Tiles
+
+With CARTO no longer viable without an API key, I evaluated alternative map sources that could run reliably without keys or complex billing. Three candidates stood out:
+
+| Candidate | Characteristics & Setup | Decision & Reasoning |
+| --- | --- | --- |
+| Japan-wide PMTiles (OSM-derived) | ~1.59 GB single file supporting HTTP Range requests, bundled with MapLibre styles | **Deferred**. The author asks users not to hotlink the PMTiles URL directly, requiring self-hosting on Cloudflare R2, migrating from Leaflet to MapLibre, and clarifying commercial/advertising license terms |
+| Overture Maps | Structured geospatial dataset | **Rejected**. It is a raw dataset rather than a tile-serving endpoint, making it far too indirect for a simple basemap replacement |
+| GSI (Geospatial Information Authority of Japan) Tiles | Raster tiles (`Pale` and `Standard`) served free of charge with no API key required | **Adopted**. Drop-in URL replacement on our existing Leaflet setup, restoring the map immediately |
+
+The community-maintained Japan-wide PMTiles archive (~1.59 GB) by K. Sakanoshita was technically appealing, but imadoko currently renders maps with Leaflet. Migrating the entire map layer to MapLibre GL JS and standing up R2 hosting in the middle of an outage would have introduced too much risk. Instead, I removed CARTO from `MAP_STYLES`, added GSI Standard (`標準地図`), and set the default basemap across `ShareMap` to GSI Pale (`淡色地図`), whose muted palette makes participant pins and labels stand out clearly (`D-007`).
+
+## Cleaning Up Four Unused Location Columns
+
+While fixing the map, I audited our database schema and noticed four legacy columns still sitting on the `sessions` table: `lat`, `lng`, `guest_lat`, and `guest_lng`.
+
+The earliest version of imadoko was designed around a strict one-to-one model (one host and one guest), storing coordinates directly on the session row. After we moved to a multi-participant architecture backed by `session_participants`, those four columns became dead weight—and cross-checking the codebase against production data revealed three distinct problems:
+
+1. **`guest_lat` and `guest_lng` had zero references anywhere.** Every single row in both development and production held `NULL`.
+2. **`lat` and `lng` were write-only.** Every time the host moved, the `update_location` RPC dutifully updated `sessions.lat` and `sessions.lng`, even though the frontend never read them.
+3. **Every host movement spammed all participants with useless Realtime events.** Because `update_location` touched the `sessions` row whenever the host moved, Supabase Realtime broadcast a `sessions` `UPDATE` event to every connected browser—even though clients only subscribed to `sessions` to detect when a session ended (`status = 'stopped'`).
+
+I updated the `update_location` RPC so that it no longer writes coordinates to `sessions` (updating `status` only when mismatched, and returning `false` if the participant ID does not exist), then dropped all four columns. That left `sessions` with just three clean columns: `id`, `created_at`, and `status` (`D-010`).
+
+## The Dilemma Between "URL as the Key" and Supabase Realtime
+
+Auditing the data model exposed a much deeper security and privacy issue (`O-001` / `D-011`).
+
+imadoko is built around two core promises: first, no user accounts are required—anyone who knows the shared URL (a 10-character `nanoid` with $64^{10} \approx 2^{60}$ possibilities) can view the session; second, all participant location data is automatically deleted by `pg_cron` 15 minutes after updates stop (`D-003`). On the write path, everything was locked down behind `SECURITY DEFINER` RPCs and per-participant secret tokens.
+
+On the read path, however, we relied on Supabase Realtime's `postgres_changes` to stream participant movements and joins/leaves. Because `postgres_changes` enforces table-level RLS and `SELECT` permissions, both `sessions` and `session_participants` had public `SELECT` enabled for the `anon` role.
+
+That meant anyone could extract the public `anon` key from the browser bundle and query the Supabase REST API or GraphQL schema (`pg_graphql`) directly—**listing every active session and the live coordinates of every participant without knowing a single session ID**. Yet if we simply revoked `SELECT` on those tables, `postgres_changes` would stop delivering events altogether, breaking live location sync.
+
+## Comparing Four Architectures—and the "3-Day Retention" Trap
+
+We needed a design that simultaneously guaranteed three properties: users without the session ID cannot read anything, coordinates are never stored longer than 15 minutes, and guests can join instantly by opening a link without signing up. I evaluated four architectural options (`A` through `D`):
+
+| Option | How It Works | Cross-Session Snooping | Location Retention | Verdict & Rationale |
+| --- | --- | --- | --- | --- |
+| **Option A** | Restrict reads to a `SECURITY DEFINER` RPC. Send coordinates via browser-to-browser Broadcast, send empty "change signals" from DB triggers, and revoke table `SELECT` | **Impossible** (Session ID acts as capability key) | **15 minutes** (Client broadcasts are ephemeral) | **Adopted (`D-011`)**. Closes table enumeration while keeping $O(N)$ traffic and zero-login UX |
+| **Option B** | Broadcast all changes—including coordinates—from DB triggers via `realtime.send` | Impossible | **3 days** (Stored in `realtime.messages`) | **Rejected**. Database Broadcast persists payloads in `realtime.messages` for 3 days, violating our 15-minute deletion policy (`D-003`) |
+| **Option C** | Enable Supabase Anonymous Sign-Ins + private channels + RLS per user | Impossible | 15 minutes | **Deferred**. Default IP rate limits (30/hour) and CAPTCHA requirements break the frictionless shared-link experience on shared Wi-Fi or mobile carriers |
+| **Option D** | Keep public `SELECT` open, relying on 15-minute deletion | **Possible** (Full table dump via REST/GraphQL) | 15 minutes | **Rejected**. Violates the fundamental expectation that only link holders can see locations |
+
+The biggest surprise during this analysis was the **retention behavior of Option B (`realtime.send`)**. At first glance, broadcasting everything from a PostgreSQL trigger looked ideal because clients could never spoof another participant's coordinates over the wire. However, digging into Supabase's documentation and function definitions revealed that Database Broadcast works by inserting rows into `realtime.messages`, where **payloads are retained for 3 days**. Putting latitude, longitude, or participant names into `realtime.send` would silently keep a 3-day location history in the database, directly contradicting our 15-minute deletion guarantee (`D-003`).
+
+Option C (Anonymous Sign-Ins) also looked tempting because it requires no visible login form. Yet inspecting the Supabase Auth docs showed that it creates persistent rows in `auth.users` with no automatic cleanup, strongly recommends invisible CAPTCHAs, and enforces a default rate limit of 30 sign-ins per hour per IP address. If a group of friends at a crowded station or event venue opened a shared link over the same carrier NAT or Wi-Fi network, guests could be locked out immediately.
+
+## The Hybrid Synchronization Architecture We Built
+
+Under **Option A**, we split data reading, high-frequency coordinate streaming, and low-frequency membership changes into three distinct channels:
+
+1. **A dedicated snapshot RPC (`get_session_snapshot`).** We revoked `SELECT` on all public tables from `anon` and `authenticated`, replacing direct table queries with a `SECURITY DEFINER` function `get_session_snapshot(p_session_id)`. Only callers providing the exact 10-character session ID receive the session's `status`, `server_time` (used to calibrate client clock skew for staleness checks), and `participants` array.
+2. **Ephemeral browser-to-browser Broadcast for coordinates.** After a participant's browser succeeds in calling `update_location`, it broadcasts a `location` event directly over the public Realtime channel `session:{id}`. Because client-originated broadcasts never touch `realtime.messages`, no coordinate history lingers beyond the 15-minute table cleanup.
+3. **Zero-payload "change signals" from DB triggers for joins, leaves, renames, and stops.** When a row in `session_participants` is inserted, deleted, or renamed—or when `sessions.status` changes—a `notify_session_change` trigger calls `realtime.send` with only the event kind (e.g., `{ kind: "session_participants:delete" }`) and **never includes coordinates or names**. Furthermore, because anyone who knows the topic name could send a forged message on a public channel, clients treat `changed` events strictly as an untrusted wake-up signal: instead of trusting the payload, the browser calls `get_session_snapshot` (debounced within a 300 ms window) to fetch the authoritative state from the database.
+
+After deploying the updated Next.js 16 client, we executed the lockdown migration: dropping the public `SELECT` policies, revoking `SELECT`, removing the tables from the `supabase_realtime` publication, and even revoking default `TRUNCATE`, `REFERENCES`, and `TRIGGER` privileges (`D-016`). Immediately afterward, anonymous REST and GraphQL queries against all three tables returned `permission denied (401)` and disappeared from the GraphQL schema introspection.
+
+## Discovering the "5-Second Cold-Start Blind Spot" in Production Testing
+
+While running end-to-end verification against production using headless Chrome controlled via CDP (simulating three concurrent browsers with `Emulation.setGeolocationOverride`), 2 out of 13 test runs failed a specific check: when a guest closed their tab, their pin did not disappear from the host's map within 20 seconds (`O-008`).
+
+Database logs confirmed that the leave API succeeded and `notify_session_change` wrote the `session_participants:delete` signal into `realtime.messages`—and in isolated benchmarks, 20 out of 20 signals arrived in ~0.1 seconds. Cross-referencing Supabase's Realtime server logs finally explained the mystery: **when a Realtime tenant has no connected users for about 10 minutes, it suspends; upon the next WebSocket connection, waking the tenant and starting the PostgreSQL replication stream (`Starting stream replication...`) takes roughly 5 seconds**. Any database trigger signals emitted during that initial 5-second warm-up window are never broadcast to connected clients, even though browser-to-browser `location` broadcasts work immediately.
+
+To close that cold-start gap without relying on the 30-second periodic poll, we added scheduled snapshot refetches at **7 seconds and 15 seconds after channel connection** (`D-015`). When we intentionally let the Realtime tenant go idle for 11 minutes and re-ran the test, we confirmed in the logs that 4 database signals fired during the first 5 seconds were dropped by the waking replication stream—yet the host still reflected the guest's departure in just 3.9 seconds thanks to the post-connect refetch.
+
+What started as a puzzling `"API KEY REQUIRED"` watermark behind an `HTTP 200` status code ended up driving a thorough cleanup of our map layer, database schema, and real-time security model—leaving imadoko far more resilient and faithful to its privacy guarantees.

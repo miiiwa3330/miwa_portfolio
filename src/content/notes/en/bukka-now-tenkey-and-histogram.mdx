@@ -1,0 +1,96 @@
+While developing bukka_now—a web quiz where you type the prices of groceries, daily goods, dining, and public services to measure which percentile your price perception places you in—I experienced a stark design realization.
+
+The game uses real price data published in Japan's official Retail Price Survey by the Ministry of Internal Affairs and Communications as its source of truth. However, on the first day of development, the earliest prototype looked radically different from the final product.
+
+The interface featured **four-choice multiple-choice buttons**, a **custom slider** for fine adjustments, and a results screen proudly displaying a 0–100 composite score, **four personality diagnosis badges** ("Reiwa Market Master," "Time Traveler," "Inflation Hyper-Sensitive," and "Carefree Spender"), and a **five-category radar chart**.
+
+Visually, it looked like a polished, respectable web assessment tool. Yet the moment I played through a full session myself, a wave of disappointment washed over me.
+
+**"The instant you see four choices, you can guess the ballpark price immediately—it completely kills the fun."**
+**"Having minimum and maximum boundaries on a slider gives away the answer before you even start thinking."**
+**"Nobody wants to read arbitrary personality diagnosis poems or five-axis radar charts. All players actually care about is the raw thrill of discovering how far their intuition diverges from reality."**
+
+Within hours of that realization, I ruthlessly **purged every single one of those initial features**—multiple-choice options, sliders, radar charts, personality archetypes, and even every emoji across the entire codebase—reducing the interface to a direct calculator keypad and a statistical distribution histogram. Here is the full story of that reductive design transformation.
+
+## How Multiple-Choice and Sliders Strangled the Core Experience
+
+The initial hybrid format (multiple choice, close-call sliders, and historical inflation comparisons) was intended as standard game variety to keep players engaged. But when the subject matter is everyday retail prices, that gentle hand-holding turns into a fatal poison.
+
+| Input Format | The Hidden Flaw | Why It Killed the Fun |
+| --- | --- | --- |
+| **Multiple Choice** | Options displayed like: (1) ¥280 (2) ¥420 (3) ¥580 (4) ¥850 | **Seeing the numbers immediately reveals the ballpark (~¥400–¥600).** The cognitive effort of recalling memories of daily life drops to zero, turning the game into a test of elimination |
+| **Slider Input** | Sliding a thumb along a bar from ¥0 to ¥2,000 | Defining the left edge (MIN: ¥0) and right edge (MAX: ¥2,000) acts as an **overwhelming anchor**, signaling that the true answer lies somewhere near the center |
+
+The visceral joy of guessing the price of a head of cabbage lies in the brain-wracking pause: "Wait, how much did I pay at the supermarket last Tuesday? Was it 200 yen? No, recent inflation has been terrible, maybe it's over 300..."
+
+Multiple-choice buttons and sliders robbed players of that rewarding mental effort. The moment choices appeared on screen, the experience shifted from genuine memory recall to taking a standardized test through process of elimination.
+
+## The Stripped-Down Core: Direct Keypad Input (`D12`)
+
+To restore the thrill, I unified all questions under a single strict input constraint: **direct numerical input in yen**.
+
+To allow swift, one-handed typing on smartphones without requiring a software keyboard pop-up, I embedded a calculator-style **ten-key keypad component (`NumberKeypad.tsx`)** at the bottom of the screen:
+
+- **Large 0–9 numerical keys**
+- **A dedicated "00" key**: Essential for Japanese yen pricing, where numbers like "¥300" or "¥1,500" frequently end in double zeros, slashing required taps
+- **Backspace (BS) and Clear (C) buttons**
+- **An OK button**: Instantly registers the guess and advances to the next item
+
+I also added full physical keyboard support for desktop players, mapping number keys, Backspace, and Enter seamlessly.
+
+Faced with a clean, blank input field devoid of multiple-choice hints or slider brackets, players are forced to rely solely on their internal price memory. With a 10-second timer counting down, tapping "3", "0", "0", "OK!" rhythmically transforms what was once a sluggish quiz into **an adrenaline-pumping arcade reflex challenge**.
+
+## Replacing Radar Charts with Percentile Rankings
+
+After switching to keypad input, I overhauled the scoring metric on the results screen.
+
+The early build awarded arbitrary scores like "78 / 100", categorized users into playful archetypes like "Reiwa Market Master," and drew a five-axis radar chart (Groceries, Daily Goods, Dining, Utilities, Leisure).
+
+Yet playtesters reacted with indifference: "78 points? Is that good or bad?" "A radar chart looks neat, but what does it actually tell me?"
+
+Scoring price perception like a school exam felt fundamentally mismatched. Price awareness is not something you study to get 100 points on. What people actually want to know is **their relative social standing: "Compared to the general public, is my perception sharp, or am I completely out of touch?"**
+
+I discarded the arbitrary point scale and radar charts entirely, replacing them with a single statistical metric: **Percentile Rank based on a cumulative normal distribution**.
+
+```typescript
+// Calculate top percentile from cumulative normal distribution (mean: 65, std: 16)
+const z = (score - 65) / 16;
+const percentile = (1 - normalCDF(z)) * 100;
+// Hero display: "Your price perception is in the Top 8.5%"
+```
+
+The moment results declared "Top 8.5%" or "Top 42.0%", player engagement ignited. "I want to break into the Top 5%!" "Let's see who has a sharper sense of reality!" A tangible, competitive motive emerged that compelled people to share their results.
+
+## Testing Against Collective Intelligence: Distribution Histograms
+
+The other cornerstone of the results screen is the **per-question response distribution histogram (`DistributionBarChart.tsx`)**.
+
+Merely revealing "the correct answer was ¥320" delivers only half the satisfaction. The real entertainment lies in the social gap: **"I guessed ¥250, the official price was ¥320, but the vast majority of players guessed ¥400!"**
+
+Each question card renders a real-time frequency distribution bar chart computed dynamically from all user submissions stored in Cloudflare D1. Inside the chart, three critical markers are plotted:
+
+1. **Your Answer (Red `#ff4d00`)**: The amount you typed under pressure
+2. **The Truth (Blue `#2563eb`)**: The official price from the Ministry's survey
+3. **Everyone's Median (Green `#10b981`)**: The median guess across all participants to date
+
+Above and below each chart, the interface displays the absolute Minimum (MIN), Maximum (MAX), and the total number of respondents for that specific item.
+
+Seeing that "some wild spender guessed ¥1,200 for a loaf of sandwich bread" or realizing that "everyone else also overestimated just like I did" turns raw numbers into an immediate, engaging narrative of collective intuition.
+
+## Purging Every Emoji and Expanding to 10–100 Questions
+
+Finally, I enforced one last radical aesthetic decision: **the total purge of emojis from the entire service**.
+
+Early iterations had emojis everywhere—"🛒" beside headers, "✨" on buttons, "🎉" across results. But on an interface defined by sharp keypads and statistical histograms, emojis introduced a juvenile, educational-toy vibe that ruined the sleek, tense focus of the numbers.
+
+I eradicated emojis from favicons, icons, buttons, and social share text. In their place, I embraced a clean, tactile design language inspired by modern editorial illustration: cream paper backgrounds (`#faf6ef`), solid 2px ink outlines (`#1e1e1e`), and flat offset drop shadows.
+
+Additionally, I expanded the session length from a rigid 7 questions to a flexible chip selector on the home screen, allowing players to choose anywhere from 10 to 100 questions in increments of 10. Whether someone wants a quick 60-second test during a commute or a 100-item deep dive into the cost of modern living, the experience maintains the exact same captivating rhythm.
+
+## Subtraction Sharpens Identity
+
+Adding features is deceptively easy. Multiple-choice buttons, sliders, radar charts, and personality badges were all added with good intentions—under the assumption that more options make a product friendlier.
+
+In reality, those polite additions smothered the core spark of the concept: **the unfiltered thrill of punching numbers into a keypad from pure memory and confronting the gap between your intuition and the crowd**.
+
+By having the courage to strip everything away until only the keypad and the histogram remained, bukka_now finally evolved into an unforgettable, rhythmically satisfying game.

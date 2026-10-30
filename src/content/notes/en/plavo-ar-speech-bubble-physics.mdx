@@ -1,0 +1,85 @@
+In Plavo, an iOS augmented reality app that lets you talk with houseplants, dialogue speech bubbles rise directly from the leaves caught in the camera viewfinder. The speech bubble is the undisputed protagonist of this product experience. Yet when I ran the very first prototype on an actual iPhone, it looked nothing like a plant speaking.
+
+A solid, stark white speech bubble was pasted flatly right above the plant. Every tiny tremor in the user's hand made the bubble's tail tremble nervously. If the camera was panned slightly, the bubble trailed behind, snagging on the viewport edge like **a subtitle printed onto a transparent acrylic sheet held in front of the lens**.
+
+To make visitors perceive the bubble as an entity truly floating inside 3D space, I had to redesign multiple architectural layers from the ground up: the visual rendering pipeline, the 3D anchoring model, the geometric construction of the tail, jitter filtering, and real-time depth convergence. Here are the five key decisions that turned flat subtitles into living AR dialogue balloons.
+
+## 1. Ditching `Material` Blurs and Crafting a "Balloon" with Three Highlight Strokes
+
+Initially, to keep a solid white fill from completely obscuring the foliage behind it, I attempted to render the speech bubble using standard iOS frosted glass materials (SwiftUI's `Material` or UIKit's `UIVisualEffectView`). But when overlaid on the AR camera feed, the background blur failed completely, collapsing into a flat, monotone gray-white slab.
+
+The technical cause: **`UIVisualEffectView` cannot capture the raw camera texture rendered directly by ARKit via Metal as an underlying backdrop**. No matter how the plant swayed or the camera panned, the frosted glass material reflected none of it.
+
+So I abandoned the blurred glass approach entirely and pivoted toward a **translucent, pop-art balloon rendered through layered white tones and specular gloss**. By allowing the foliage to peek through gently, the real plant remains the hero of the frame.
+
+| Layer | Role and Construction |
+| --- | --- |
+| Base Fill | Linear gradient from top-left to bottom-right; opacity dynamically governed by ambient lighting |
+| Inner Radiance | A soft, blurred inner glow that communicates a rounded, volumetric body rather than a flat card |
+| **Rim Highlights** | Fine light streaks conforming to corner radii: one long and one short along the top-left, one on the bottom-right (**max 3 lines**) |
+| Border and Shadows | A hairline border brighter toward the top, paired with a dual-layer compound shadow (wide ambient + tight contact) |
+
+The real breakthrough lay in how highlights were placed. Initially, I placed a soft white elliptical glow in the center of the balloon, which made it look like a smudge of chalk on a flat chalkboard. Real volumetric objects and balloons catch specular light **along the contour edges (the rim)**. The moment I wrapped fine strokes of light tightly along the rounded corners and placed a shorter stroke slightly detached from the primary one, the shape instantly popped forward as an inflated balloon. However, adding four or more strokes pushed it into uncanny photorealism and destroyed its visual lightness, establishing a strict ceiling of "at most three strokes."
+
+Furthermore, the base white opacity is not a static constant; it scales between **0.66 and 0.86 based on `ambientBrightness`** sampled by ARKit every frame. In a brightly lit window bay, the white base must become denser, otherwise black typography washes out against bright background foliage.
+
+## 2. Anchoring Two 3D Points in Space and Resisting Quadrant Flips
+
+The primary reason speech bubbles looked like subtitles glued to the screen was the order in which coordinates were calculated. Originally, the bubble sat directly above the plant, and when it threatened to clip the screen edge, its screen position was pushed back inside the viewport.
+
+This created a jarring artifact: whenever the user panned the phone and the plant drifted toward an edge, the bubble fought the viewport border, breaking its relative offset to the foliage. **Panning the phone made the bubble run away toward the center of the screen.** That is not how an object behaves when anchored in space. If the camera looks away from the plant, the bubble should naturally glide out of frame along with it.
+
+To fix this, I anchored **two separate points** in 3D space, projecting both onto the viewport every frame:
+
+- **Plant Point**: The geometric center of the foliage mass, serving as the target for the bubble's tail.
+- **Body Point**: A 3D position offset diagonally (top-left, top-right, bottom-left, or bottom-right) from the plant point.
+
+The bubble is never placed directly above. Placing it on top hides the crown of the plant and causes the bubble to pop out of the top screen edge whenever the plant is positioned in the upper half of the frame.
+
+Crucially, **the screen boundaries are evaluated only once: at the exact instant the quadrant (top-left, top-right, bottom-left, bottom-right) is initially chosen**. Once an anchor is cast into 3D space, the bubble is never pushed around by screen edge constraints.
+
+However, if the user walks around the plant or depth correction subtly shifts the plant point, the bubble might end up occluding the foliage (exceeding 35% overlap) or drifting further than 0.5× body dimensions from its ideal offset. Only then is it reassigned to another quadrant. Even here, **the transition exhibits heavy hysteresis**: the displacement must persist for **at least 1.5 seconds**, and at least **4.0 seconds must have elapsed** since the last move, before smoothly gliding to the new position with a time constant of 0.18 seconds. This eliminated the frantic fluttering of bubbles during casual camera adjustments.
+
+## 3. Short, Thick Tails Meeting a 2.5pt Tip at 38 Degrees with `Path.union`
+
+The next headache was the tail pointing from the bubble toward the plant. At first, I tried aiming a long, sharp triangle directly at the plant's center. But a long, pointed tail acts like an arrow; any micro-tremor in tracking or hand stability immediately magnified the visual impression that the pointer was shaking erratically.
+
+I pivoted from pinpoint accuracy to **geometric stability**. The tail was widened and shortened (**34pt base, 21pt length**). Instead of forcing the tip to touch the plant point, its angle is merely guided toward the plant, clamped within **15 to 45 degrees** from the perpendicular edge.
+
+To make the tail look organically blown out from the balloon, its geometry adheres to three strict rules:
+
+| Geometric Rule | Value | Consequence if Broken |
+| --- | --- | --- |
+| Root emerges horizontally with the body edge | Horizontal segment = 0.30× root width | Hard angular corners appear, making the tail look glued on afterward |
+| Sides formed by a single cubic Bézier curve | Tangent directions fixed at both ends | Straight lines make the tail look like a rigid triangle ruler stabbing a soft balloon |
+| Sides meet the 2.5pt tip circle at an angle | Tangent angle of **38 degrees** from the horizontal | Approaching horizontally (near 0°) creates a uniform stem, **looking like water dripping from a faucet** |
+
+When slanting the tail, you cannot simply rotate the shape. Rotating the entire path lifts one side of the root off the bubble's edge, destroying the smooth junction. The root remains flush against the horizontal edge while only the tip coordinates shift. To prevent foreshortening when tilted, the length is dynamically extended by up to 22% while the root width narrows by up to 18%.
+
+Finally, the rounded rectangle body and the tail path are combined into a single geometry via **`Path.union`** before rendering. Drawing them as two overlapping paths caused the bubble's translucent base to expose the bright edge stroke of the body slicing straight across the tail's root, leaving an unsightly seam line.
+
+## 4. Smoothing Jitter with a 1€ Filter and Killing `.animation(.spring)`
+
+Projecting 3D points to 2D screen coordinates every frame inherently introduces high-frequency micro-jitter from hand tremors and ARKit visual-inertial odometry. Initially, I introduced a standard exponential moving average (smoothing previous coordinates by 0.25). But a static smoothing factor ran straight into an impossible dilemma: **strong smoothing to eliminate stationary hand jitter caused the bubble to sluggishly drag behind when panning the camera.**
+
+To solve this, I implemented the **1€ Filter (One Euro Filter)**, an adaptive low-pass filter widely used for VR/AR pointer smoothing. It dynamically modulates its cutoff frequency based on movement speed:
+
+- **Nearly stationary (`minCutoff: 0.8 Hz`)**: Heavily filtered, deadening fine hand tremors completely.
+- **Fast camera sweeps (`beta: 0.010`)**: Minimal filtering, allowing the bubble to follow rapid pans without perceptible lag.
+- **Deadband (`1.2pt`)**: Discards residual sub-point noise, preventing SwiftUI's `@Observable` from triggering continuous redundant re-renders.
+
+Alongside this filter, one critical deletion made an immediate difference: **removing `.animation(.spring, value: bubbleScreenPoint)`**. Attaching a SwiftUI spring animation to a coordinate updated at 60 fps created a compounding disaster. Because a new target arrived before the spring could settle, the bubble swam sluggishly like an underwater buoy and overshot its target whenever movement ceased. Dropping the spring animation and trusting the 1€ filter alone locked the bubble firmly into the AR environment.
+
+Furthermore, bubble scaling was decoupled from raw camera distance. Instead, **one line of bubble height is set to 0.25× the apparent screen size of the plant (average of width and height)** (`D50-a`). When scaling was inversely proportional to metric distance, stepping close to inspect a tiny bonsai resulted in an overwhelmingly massive speech bubble. Tying bubble scale to apparent plant dimensions ensures that small plants receive delicate bubbles, and pulling away shrinks the bubble in natural proportion to the leaves.
+
+## 5. Fixing Raycast Fallback Offsets and Parallax Drift
+
+No matter how refined the smoothing filter is, if the initial 3D anchor position is geometrically flawed, the speech bubble drifts away from the plant. Diagnostic runs on physical hardware revealed two subtle bugs in depth calculation.
+
+The first was the **fallback destination when depth estimation failed**. Houseplants, composed of intricate leaves and slender stems, are the worst possible geometry for plane detection and AR raycasting. Missed hits are common. The initial implementation fell back to a default distance of 1.2 meters, but it placed that point **directly along the camera's forward vector (the center of the screen)**. If a plant was sitting near the right edge of the viewfinder when a raycast missed, the anchor was cast into the center of the room. I fixed this by projecting 1.2 meters along the specific ray passing through the 2D bounding box center (`ARView.ray(through:)`).
+
+The second issue was that **anchors were never updated after initial placement**. Suppose an initial raycast missed and an anchor was placed at 1.2 meters when the plant was actually 0.5 meters away. In that opening frame, the bubble appears aligned because both points lie along the same line of sight. But the moment the user steps sideways, the **parallax** between 0.5m and 1.2m causes the bubble to slide wildly off the plant. The primary culprit behind "swimming" bubbles was not tracking noise, but depth parallax.
+
+To remedy this, Plavo runs a background re-detection routine every 1.2 seconds after locking onto a plant. When a refined 3D hit is acquired, the active anchor is blended toward the new position at a **0.25 mixing ratio (`refineAnchor`)**. Jumping 100% to a single new reading risks getting yanked away if a neighboring pot or passing person is momentarily detected. Readings drifting further than 0.5m are rejected as outliers, gently nudging the anchor toward the true physical depth over time.
+
+Much like glass rendering or 3D physics engines, when a visual element in AR feels cheap or looks like a floating subtitle, there is always a concrete flaw in geometry, coordinates, or signal processing behind it. By systematically dismantling those five points of friction, the speech bubble finally became what it was always meant to be: a light, buoyant balloon resting gently beside a living plant.

@@ -1,0 +1,63 @@
+When I first started building "loo100" (Data Breach Archive)—a site documenting corporate data breaches in Japan by timeline and impact—I gave it a conventional `/incidents/` directory page where articles were listed vertically as cards, just like a standard news site.
+
+However, as soon as I lined up the real domestic breach disclosures from autumn 2026, it became obvious what a text list fails to communicate: **the orders-of-magnitude gap in breach scale, and the temporal clustering of disclosures**. When a breach affecting a few hundred records and a mega-breach exposing 10 or 20 million records sit side by side as identical-height cards, you lose all intuitive sense of which incidents are outliers and how densely they are occurring.
+
+So I scrapped the `/incidents/` list view as the primary entry point and turned the entire top page into a single non-scrolling viewport (`height: 100svh; overflow: hidden`) occupied by an interactive scatter-stem timeline (`D-021` / `D-023` / `D-024`), plotting disclosure dates on the X-axis and leaked record counts on a logarithmic Y-axis.
+
+## Fitting Hundreds and Tens of Millions onto a Dynamic Log-Scale Y-Axis
+
+Data breach sizes regularly span four to five orders of magnitude. Even within the three-week window between late September and mid-October 2026, disclosures ranged from tens of thousands of records up to Yakiniku King (~10.78 million), skyticket (~14.64 million), and Sourcenext (~22.51 million).
+
+On a linear Y-axis, a 22-million-record stem reaches the top of the screen while every incident under 100,000 records collapses into a flat, indistinguishable cluster a few pixels above the baseline. To make both visible at once, I adopted a base-10 logarithmic scale ($\log_{10}$) for the Y-axis—and rather than hiding incidents whose affected count is still under investigation or undisclosed, I added a dedicated 72 px `"Undisclosed"` (`非公表`) band beneath the logarithmic baseline where those incidents are plotted with dashed stems and hollow circles.
+
+Even on a log scale, however, keeping the Y-axis permanently locked to the global minimum and maximum (say, $10^2$ to $10^8$) creates a new problem: when a user zooms into a time window where every visible breach falls between $10^5$ and $10^6$, most of the vertical canvas sits empty.
+
+To solve this, **the chart recalculates the minimum and maximum record counts among incidents currently visible across the screen on every frame, dynamically rescaling the Y-axis bounds** (`D-026`).
+
+| Y-Axis Control Parameter | Formula / Setting | Role & Rationale |
+| --- | --- | --- |
+| Lower bound target (`lo`) | `max(0, floor(log10(min) - 0.15))` | Subtracts `0.15` in log space before flooring so the smallest visible breach stem never collapses to zero height on the baseline |
+| Upper bound target (`hi`) | `max(lo + 1, ceil(log10(max)))` | Rounds up to the nearest power of 10 that encloses the largest visible breach |
+| Frame-to-frame damping factor | `current + (target - current) * 0.18 to 0.20` | Smooths transitions via exponential damping so grid lines and stems glide smoothly instead of jumping when a massive breach enters the viewport edge |
+
+If the upper bound snapped instantaneously from $10^6$ to $10^8$ the moment a 10-million-record breach crossed the edge of the screen during a scroll, every stem the user was looking at would abruptly shrink, breaking visual continuity. By moving the current log bounds (`yNow`) toward the target bounds (`yGoal` / `targetLogMax`) by ~18–20% per animation frame until the delta drops below `0.005`, the horizontal grid lines and vertical stems expand and contract smoothly as you pan through history.
+
+## Panning Time with the Wheel and Zooming Down to Hourly Resolution
+
+Because the top page occupies a fixed full-screen frame, standard browser scrolling is disabled (`touch-action: none`). Instead, wheel and single-finger drag gestures pan backward and forward along the time axis, while two-finger pinch gestures (delivered as `ctrlKey` + `wheel` on Chrome/trackpads, `gesturestart` / `gesturechange` on Safari, and dual-pointer distance tracking on touchscreens) zoom the visible time span in and out (`D-025`).
+
+A crucial detail in the zoom math is **keeping the date under the user's cursor (`anchor`) pinned to the exact same screen X coordinate while changing the time span**. If zooming simply scaled around the center of the viewport, hovering over a dense cluster near the right edge and zooming in would push that cluster right off the screen. By computing the cursor's horizontal ratio across the plot area (`ratio`) and redistributing the new `span` around `anchor`, users can dive straight into any cluster of incidents.
+
+In the initial zoom implementation (`D-028`), users could zoom continuously from a 365-day overview all the way down to a 1-hour window (`MIN_SPAN = 1 / 24` of a day), with axis tick labels automatically switching from monthly (`YYYY.M`), to daily (`M/D`), and finally to hourly (`M/D HH:00` in JST) whenever the visible span dropped to 3 days or less.
+
+Implementing hourly ticks immediately exposed a **timezone bug**. Initially, disclosure dates like `2026-09-25` were parsed directly via `Date.parse`, which interprets date-only ISO strings as `00:00 UTC`—or `09:00 JST`. On monthly or daily ticks that 9-hour offset was invisible, but as soon as hourly ticks (`9/25 0:00, 1:00...`) appeared, every midnight disclosure sat misaligned at 9 a.m. I refactored both incident timestamp parsing and tick generation to operate explicitly in Japan Standard Time (`UTC + 9 hours`).
+
+Later, after populating the chart with 21 real articles (most of which did not have exact disclosure hours in corporate press releases) and testing across mobile and wide desktop monitors, we noticed that zooming down to hours left mostly blank space when timestamps defaulted to `00:00`, and even a fixed 3-day minimum span looked overly sparse on a 1920 px desktop monitor. We refined the zoom limit (`D-039` / `D-041`) so that the maximum width per day is capped at `100 px`: on mobile (~300 px plot width) the minimum span remains 3 days, while on desktop it scales naturally with viewport width (~11 days at 1280 px, ~17 days at 1920 px).
+
+## Fixing Same-Day Overlaps, Unreachable Edge Incidents, and Popping Labels
+
+Once we loaded the real September–October 2026 breach dataset into the chart, several visual edge cases surfaced that never appeared with evenly spaced synthetic test data.
+
+### 1. Separating Multiple Breaches Disclosed on the Same Day
+
+Corporate breach announcements frequently cluster on the same calendar date: two on October 8 (Lawson and Daiichikosho), three on October 9 (Bookoff, skyticket, and Dip), and five on October 19 (Nifty, H2O Retailing, Crypton Future Media, Yumil Link, and Link Station). Because few companies publish the exact minute of their release, plotting by date caused same-day incidents to stack into a single vertical line, making the underlying stems impossible to hover or select.
+
+At first, I tried spreading same-day incidents along the time axis by several hours (`±6h`). However, shifting timestamps meant that the stems still collided when zoomed out and looked like false disclosure hours when zoomed in. Instead, I changed `overlapShifts` to offset same-timestamp incidents in **screen pixel space** (`6 px` apart centered around the true timestamp—e.g., `-12, -6, 0, +6, +12 px` for five incidents, `D-029`). Because the offset is applied in pixels rather than milliseconds, same-day stems stay cleanly separated by 6 px at every zoom level.
+
+### 2. The Bug Where the Rightmost Two Breaches Could Never Be Selected
+
+Adding pixel-space overlap shifts inadvertently created a subtle navigation bug (`D-040`). On the timeline, whichever incident stem sits closest to the horizontal center of the viewport is automatically highlighted in red (`--color-select`) and opens its summary card. To let users inspect the earliest and latest incidents, panning is clamped so the viewport center can travel from `bounds.first` to `bounds.last`.
+
+On October 19 (the latest date), five incidents were disclosed. Because of the `6 px` pixel shift, Nifty (`+6 px`) and Yumil Link (`+12 px`) sat to the right of the unshifted October 19 `00:00` timestamp. Because `clampView` stopped panning as soon as the unshifted timestamp reached the center of the screen (where Link Station sat at `0 px`), scrolling all the way to the right could never bring Nifty or Yumil Link to the center—and the solid baseline ended two stems early!
+
+To fix this, I extended `Bounds` with `padLeft` and `padRight` (the maximum pixel shifts on the earliest and latest timestamps) and converted those pixel offsets into time units inside `clampView` using the current zoom scale (`perPx = span / plotWidth`). Tested in headless Chrome, scrolling to the right edge and stepping back 1 px at a time now cleanly selects Yumil Link, Nifty, Link Station, H2O, and Crypton in exact order.
+
+### 3. Keeping Company Box Labels Visible Until the Label Itself Leaves the Screen
+
+Another jarring visual glitch involved the dark box labels (`boxLabel`) rendered next to the largest breaches (`D-044`).
+
+Originally, the renderer only considered incidents whose stem X coordinate fell inside the viewport (`-16 px` to `width + 16 px`), and any label whose bounding box overflowed the screen edge was either flipped to the opposite side or dropped. As a result, when you panned left and an incident's vertical stem crossed just past the left edge of the screen, its long company name label—which was still sticking out 150 pixels into the visible viewport—vanished instantaneously.
+
+I rewrote the label placement pass to evaluate candidate incidents within `LABEL_REACH = 600 px` beyond the viewport edges. If a label does not collide with an already-placed higher-priority label, it is allowed to hang across the viewport boundary and is only culled once **its own DOM bounding box (`getBoundingClientRect`) has completely exited the screen**. Stepping the chart leftward in 8 px increments in headless Chrome confirmed that all 9 labels now glide smoothly off the edge of the frame, disappearing only when their trailing edge is within 2–8 px of exiting the viewport.
+
+Combined with dotted guide lines across date ranges where no breaches occurred (`D-031`) and background masks (`tick-bg`) behind Y-axis labels so panning stems pass cleanly underneath the numbers, the timeline now turns dozens of disparate breach reports into a single, legible visual landscape.

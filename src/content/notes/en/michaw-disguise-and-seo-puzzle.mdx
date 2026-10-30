@@ -1,0 +1,72 @@
+While developing Michaw, an eye-tracking browser party game powered by front-facing webcams, I ran straight into a fundamental product contradiction.
+
+The game begins when a player opens a URL sent by a friend and is greeted by a serious, convincing landing page for a **"Dynamic Visual Acuity Test."** But that test is an outright lie. Underneath the hood, the front camera tracks gaze coordinates to measure—down to the hundredth of a second—how long the player can resist looking at forbidden temptation zones on the screen. It is, at its heart, a surprise gag game.
+
+This means that for someone arriving via a friend's link for the very first time, **they must believe 100% that this is an authentic vision test until the spoiler hits on the results screen**.
+
+However, when preparing the site for search engine optimization (SEO) and applying for Google AdSense monetization, the requirements invert completely. Search engines and human reviewers demand thousands of words explaining exactly what the service does, an explicit privacy policy, contact details, and transparent site navigation accessible from every page.
+
+**"Lie completely to first-time human visitors, yet be completely honest with search bots and reviewers from the outset."** Here is how I solved that architectural puzzle, along with the painful lesson of renaming the service twice in a single afternoon.
+
+## Elements Systematically Purged from Disguised Views
+
+As a non-negotiable rule, any visual element that hinted at an indie entertainment project was purged from disguised screens (the first-time home `/`, challenge invitations `/challenge`, and the active gameplay view `/play`).
+
+| UI Element | Disguised View (First-time `/`, `/challenge`, `/play`) | Revealed View (Subsequent `/`, `/host`, `/ranking`) |
+| --- | --- | --- |
+| Header Logo | Tiny, muted gray text (`text-sm`) | Large glowing gradient typography from pink to cyan (`text-2xl`) |
+| Support / Tip Jar (☕ Support) | **Completely hidden** | Displayed prominently beside the language toggle |
+| Link to Explanation (`/about`) | **Zero trace (no accessible path)** | Linked via footer and main navigation |
+| Browser Tab Title (`<title>`) | Disguised as "Dynamic Visual Acuity Test" | "Michaw | Measure the Seconds Before Looking Away" |
+
+For example, a "☕ Support" button powered by Stripe Payment Links or a vibrant pop-art logo screams "this is an indie entertainment product." If a serious vision test page features a developer tip jar, observant users will become suspicious before granting webcam permissions.
+
+Furthermore, the moment a host copies a challenge link to their clipboard, a modal titled **"Tips for Sending" (`SendTipsSheet`)** immediately pops up. It displays three strict rules: "Tell them it's a dynamic visual acuity test," "Never add 'lol' or emojis," and "Paste only the link." No matter how meticulously crafted the in-browser disguise is, the gag collapses the moment the sender adds "check this out lol" in chat.
+
+## The Mental Shift: "Anyone Typing the Name into Search Already Knows"
+
+Preserving this disguise meant that the HTML of the first-time landing page (`/`) could not contain a single sentence explaining the actual game. At first, I hesitated to build an explanation page (`/about`), fearing it would spoil the secret for curious searchers.
+
+Upon reflection, that premise was flawed. **People typing "Michaw" or "Michaw eye tracker" into Google are already in on the joke.** Unsuspecting targets do not search for the game; they enter through specific doors: a direct link sent by a friend or an enticing URL shared on a social timeline.
+
+Those two doors are the only ones that require a disguise. Visitors standing before the third door—the search engine results page—are actively looking for clarification: "What kind of app was that again?" or "Does it upload my webcam feed to a server?"
+
+Accepting this distinction allowed me to build a comprehensive, **1,500-character explanation page at `/about`** without hesitation. It covers how the game works, what is measured, and webcam privacy (video is processed purely client-side inside the browser and never sent to any server), alongside a 7-question FAQ. Concurrently, I created a dedicated privacy policy (`/privacy`)—a strict prerequisite for AdSense—detailing on-device processing guarantees, cookie usage, advertising networks, and the 24-hour automatic expiration of shared challenge images.
+
+### Placing Crawler Links on the Ranking Page
+
+This created an architectural snag. To preserve the disguise, the first-time home page (`/`) contained no footer links (the footer renders only on subsequent visits once a flag is set in `localStorage`). Consequently, when Googlebot visited the root URL, it found zero links pointing to `/about`.
+
+To bridge this without breaking the disguise, I placed the internal link to `/about` on the **ranking page (`/ranking`)**—which is pre-rendered as full static HTML and viewed exclusively by players who already know the secret—and indexed it in `sitemap.xml` with priority 0.9.
+
+I also reused the FAQ data array across both the visible UI and the `FAQPage` structured data (JSON-LD) for search crawlers. Initially, I exported the FAQ array from `components/About.tsx` (a Client Component) and imported it into the Server Component at `app/about/page.tsx`. In Next.js, values exported from `'use client'` modules reach server components as Client References, triggering a build crash: `FAQ_JA.map is not a function`. Moving the definitions to a neutral `lib/faq.ts` resolved the build and guaranteed that structured data shown to Google never desynchronizes from text read by humans.
+
+## Three SEO Misconceptions: `robots.txt`, `noindex`, and `canonical`
+
+Auditing existing metadata revealed three configurations that were either entirely ineffective or actively harmful:
+
+1. **Writing `noindex` on pages blocked by `Disallow` in `robots.txt`.** To hide developer telemetry panels (`/debug` and `/gaze`) from search results, I had disallowed them in `robots.txt` while adding `noindex` meta tags to the pages. However, crawlers never fetch HTML for paths blocked in `robots.txt`, meaning **the `noindex` tag inside is never read**. The bare URL can still linger in index results. The correct approach was removing them from `robots.txt` disallows so crawlers could inspect the page, read the `noindex` directive, and purge the entry cleanly (only time-limited, personal URLs like `/challenge` and `/trap` remained disallowed).
+2. **The disguised `<title>` on `/play` leaking into search indexes.** During active gameplay (`/play`), the tab title was disguised as "Dynamic Visual Acuity Test" so screen-peepers wouldn't spoil the trick. Code comments assumed that static OGP tags would protect search results. This was false: Google search snippets draw overwhelmingly from the HTML `<title>` tag. Leaving it unchecked would index "Dynamic Visual Acuity Test" under the primary domain. I flagged `/play` as `noindex` and removed it from `sitemap.xml`.
+3. **`noindex` subpages inheriting the root `canonical: "/"`.** Because the root layout declared `canonical: "/"`, omitted subpages like `/debug` declared that their canonical target was the home page while simultaneously emitting `noindex`. Emitting `noindex` alongside a foreign `canonical` risks search engines propagating the noindex signal onto the canonical target (the homepage). I updated every subroute to emit its own self-referential canonical URL.
+
+## Renaming the Service Twice in One Day and Invalidating Every Link
+
+In the middle of SEO cleanup, another crisis unfolded. The project initially ran under its internal codename, `mesen` (short for *mesen stopwatch* / eye-line stopwatch). Because generic Japanese compound words struggle to rank at position 1, I decided to coin a brand name.
+
+Punning on the Japanese phrase *michau* ("accidentally looking"), I initially landed on the spelling **`Michow`**. I executed a global codebase replacement, deployed to Cloudflare Workers as `michow.miiiwa.workers.dev`, and deleted the old `mesen` Worker.
+
+A few hours later, I discovered that **Michow is an established French surname**. Searching the term returned living individuals, genealogies, and European directories. The entire purpose of coining a brand name is to guarantee the #1 ranking upon search; colliding with a real surname defeated the purpose.
+
+That same afternoon, I kept the pronunciation but changed the spelling to **`Michaw`**, deployed a new `michaw` Worker, and deleted the `michow` Worker (migrating to the custom subdomain `michaw.miiiwa.com` the next day).
+
+Renaming a service twice in a few hours taught me that **the cost of renaming is not code search-and-replace, but the URLs already floating in the wild**. Every time a Worker name changed, every invitation link previously sent between friends died as a 404. Furthermore, despite thinking the find-and-replace was clean, adding a privacy policy days later reintroduced seven instances of the deprecated spelling `Michow` because a code snippet was copied from an unmerged branch.
+
+## Turning "Skip Test" into a Genuine One-Way Ticket
+
+Finally, I made one last adjustment to the disguised landing page (`/`). The page warns that webcam access will be requested on the next screen, offering a subtle "Skip test" link for those who decline camera usage or simply want to inspect the site.
+
+Initially, clicking skip wrote nothing to `localStorage`, displaying a reassuring note that "you can return to the test anytime by reopening this page." But this turned the confirmation dialog into a consequence-free tap that visitors clicked without reading. Worse, **if someone skipped, saw the reveal, and handed their phone to a friend saying "try this," refreshing the browser would unpredictably bring back the disguised intro**.
+
+I rewrote the confirmation warning to be explicit: "You will proceed to the top page, and **you cannot return to this screen**. Test instructions will never appear on this device again." Clicking confirm sets `localStorage.mesen.introSkipped = '1'`, turning the skip action into an absolute one-way ticket (tracked separately from `mesen.seen`, which indicates full gameplay completion).
+
+Pulling off a "fake entrance" was never just about designing a playful landing page. It was an intricate puzzle of aligning search crawlers, advertising auditors, social sharing cards, and client-side storage state so that whichever door a visitor walks through, the experience never breaks character.

@@ -1,0 +1,105 @@
+While building loo100 (formerly SecuTreNews)—a database platform designed to teach security through structured analyses of data breaches across timelines, root causes, and countermeasures—I faced a defining product crisis.
+
+In the earliest planning phase, I designed an autonomous pipeline where an AI agent scraped corporate security disclosures, generated analytical articles, verified their factual accuracy, and pushed them to production without any human involvement (decision `D-005`). Yet within 24 hours of completing that architecture spec, I scrapped the autonomous pipeline entirely. I pivoted 180 degrees toward a semi-automated workflow (`D-008`): **the AI assists with document extraction and initial drafting, but human review and publishing approval remain strictly mandatory**.
+
+Why did I abandon full AI automation after just one single day? The answer lies in the heavy legal and ethical responsibilities inherent to data breaches, the messy realities of corporate incident notices, and the rigorous engineering required to preserve primary sources.
+
+## The Dream: An "End-to-End Autonomous Pipeline"
+
+On day one of development (October 19, 2026), my `design/pipeline.md` document outlined a seven-stage automated pipeline:
+
+```
+[Ingest] Poll news RSS feeds, disclosure services, and PR wires
+  ↓
+[Classify] LLM determines whether an incident involves personal data breaches
+  ↓
+[Deduplicate] Match against past events and correlate 1st/2nd/final reports
+  ↓
+[Primary Source Retrieval] Crawl official corporate PDFs and notice pages
+  ↓
+[Generate] Synthesize structured Markdown (timelines, causes, impact, fixes)
+  ↓
+[Automated Verification] Execute a 24-point checklist verifying claims & links
+  ↓
+[Auto-Publish] Commit passed drafts to Git or database for immediate static build
+```
+
+To support this ambitious pipeline, I reasoned that an autonomous system demanded a safety net stricter than any human editorial room. I drafted a 24-point verification checklist: "Does the primary URL exist?" "Are victim counts supported by explicit text?" "Are hypotheses cleanly delineated from declared facts?" Both scripts and LLM evaluators audited every draft. If a single check failed, publication was halted automatically.
+
+Before writing code, I was genuinely convinced that with ironclad guardrails, we could operate a high-caliber security intelligence platform with zero human maintenance.
+
+## Why It Collapsed in 24 Hours: The Messy Reality of Primary Sources
+
+However, the moment I simulated this pipeline against real-world incidents—such as the unauthorized access incident at Times Car involving roughly 6.6 million account profiles—the entire theoretical architecture collapsed.
+
+The fundamental breakdown stemmed from an irreconcilable conflict between full automation and our highest founding principle: **"Never publish speculation or rumors; cite only verified primary corporate announcements" (`D-002`)**.
+
+| The Automated Ideal | The Real-World Reality of Corporate Disclosures |
+| --- | --- |
+| Structured, well-formed HTML press releases | **Disclosures distributed exclusively as non-searchable image PDFs or multi-page slides** |
+| Clean HTTP GET requests retrieving static text | **JavaScript-rendered SPAs or legacy CMS pages served in Shift_JIS** |
+| A single announcement containing settled facts | **Gradual revisions: Initial Report ("under investigation") → Follow-up ("partial leakage confirmed") → Final Audit ("numbers finalized") across months** |
+| Autonomous LLM distinguishing fact from theory | **Euphemisms like "possibility of external unauthorized access" misclassified as confirmed exfiltration** |
+
+Corporate security incident notices are a nightmare for standard web scrapers. Organizations suffering a breach frequently release their public notices as image-based PDFs—whether to deter automated harvesting or due to urgent legal drafting—or bury them behind dynamic customer portals. Plain HTTP fetch calls return empty HTML shells. Without spinning up Playwright or headless Chrome to evaluate the DOM and piping PDFs through optical or layout extraction libraries, you cannot even obtain the raw text of the primary source.
+
+Even more dangerous was **the volatility of disclosure metrics**. In the opening days of an incident, companies often announce that "up to X accounts may have been exposed." As digital forensics teams conduct deep audits over the subsequent weeks, that figure might balloon from hundreds to millions—or, conversely, conclude that no external data exfiltration ever took place.
+
+If an autonomous AI script reconciles these shifting disclosures on its own, it inevitably risks misinterpreting corporate nuance or incorporating sensationalist headlines from secondary tech tabloids as established truth. Publishing false casualty numbers or inaccurate root causes transforms the platform from an educational resource into a purveyor of defamation against victimized organizations.
+
+**"If an AI misreads a sentence by even one percent, real businesses and security engineering teams suffer unjust reputational harm. The final line of defense cannot be outsourced to automated code checks."**
+
+Recognizing this risk, I revoked `D-005` after just 24 hours and enacted `D-008`: AI assists in extracting and structuring primary sources, but humans make the final call to publish.
+
+## The New Architecture: From Database Rows to Git-Managed Markdown
+
+Scrapping full automation allowed the underlying technical architecture to become vastly simpler and more resilient.
+
+Originally, because automated agents needed write access, article data was slated for tables in Cloudflare D1 (a distributed SQL database). But once publishing required deliberate human review, storing article prose in an operational database became unnecessary overhead. I transitioned to a **pure static site generation (SSG) model, storing every incident analysis as a Git-managed Markdown file (`src/content/incidents/*.md`)**.
+
+Our refined authoring workflow works as follows:
+
+1. **Identifying Primary Sources**: For any developing incident, collect the official corporate PDF or security advisory. For JavaScript-heavy pages, extract the evaluated DOM via headless Chrome; for documents, run structured PDF text extraction.
+2. **AI-Assisted Structuring**: Feed the primary source text to an AI agent to extract timelines, root causes, technical countermeasures, and victim scope, populating our strict Markdown schema.
+3. **Human Line-by-Line Audit**: A human editor verifies that every single statement in the Markdown corresponds directly to a specific sentence in the attached source URL. Any speculative prose or outside commentary is ruthlessly deleted.
+4. **Publishing via Git Commit**: Verified Markdown files are committed to the `main` branch, triggering Cloudflare Workers Builds to compile and deploy immutable static HTML.
+
+Managing content through Git provides an unalterable audit trail. Every historical revision to victim counts or technical causes is captured in commit logs with clear timestamps. We never have to worry about database corruption or accidental overwrites.
+
+## The Production Build Trap: Astro 7, Hono, and Cloudflare Workers
+
+For our static framework, I selected **Astro 7 paired with Hono**. Incident reports and the interactive history chart are pre-rendered into blisteringly fast static HTML on the edge, while our 140-character anonymous discussion forum is powered by a lightweight Hono API connected to Cloudflare D1.
+
+Yet when compiling this architecture for production deployment, I ran into a perplexing bug.
+
+The comment submission API worked flawlessly on the local development server (`astro dev`). But the moment I ran a production build preview (`astro build`), **every single request to `/api/*` returned a clean 404 Not Found**.
+
+Investigating the generated output uncovered an optimization behavior in Astro 7's Cloudflare adapter. Initially, I used Astro's `src/fetch.ts` feature as a unified entry point to mount Hono. However, because every article and index route had `prerender = true`, Astro's build engine concluded that the site contained zero on-demand server routes. Consequently, **it skipped emitting the Cloudflare Workers script (`_worker.js`) entirely**, spitting out only pure static HTML assets.
+
+To the edge server, `/api/...` simply didn't exist in the static asset directory, throwing immediate 404s.
+
+I resolved this by abandoning `src/fetch.ts` and explicitly registering an on-demand route at `src/pages/api/[...path].ts`. Furthermore, instead of relying on adapter middleware, I bound Cloudflare environment variables directly from `cloudflare:workers` (`env`) and passed them into Hono, guaranteeing that the edge Worker is always compiled regardless of static pre-rendering.
+
+## Defending the Anonymous Comment Section: Blocking Evasion Patterns (`hxxp`, `[.]`)
+
+While articles are served as static files, readers need a place to share security insights and lessons learned. To facilitate this, each incident page features an anonymous comment section (`F-11`). However, an unmoderated comment box on a security incident site quickly attracts leaked credential dumps, exploit payloads, and defamatory rumors.
+
+To enforce `D-002` ("no leaked data, no rumors"), we implemented aggressive server-side input filters:
+
+- **140-Character Maximum**: Prevents dumps of stolen credentials, private keys, or code snippets.
+- **Strict URL and Evasion Blocking**: In addition to standard `http://` and `https://` prefixes, our regex filters intercept **obfuscated link evasions commonly used in underground channels, such as `hxxp`, `[.]`, and raw domain formats (`example[.]com`)**, returning an immediate 400 Bad Request on the server.
+- **Bot Mitigation via Cloudflare Turnstile**: Requires an interactive challenge before comment submission, blocking automated spam bots.
+- **Rate Limiting**: Clamps submissions to 3 comments per 5 minutes per IP address.
+- **Enforced Plain Text**: Every HTML entity is escaped, and auto-linking is disabled, eliminating XSS vectors.
+
+Furthermore, while comments appear immediately to encourage dialogue, we established an administrative moderation workflow (`development/comment-moderation.md`) enabling the maintainer to purge flagged comments with a single command.
+
+## What Should Be Automated—and What Must Not Be
+
+Looking back on development, abandoning the dream of full AI automation within 24 hours was the single best decision made on this project.
+
+AI excels at parsing dense, jargon-laden corporate filings, extracting chronology, and scaffolding structured Markdown schemas at superhuman speeds. If a human had to parse every PDF from scratch, keeping pace with contemporary incident disclosures would be impossible.
+
+However, **an AI agent cannot assume moral or legal responsibility**. It cannot weigh whether an early estimate is definitive, whether a phrase unfairly disparages an engineering team, or whether publishing an unconfirmed report might cause irreversible harm. What we should automate is the tedious labor of extraction and formatting. We must never automate the editorial judgment of what is published to the world.
+
+By keeping human verification firmly in the loop, we can stand behind loo100 and say with absolute certainty: every fact on this platform is backed by primary source truth.
