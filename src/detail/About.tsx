@@ -23,7 +23,13 @@ export default function About() {
           transition={{ duration: 0.4 }}
           className="lg:col-span-4 group relative bg-white border border-black/20 p-6 sm:p-8"
         >
-          <CornerBrackets size="md" offset="card" strokeWidth="2" colorClass="border-neutral-900" />
+          <CornerBrackets
+            size="md"
+            offset="card"
+            strokeWidth="2"
+            colorClass="border-neutral-900"
+            className="opacity-0 group-hover:opacity-100 transition-opacity"
+          />
           
           <div className="flex items-center gap-2 mb-4">
             <span className="w-2 h-2 rounded-none bg-[#ea580c]" />
@@ -62,7 +68,13 @@ export default function About() {
           transition={{ duration: 0.4, delay: 0.1 }}
           className="lg:col-span-8 bg-white border border-black/20 p-6 sm:p-10 relative group"
         >
-          <CornerBrackets size="lg" offset="card" strokeWidth="2" colorClass="border-neutral-900" />
+          <CornerBrackets
+            size="lg"
+            offset="card"
+            strokeWidth="2"
+            colorClass="border-neutral-900"
+            className="opacity-0 group-hover:opacity-100 transition-opacity"
+          />
 
           <div className="prose prose-neutral max-w-none space-y-6 text-neutral-800 text-base sm:text-lg leading-relaxed">
             {paragraphs.map((p, index) => (

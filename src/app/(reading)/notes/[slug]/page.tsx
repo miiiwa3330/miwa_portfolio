@@ -7,6 +7,7 @@ import { readingMetadata } from "@/reading/pageMeta";
 import NoteList from "@/reading/NoteList";
 import ProductList from "@/reading/ProductList";
 import ArticlePager from "@/reading/ArticlePager";
+import ProseSections from "@/reading/ProseSections";
 import { adjacentEntries } from "@/reading/adjacentEntry";
 
 type Params = { params: Promise<{ slug: string }> };
@@ -58,8 +59,14 @@ export default async function NotePage({ params }: Params) {
     >
       <article>
         {/* Title header card matching full max-w-6xl width and industrial style */}
-        <header className="relative rounded-none bg-white border border-black/20 p-6 sm:p-8 md:p-10">
-          <CornerBrackets size="lg" offset="card" strokeWidth="2" colorClass="border-neutral-900" />
+        <header className="group relative rounded-none bg-white border border-black/20 p-6 sm:p-8 md:p-10">
+          <CornerBrackets
+            size="lg"
+            offset="card"
+            strokeWidth="2"
+            colorClass="border-neutral-900"
+            className="opacity-0 group-hover:opacity-100 transition-opacity"
+          />
 
           <time
             dateTime={note.date}
@@ -80,11 +87,10 @@ export default async function NotePage({ params }: Params) {
           </p>
         </header>
 
-        {/* Note body aligned to the full width container */}
+        {/* Note body aligned to the full width container — corner brackets per "｜" (h2) prose section */}
         <div className="mt-10 bg-white border border-black/20 p-6 sm:p-8 md:p-12 relative">
-          <CornerBrackets size="lg" offset="card" strokeWidth="2" colorClass="border-neutral-900" />
           <div className="max-w-4xl">
-            <Body />
+            <ProseSections Body={Body} />
           </div>
         </div>
       </article>

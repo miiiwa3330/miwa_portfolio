@@ -11,6 +11,7 @@ import ProductActions from "@/reading/ProductActions";
 import ProductList from "@/reading/ProductList";
 import NoteList from "@/reading/NoteList";
 import ArticlePager from "@/reading/ArticlePager";
+import ProseSections from "@/reading/ProseSections";
 import { adjacentEntries } from "@/reading/adjacentEntry";
 
 type Params = { params: Promise<{ slug: string }> };
@@ -71,7 +72,13 @@ export default async function ProductPage({ params }: Params) {
       <article>
         {/* Header card matching the industrial loo100 style and full max-w-6xl width */}
         <header className="relative group rounded-none bg-white border border-black/20 overflow-hidden">
-          <CornerBrackets size="lg" offset="card" strokeWidth="2" colorClass="border-neutral-900" />
+          <CornerBrackets
+            size="lg"
+            offset="card"
+            strokeWidth="2"
+            colorClass="border-neutral-900"
+            className="opacity-0 group-hover:opacity-100 transition-opacity"
+          />
 
           <div className="relative h-64 sm:h-80 md:h-[26rem] w-full bg-neutral-100">
             <Image
@@ -126,19 +133,24 @@ export default async function ProductPage({ params }: Params) {
           </div>
         </header>
 
-        {/* The write-up body aligned to the full width container */}
+        {/* The write-up body aligned to the full width container — corner brackets per "｜" (h2) prose section */}
         <div className="mt-10 bg-white border border-black/20 p-6 sm:p-8 md:p-12 relative">
-          <CornerBrackets size="lg" offset="card" strokeWidth="2" colorClass="border-neutral-900" />
           <div className="max-w-4xl">
-            <Body />
+            <ProseSections Body={Body} />
           </div>
         </div>
 
         <section
           aria-labelledby="try-heading"
-          className="mt-12 relative rounded-none bg-white border border-black/20 p-6 sm:p-8 md:p-10"
+          className="group mt-12 relative rounded-none bg-white border border-black/20 p-6 sm:p-8 md:p-10"
         >
-          <CornerBrackets size="md" offset="card" strokeWidth="2" colorClass="border-neutral-900" />
+          <CornerBrackets
+            size="md"
+            offset="card"
+            strokeWidth="2"
+            colorClass="border-neutral-900"
+            className="opacity-0 group-hover:opacity-100 transition-opacity"
+          />
           <h2 id="try-heading" className="text-xl sm:text-2xl font-black text-neutral-950 [overflow-wrap:anywhere]">
             {project.title} を触ってみる
           </h2>
