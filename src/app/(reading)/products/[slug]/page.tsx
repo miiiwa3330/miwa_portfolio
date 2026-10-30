@@ -135,9 +135,7 @@ export default async function ProductPage({ params }: Params) {
 
         {/* The write-up body aligned to the full width container — corner brackets per "｜" (h2) prose section */}
         <div className="mt-10 bg-white border border-black/20 p-6 sm:p-8 md:p-12 relative">
-          <div className="max-w-4xl">
-            <ProseSections Body={Body} />
-          </div>
+          <ProseSections Body={Body} />
         </div>
 
         <section
