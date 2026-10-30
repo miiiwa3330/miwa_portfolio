@@ -2,12 +2,10 @@ import Link from "next/link";
 
 export type PagerTarget = {
   href: string;
-  /** Full title shown in the peeking side card and bottom nav. */
+  /** Full title shown in the button tooltip and mobile bottom nav. */
   title: string;
-  /** Subtitle / description for the peeking side card. */
-  subtitle?: string;
-  /** Optional badge text (e.g. date or category). */
-  badge?: string;
+  /** Rendered article content (everything except the "other entries" section) for the side preview. */
+  content: React.ReactNode;
 };
 
 type Props = {
@@ -20,8 +18,9 @@ type Props = {
  * Wraps a product or note detail page in a carousel-like layout inspired by
  * bukka_now's result screen:
  * - Main content sits in the standard `max-w-6xl` container (matching the index).
- * - On wide screens, the previous and next entries peek in from the left and
- *   right viewport edges.
+ * - On wide screens, the full previous and next entries (excluding the bottom
+ *   "other entries" section) peek in from the left and right viewport edges,
+ *   aligned with the top edge of the main card and non-clickable.
  * - Floating vermilion chevron (`＜` / `＞`) buttons (`#ea580c`) sit at the exact
  *   midpoint between the viewport edge and the main card edge (`25% - 17rem`).
  */
@@ -66,56 +65,22 @@ export default function ArticlePager({ prev, next, children }: Props) {
         </svg>
       </Link>
 
-      {/* Left peeking card on desktop viewports */}
+      {/* Left peeking article on desktop viewports — top-aligned with main card (`top-4 sm:top-6`) and non-clickable */}
       <div
         aria-hidden="true"
-        className="hidden xl:block absolute right-[calc(50%+41rem)] top-4 w-[32rem] pointer-events-auto opacity-60 hover:opacity-95 transition-opacity"
+        inert
+        className="hidden xl:block absolute right-[calc(50%+41rem)] top-4 sm:top-6 w-[68rem] max-h-[calc(100%-1.5rem)] overflow-hidden pointer-events-none select-none opacity-60"
       >
-        <Link
-          href={prev.href}
-          tabIndex={-1}
-          className="block rounded-none bg-white border border-black/25 p-8 shadow-none"
-        >
-          {prev.badge && (
-            <span className="inline-block font-mono text-xs font-bold text-neutral-100 bg-neutral-900 px-2.5 py-0.5 mb-3">
-              {prev.badge}
-            </span>
-          )}
-          <div className="text-xl font-black text-neutral-950 truncate border-b border-black/10 pb-3 mb-4">
-            {prev.title}
-          </div>
-          {prev.subtitle && (
-            <p className="text-sm text-neutral-600 line-clamp-3 leading-relaxed">
-              {prev.subtitle}
-            </p>
-          )}
-        </Link>
+        {prev.content}
       </div>
 
-      {/* Right peeking card on desktop viewports */}
+      {/* Right peeking article on desktop viewports — top-aligned with main card (`top-4 sm:top-6`) and non-clickable */}
       <div
         aria-hidden="true"
-        className="hidden xl:block absolute left-[calc(50%+41rem)] top-4 w-[32rem] pointer-events-auto opacity-60 hover:opacity-95 transition-opacity"
+        inert
+        className="hidden xl:block absolute left-[calc(50%+41rem)] top-4 sm:top-6 w-[68rem] max-h-[calc(100%-1.5rem)] overflow-hidden pointer-events-none select-none opacity-60"
       >
-        <Link
-          href={next.href}
-          tabIndex={-1}
-          className="block rounded-none bg-white border border-black/25 p-8 shadow-none"
-        >
-          {next.badge && (
-            <span className="inline-block font-mono text-xs font-bold text-neutral-100 bg-neutral-900 px-2.5 py-0.5 mb-3">
-              {next.badge}
-            </span>
-          )}
-          <div className="text-xl font-black text-neutral-950 truncate border-b border-black/10 pb-3 mb-4">
-            {next.title}
-          </div>
-          {next.subtitle && (
-            <p className="text-sm text-neutral-600 line-clamp-3 leading-relaxed">
-              {next.subtitle}
-            </p>
-          )}
-        </Link>
+        {next.content}
       </div>
 
       {/* Main container — exact same width (`max-w-6xl`) as the index pages */}
