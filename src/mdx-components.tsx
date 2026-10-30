@@ -21,7 +21,7 @@ const components: MDXComponents = {
   // The orange bar of the hub's section headings, as a rule down the left of
   // the heading so it spans a title that wraps.
   h2: ({ children }) => (
-    <h2 className="relative mt-16 mb-5 pl-4 text-[1.5rem] sm:text-[1.75rem] font-black leading-[1.4] tracking-tight text-gray-950 [overflow-wrap:anywhere] before:absolute before:left-0 before:top-[0.2em] before:bottom-[0.2em] before:w-1.5 before:rounded-full before:bg-orange-600">
+    <h2 className="relative mt-16 mb-5 pl-4 text-[1.5rem] sm:text-[1.75rem] font-black leading-[1.4] tracking-tight text-gray-950 [overflow-wrap:anywhere] before:absolute before:left-0 before:top-[0.2em] before:bottom-[0.2em] before:w-1.5 before:rounded-none before:bg-orange-600">
       {children}
     </h2>
   ),

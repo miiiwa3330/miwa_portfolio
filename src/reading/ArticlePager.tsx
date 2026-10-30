@@ -35,13 +35,14 @@ export default function ArticlePager({ prev, next, children }: Props) {
         title={prev.title}
         className="hidden xl:flex fixed left-[calc(25%-17rem)] -translate-x-1/2 top-1/2 -translate-y-1/2 z-30 w-24 h-28 items-center justify-center text-[#ea580c] hover:text-[#c2410c] drop-shadow-md transition-all hover:scale-110 active:scale-95 cursor-pointer select-none"
       >
-        <svg viewBox="0 0 64 96" fill="none" className="w-full h-full" aria-hidden="true">
+        <svg viewBox="0 0 72 104" fill="none" className="w-full h-full" aria-hidden="true">
           <path
-            d="M48 12L16 48L48 84"
+            d="M52 14L20 52L52 90"
             stroke="currentColor"
             strokeWidth="14"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+            strokeLinecap="square"
+            strokeLinejoin="miter"
+            strokeMiterlimit="10"
           />
         </svg>
       </Link>
@@ -53,13 +54,14 @@ export default function ArticlePager({ prev, next, children }: Props) {
         title={next.title}
         className="hidden xl:flex fixed right-[calc(25%-17rem)] translate-x-1/2 top-1/2 -translate-y-1/2 z-30 w-24 h-28 items-center justify-center text-[#ea580c] hover:text-[#c2410c] drop-shadow-md transition-all hover:scale-110 active:scale-95 cursor-pointer select-none"
       >
-        <svg viewBox="0 0 64 96" fill="none" className="w-full h-full" aria-hidden="true">
+        <svg viewBox="0 0 72 104" fill="none" className="w-full h-full" aria-hidden="true">
           <path
-            d="M16 12L48 48L16 84"
+            d="M20 14L52 52L20 90"
             stroke="currentColor"
             strokeWidth="14"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+            strokeLinecap="square"
+            strokeLinejoin="miter"
+            strokeMiterlimit="10"
           />
         </svg>
       </Link>
@@ -126,13 +128,14 @@ export default function ArticlePager({ prev, next, children }: Props) {
             href={prev.href}
             className="flex items-center gap-2.5 p-3.5 sm:p-4 bg-white border border-black/20 hover:border-black transition-colors"
           >
-            <svg viewBox="0 0 64 96" fill="none" className="w-6 h-8 text-[#ea580c] shrink-0" aria-hidden="true">
+            <svg viewBox="0 0 72 104" fill="none" className="w-6 h-8 text-[#ea580c] shrink-0" aria-hidden="true">
               <path
-                d="M48 12L16 48L48 84"
+                d="M52 14L20 52L52 90"
                 stroke="currentColor"
                 strokeWidth="14"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+                strokeLinecap="square"
+                strokeLinejoin="miter"
+                strokeMiterlimit="10"
               />
             </svg>
             <div className="min-w-0">
@@ -149,13 +152,14 @@ export default function ArticlePager({ prev, next, children }: Props) {
               <div className="text-[10px] font-mono font-bold uppercase text-neutral-500">Next</div>
               <div className="text-xs sm:text-sm font-bold text-neutral-900 truncate">{next.title}</div>
             </div>
-            <svg viewBox="0 0 64 96" fill="none" className="w-6 h-8 text-[#ea580c] shrink-0" aria-hidden="true">
+            <svg viewBox="0 0 72 104" fill="none" className="w-6 h-8 text-[#ea580c] shrink-0" aria-hidden="true">
               <path
-                d="M16 12L48 48L16 84"
+                d="M20 14L52 52L20 90"
                 stroke="currentColor"
                 strokeWidth="14"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+                strokeLinecap="square"
+                strokeLinejoin="miter"
+                strokeMiterlimit="10"
               />
             </svg>
           </Link>
