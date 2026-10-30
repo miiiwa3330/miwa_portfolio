@@ -59,17 +59,30 @@ const DESTINATIONS: readonly DestinationCard[] = [
 ];
 
 const ASCII_404 = [
-  "  _  _    ___  _  _   ",
-  " | || |  / _ \\| || |  ",
-  " | || |_| | | | || |_ ",
-  " |__   _| |_| |__   _|",
-  "    |_|  \\___/   |_|  ",
+  "██╗  ██╗ ██████╗ ██╗  ██╗",
+  "██║  ██║██╔═████╗██║  ██║",
+  "███████║██║██╔██║███████║",
+  "╚════██║████╔╝██║╚════██║",
+  "     ██║╚██████╔╝     ██║",
+  "     ╚═╝ ╚═════╝      ╚═╝",
 ].join("\n");
+
+const TABLE_BORDER = `+${"-".repeat(66)}+`;
 
 type CmdEntry = {
   cmd: string;
   output: string | null;
 };
+
+function AsciiRow({ children }: { children: string }) {
+  return (
+    <div className="grid grid-cols-[1ch_66ch_1ch] whitespace-pre leading-[1.45]">
+      <span>|</span>
+      <span className="overflow-hidden"> {children}</span>
+      <span>|</span>
+    </div>
+  );
+}
 
 export default function NotFoundView() {
   const { language } = useLanguage();
@@ -81,44 +94,6 @@ export default function NotFoundView() {
   const [history, setHistory] = useState<CmdEntry[]>([]);
   const [cmdHistory, setCmdHistory] = useState<string[]>([]);
   const [historyIdx, setHistoryIdx] = useState<number>(-1);
-
-  const asciiBodyJa = [
-    ASCII_404,
-    "",
-    "+------------------------------------------------------------------+",
-    "| STATUS  : 404 Not Found (ERR_SECTOR_UNMAPPED)                    |",
-    `| TARGET  : ${pathname.padEnd(54, " ").slice(0, 54)} |`,
-    "+------------------------------------------------------------------+",
-    "| この区画には、まだ「部屋」が作られていません。                   |",
-    "| アクセスしようとしたURLは移動または削除されたか、                |",
-    "| コロニーの外の宇宙空間を指しています。                           |",
-    "|                                                                  |",
-    "| [RECOVERY COMMANDS]                                              |",
-    "|   cd /           : 部屋（3Dトップページ）へ戻る                  |",
-    "|   cd /products   : 制作実績の一覧へ移動                          |",
-    "|   cd /notes      : ノートの一覧へ移動                            |",
-    "|   help           : コマンド一覧を表示                            |",
-    "+------------------------------------------------------------------+",
-  ].join("\n");
-
-  const asciiBodyEn = [
-    ASCII_404,
-    "",
-    "+------------------------------------------------------------------+",
-    "| STATUS  : 404 Not Found (ERR_SECTOR_UNMAPPED)                    |",
-    `| TARGET  : ${pathname.padEnd(54, " ").slice(0, 54)} |`,
-    "+------------------------------------------------------------------+",
-    "| This sector of the colony hasn't been built yet.                 |",
-    "| The URL you requested may have been moved, deleted, or points    |",
-    "| into deep space outside the rocket colony.                       |",
-    "|                                                                  |",
-    "| [RECOVERY COMMANDS]                                              |",
-    "|   cd /           : Return to the 3D Colony Room                  |",
-    "|   cd /products   : Browse Products                               |",
-    "|   cd /notes      : Read Technical Notes                          |",
-    "|   help           : Show available commands                       |",
-    "+------------------------------------------------------------------+",
-  ].join("\n");
 
   const runCommand = (raw: string) => {
     const trimmed = raw.trim();
@@ -187,6 +162,30 @@ export default function NotFoundView() {
     setInput("");
   };
 
+  const bodyRows = isJa
+    ? [
+        "この区画には、まだ「部屋」が作られていません。",
+        "アクセスしようとしたURLは移動または削除されたか、",
+        "コロニーの外の宇宙空間を指しています。",
+        "",
+        "[RECOVERY COMMANDS]",
+        "  cd /           : 部屋（3Dトップページ）へ戻る",
+        "  cd /products   : 制作実績の一覧へ移動",
+        "  cd /notes      : ノートの一覧へ移動",
+        "  help           : コマンド一覧を表示",
+      ]
+    : [
+        "This sector of the colony hasn't been built yet.",
+        "The URL you requested may have been moved, deleted, or points",
+        "into deep space outside the rocket colony.",
+        "",
+        "[RECOVERY COMMANDS]",
+        "  cd /           : Return to the 3D Colony Room",
+        "  cd /products   : Browse Products",
+        "  cd /notes      : Read Technical Notes",
+        "  help           : Show available commands",
+      ];
+
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
       <SectionHeading as="h1" en="404 Not Found" className="mb-8 md:mb-12">
@@ -212,7 +211,7 @@ export default function NotFoundView() {
               onClick={(e) => e.stopPropagation()}
               title={isJa ? "閉じる（部屋へ戻る）" : "Close (Return to Room)"}
               aria-label={isJa ? "閉じる（部屋へ戻る）" : "Close (Return to Room)"}
-              className="w-3.5 h-3.5 rounded-full bg-[#ff5f57] flex items-center justify-center text-[#4d0000] hover:brightness-110 transition"
+              className="w-3.5 h-3.5 rounded-full bg-[#ff5f57] flex items-center justify-center text-[#4d0000] hover:brightness-110 transition focus-visible:!outline-none"
             >
               <svg viewBox="0 0 10 10" className="w-2 h-2 stroke-current stroke-[1.75]" fill="none" aria-hidden="true">
                 <path d="M2.5 2.5L7.5 7.5M7.5 2.5L2.5 7.5" strokeLinecap="round" />
@@ -257,10 +256,27 @@ export default function NotFoundView() {
           </div>
           <div>cd: no such file or directory: .{pathname}</div>
 
-          {/* Pure ASCII 404 output */}
-          <pre className="pt-2 pb-3 text-[12px] sm:text-[13px] leading-[1.35] text-[#e6edf3] overflow-x-auto">
-            {isJa ? asciiBodyJa : asciiBodyEn}
+          {/* Block ASCII 404 */}
+          <pre
+            aria-label="404"
+            className="pt-3 pb-2 text-[12px] sm:text-[13px] leading-[1.15] text-[#e6edf3] select-none overflow-x-auto"
+          >
+            {ASCII_404}
           </pre>
+
+          {/* ASCII Diagnostic Table with exact 66ch column width so right "|" aligns regardless of CJK glyph widths */}
+          <div className="pt-1 pb-3 text-[12px] sm:text-[13px] text-[#e6edf3] overflow-x-auto">
+            <div className="inline-block">
+              <div className="whitespace-pre leading-[1.45]">{TABLE_BORDER}</div>
+              <AsciiRow>STATUS  : 404 Not Found (ERR_SECTOR_UNMAPPED)</AsciiRow>
+              <AsciiRow>{`TARGET  : ${pathname}`}</AsciiRow>
+              <div className="whitespace-pre leading-[1.45]">{TABLE_BORDER}</div>
+              {bodyRows.map((row, idx) => (
+                <AsciiRow key={idx}>{row}</AsciiRow>
+              ))}
+              <div className="whitespace-pre leading-[1.45]">{TABLE_BORDER}</div>
+            </div>
+          </div>
 
           {/* Clickable ASCII shortcuts inside terminal */}
           <div className="pt-1 pb-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] sm:text-[13px]">
@@ -344,7 +360,7 @@ export default function NotFoundView() {
                   }
                 }}
                 aria-label="zsh command input"
-                className="w-full bg-transparent border-none outline-none text-[#e6edf3] font-mono text-[13px] sm:text-[14px] caret-[#a8b1be]"
+                className="w-full bg-transparent border-none outline-none focus:outline-none focus-visible:!outline-none text-[#e6edf3] font-mono text-[13px] sm:text-[14px] caret-[#a8b1be]"
                 autoFocus
                 autoComplete="off"
                 spellCheck={false}
