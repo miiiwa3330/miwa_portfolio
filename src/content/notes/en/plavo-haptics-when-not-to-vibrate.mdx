@@ -81,3 +81,4 @@ I refactored the lifecycle so that a single `Haptics.Ticker` instance is created
 At the same time, setting `engine.playsHapticsOnly = true` prevented audio session contention. When returning from the background, entering Low Power Mode, or running on unsupported hardware, the system automatically falls back from custom Core Haptics patterns to standard `UIFeedbackGenerator` equivalents (such as mapping `meet` to `snap`), and silently skips execution if haptics are completely disabled, guaranteeing that the core AR experience never crashes or stalls.
 
 In haptics, holding back is far harder than piling on. By deciding where not to vibrate first, that subtle "thump-thump" upon discovering a leafy companion in the camera viewfinder remains a vivid, living presence in the palm of your hand, even in the middle of a bustling exhibition hall.
+
