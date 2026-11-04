@@ -48,7 +48,7 @@ export default function CurveMirror() {
       }),
     []
   );
-  /** The six cameras, built on the first frame (three.js state the frame loop owns, as `LensRenderer`'s). */
+  /** The six cameras, built on the first frame (three.js state the frame loop owns). */
   const cubeRef = useRef<THREE.CubeCamera | null>(null);
   useEffect(() => () => target.dispose(), [target]);
 

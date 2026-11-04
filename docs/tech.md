@@ -40,7 +40,7 @@
 
 トップページの3Dは、**ロケットを増改築したコロニーの中の、円い自分の部屋**（2026-10-01 に惑星から移行。要件・設計・各手順の実測は [room-migration.md](room-migration.md)、壊しやすい箇所は [scene-invariants.md](scene-invariants.md)）。惑星の頃の設計（球面の幾何、ボクセルの街、太陽、クロール）は [planet-archive.md](planet-archive.md) に記録として残してある。
 
-- **すべてコードで手続き生成**: 外部の GLB も画像ファイルも使わない。家具は箱・円柱・球の組み合わせ、壁・床・丸窓の外・左のモニターの動画は canvas に描く（`scene/objects/roomTextures.ts`）。飾りの乱数は `scene/hash.ts` の `hash01` で決定的にしてある
+- **すべてコードで手続き生成**: 外部の GLB も画像ファイルも使わない（**例外: 自分自身の人物は GLB を使ってよい**。2026-11-01 ユーザー。家具は今までどおりコードで組む）。家具は箱・円柱・球の組み合わせ、壁・床・丸窓の外・左のモニターの動画は canvas に描く（`scene/objects/roomTextures.ts`）。飾りの乱数は `scene/hash.ts` の `hash01` で決定的にしてある
 - **ハイブリッド・レイアウト**: `<Canvas>` を背面に固定し、その上に通常の HTML のオーバーレイ（ヘッダー・カード）を重ねる。エリアの文章は部屋の上に重ねず、**それぞれ独立したページ**（`/about`・`/products`・`/skills`・`/experience`・`/contact`、「読み物のページ」）に置く（2026-10-30。それまでは下からせり上がる詳細シートだった）。さらに、部屋の中の物として存在する HTML（PC の画面・ホログラムの文字）を、CSS の3D変換で canvas の後ろと手前に置く
 
 ### 部屋：配置は純粋関数に持つ
@@ -52,7 +52,6 @@
 | 部屋の半径 | 3.0m | ユーザーが試作（room-lab。2026-10-22 に削除、[structure.md](structure.md) 参照）で3.3m を選び、2026-10-02 に「無駄な余白がある」として3.0m へ。家具は幅を保ったまま角度を配り直した（あいだを均等に約6.7°） |
 | 目の高さ | 1.49m（座ると1.20m） | 人物の目（`scene/room/figure.ts`、キャラクターシートを168cmで測った）。2026-10-02 に試作で選んだ1.55m から下げた（ユーザーの判断）。座った高さは仮で、立ったまま寄ると画面を29°見下ろして文字が台形に歪んだ（試作2）ので座る |
 | 標準の水平画角 | 見回すとき90°・寄ったとき67°（スマホは縦78°） | ユーザー。67°は試作で選び、見回すときだけ2026-10-02 に90°へ（「本来の位置から2、3歩前に出ているよう」）。寄ったとき（区画・PC・ホログラム）は文字を読むので67°のまま。スマホは仮 |
-| 魚眼 | 立体射影・水平161°（スマホは横90°） | ユーザー。スマホは仮 |
 | ズーム | 物の幅が画角の7割を占める距離まで、物の正面へ寄る | ユーザー（試作で「画角を狭める」から変更） |
 
 - **家具の並び（右回り）**: 机（PC＋ホログラム）→ 展示棚（制作実績）→ 本棚（スキル）→ 丸窓とハンモック → 調査ボード（経歴）→ 通信端末（連絡先）→ 扉 → 作業台（3Dプリンタ）。PC の右隣からヘッダーのナビと同じ順なので、ナビで飛んでも位置関係が矛盾しない
@@ -60,16 +59,16 @@
 
 ### カメラ：中央に立って首を振る
 
-- **姿勢は `RoomPose`**（首振り・見上げ・前に出る距離・目の高さ・画角・レンズ・横寄せ・縦のずらし、`scene/camera/roomCamera.ts`）。位置と向きは毎フレーム直接書き、カメラの「上」は常に world +Y
+- **姿勢は `RoomPose`**（首振り・見上げ・前に出る距離・目の高さ・画角・横寄せ・縦のずらし、`scene/camera/roomCamera.ts`）。位置と向きは毎フレーム直接書き、カメラの「上」は常に world +Y
 - **部屋は勝手に回らない。** ホイール・2本指・カードの送りで巡回の輪（`scene/room/tour.ts`）に沿って右へ首を振り、自由に見回すのは、PC ではマウス、スマホでは指のドラッグ（どちらも向けた向きのまま留まる）。**マウスはゲームの一人称のように照準を向ける**（2026-10-02）: 部屋をクリックするとマウスをつかみ（Pointer Lock API）、画面の中央に照準の◯が出て、動かした方を向く。クリックは照準を撃ち、つかんでいるあいだはカードも照準の向きで正面を決める。Esc か区画に寄るとカーソルが戻る。指のドラッグは「世界を掴む」、ホイールを下へ回すと右を向く。**止まっているあいだも、ゲームの一人称視点のような軽い揺れ**（`idleSway`、`scene/camera/cameraMotion.ts`）がある。2026-10-01 にユーザーの指示で、アイドルの自動の首振りから置き換えた
-- **区画を選ぶと、その物の正面へ歩いて寄り、離れると中央へ後ろ歩きで戻る**（`RoomFlight`。最初のフレームに時間を加えない・着地で首振りの値を引き継ぐ、の2つの約束は惑星の飛行から）。飛行の形は `RoomMove` で、歩く形は `scene/camera/walkFlight.ts` の `planRoomMove`（加速・巡航1.5m/s・減速。PC は「歩く → 座る → 椅子ごと寄る」）。歩かない飛行（その場で回る・レンズの段）は今までどおり1本のイージング（`easedMove`）。行き先を決める effect は `Scene.tsx` に1つ
+- **区画を選ぶと、その物の正面へ歩いて寄り、離れると中央へ後ろ歩きで戻る**（`RoomFlight`。最初のフレームに時間を加えない・着地で首振りの値を引き継ぐ、の2つの約束は惑星の飛行から）。飛行の形は `RoomMove` で、歩く形は `scene/camera/walkFlight.ts` の `planRoomMove`（加速・巡航1.5m/s・減速。PC は「歩く → 座る → 椅子ごと寄る」）。歩かない飛行（その場で回る）は今までどおり1本のイージング（`easedMove`）。行き先を決める effect は `Scene.tsx` に1つ
 - **カードを避ける横寄せと、スマホのカードレールを避ける縦のずらしは、投影の中心をずらす**（`setViewOffset`）。カメラは動かさない
 - **下を向くと目が前へ出る**（`headLean`）。首を支点に頭が傾く分で、自分の脚が胸の向こうに見える
 - **W/A/S/D で部屋の中を歩き、Space で跳ぶ**（2026-10-02、`scene/camera/freeWalk.ts`）。見ている向きへ、飛行と同じ1.5m/s で歩く。壁と家具は `scene/room/floor.ts` が止める（体は半径22cm の円）。跳ぶ高さ45cm。**自由視点のときだけ**（寄っている・詳細ページ・飛行中は効かない）、入力欄に打っている文字と Ctrl/⌘/Alt 付きのキーは拾わない。立っている場所は `RoomPose` の `x`/`z` で、区画への寄り（中央から組んだ構図）へはそこから歩いて行き、離れるとそこへ歩いて戻る。ロゴ／HOME で中央へ
 
-### レンズ：標準と魚眼
+### 射影（魚眼は廃止）
 
-**`r = tan(θ/k)/tan(H/k)` の1本の式**（`scene/camera/fisheye.ts`）。k=1 が通常の遠近、k=2 が立体射影。標準⇄魚眼の飛行で k と画角を一緒に補間する。魚眼のあいだは立ち位置から6方向を立方体に描き、全画面の板のシェーダーで画素ごとに引く（`scene/LensRenderer.tsx`、`useFrame` の優先度1で描画を乗っ取る）。各面は MSAA をかけて描き、画面の解像度と画素比に合わせた大きさにする（2026-10-01、魚眼の輪郭が階段状になっていたのを直した）。マーカーの位置と大きさ、R3F のクリックの光線（`Scene.tsx` の `roomEvents`）も同じ式で求める。立体射影を選んだ理由（端の物の形が崩れない）と、画角を広げるだけの案を捨てた理由は room-migration.md の試作の節。
+**射影は普通の遠近だけ**（`scene/camera/roomCamera.ts` の `projectToScreen`／`screenRay`／`pixelsPerUnitAt`）。マーカーの位置と大きさ、点線、R3F のクリックの光線（`Scene.tsx` の `roomEvents`）、HTML を置く CSS の層が同じ式を使う。three.js のカメラと一致することはテストで押さえてある。**魚眼（立体射影の161°、立方体に描いて画素ごとに引く）は 2026-11-01 にユーザーの指示で廃止した。** 仕組みと実測は [room-migration.md](room-migration.md) の末尾「退役: 魚眼の不変条件」、コードは git の `0118f26`。
 
 ### HTML を3Dに置く（PC の画面とホログラム）
 
@@ -77,7 +76,7 @@
 
 - **PC の画面は canvas の後ろ**に置き、canvas に穴（色とアルファ0、深度を書く板）を開けて見せる。手前の椅子やランプが画面を隠せる。**ホログラムは canvas の手前**に重ねる（透けないと成り立たない）
 - **drei の `<Html>` を使わない理由**: 投影をずらしたカメラ（この部屋は常にずらしている）では位置がずれる。canvas 要素のスタイルも書き換える。詳細は scene-invariants.md
-- **魚眼の段では HTML を出さない**（CSS は通常の遠近しか描けない）。穴も立方体のカメラに写さない（`scene/layers.ts`）
+- **穴は視点のカメラだけが描く**（`scene/layers.ts`）。カーブミラーと監視カメラの絵に穴が写ると黒く抜けるため
 
 ### PC（6か所目の停留所）
 
@@ -101,13 +100,15 @@
 
 **見た目はキャラクターシート**（`reference/4/3.png`、Studio Wrong の見た目、2026-10-02）。寸法は `scene/room/figure.ts` がシートの正面の立ち姿の画素から測る（身長168cm・約5.8頭身）。**カメラの目の高さ（`EYE_HEIGHT`）も、座面の高さと椅子の背の位置も、ここから決まる。** 形はコードで組み（`Self.tsx`）、すべての部品は骨に乗った固い形で、骨は長さを変えない（脚も腕も2本の骨で、膝と肘で曲がる）。顔は頭の球に貼った絵（`objects/figureTextures.ts`。表情を絵の差し替えで増やせる）、眼鏡は形、髪は生え際の形に切った帽子と約60の束（1回の描画）。色はシートのパレットから取った。
 
+**手は骨で指を曲げる**（2026-11-01、`scene/room/hand.ts`）。座ったときに一番大きく見えるのが手なので、楕円の塊を、手のひら・指4本（3節）・親指に作り直した。シートの手はポケットの中で測れないので、寸法は身長168cm に対する普通の比（長さ0.108倍＝18.1cm、幅0.048倍＝8.1cm）。握りは4つ（ぶら下げ・タイピング・EX-G・M0100）で、座る度合いと PC から Mac への移りで混ぜる。描画は手1つにつき `SkinnedMesh` 1つ（`Self.tsx` の `Hand`）。指先がキーとマウスの上に載ることを純関数のテストで押さえてある（[scene-invariants.md](scene-invariants.md) の「自分自身」）。
+
 **カメラが動くと体は歩き、PC では椅子に座る**（2026-10-02）。3つの純粋関数に分けてある:
 
 - **歩き**（`scene/room/gait.ts`）: カメラの保っている姿勢の変化から、毎フレーム一歩の進み具合を求める。歩数は時間ではなく距離で数えるので、接地した足は滑らない。その場で回るのは足踏み。カメラの上下（`stepBob`）もここから
 - **座る・椅子**（`scene/room/seat.ts`）: 座る度合い（`seatShare`）と椅子の位置（`chairPlacement`）を、カメラの保っている姿勢だけから求める。椅子は普段は通り道の脇にあり、近づくと背後へ回り、腰の下に入り、椅子ごと机へ寄る
 - **関節**（`scene/room/self.ts`）: 姿勢・歩き・座る度合いから全身の関節を出す。脚は2本の骨で、膝は前へ曲がる
 
-**ホログラムには自分が映る**（2026-10-02 ユーザー。`scene/objects/HologramSelf.tsx`）。同じ人物（`FigureModel`）を4分の1の大きさで、光の材質（縁が明るく、走査線が流れる）で描き、装置の上の光の中でゆっくり回る。読み手が歩けば歩き、見上げれば見上げる。右のモニターが装置の前にあるので、装置に立たせず、前の線画と同じ高さに浮かべた。自己紹介を映しているあいだは消える。
+**ホログラムは、今は何も映さない**（2026-11-01 ユーザー。前は人物の投影だった。何を映すかは未定）。装置と、自己紹介を映すときの光の円錐は残してある。自己紹介の流れる文はホログラムファンへ移す途中で、[room-migration.md](room-migration.md) の確認待ちを参照。
 
 **姿が見える所は、モニター（監視カメラ）と鏡**（2026-10-02 ユーザー）。鏡は経歴・活動の看板の右上のカーブミラー（`scene/room/mirror.ts` が位置、`scene/objects/CurveMirror.tsx` が描画）で、本物の反射（鏡の前から描いた立方体を、反射の向きで引く）。
 
@@ -117,7 +118,7 @@
 
 マーカーは WebGL のスプライト（深度バッファに乗るので家具に隠れる）、カードからマーカーへの点線は DOM の SVG（常に最前面の平面）。両者の受け渡しは購読チャンネル（`scene/camera/markerScreen.ts`）経由で、React state を通さない（毎フレームの再レンダーを避けるため）。
 
-- **マーカーは円盤ではなく水色の稲妻**（`scene/markerBolt.ts` の `BOLT_PATH`）。輪郭・到達距離・**寸法比**（`MARKER_CLEARANCE` / `MARKER_GLYPH_FILL` / `MARKER_GLYPH_RIM` / `MARKER_GLOW_FILL`）・火花・色をここに集めてあり、three.js も canvas も DOM も含まない純粋モジュールなので、3つの消費側（WebGL のスプライト／SVG の点線／カード隅のドット）が同じ形と同じ色を読む。**カメラ側に置くのは射影とレンズの拡大率だけ**（`scene/camera/roomCamera.ts` の `projectToScreen()` / `pixelsPerUnitAt()`）——寸法比は 2026-09-11 のファイル構成レビューまでカメラ側にあり、テクスチャを描く側と点線が縁を測る側が別モジュールの数を見る形になっていた（`SectionMarkers.tsx` が同じ「マーカーの見た目」のために2つの import を持っていたのがその痕跡）。
+- **マーカーは円盤ではなく水色の稲妻**（`scene/markerBolt.ts` の `BOLT_PATH`）。輪郭・到達距離・**寸法比**（`MARKER_CLEARANCE` / `MARKER_GLYPH_FILL` / `MARKER_GLYPH_RIM` / `MARKER_GLOW_FILL`）・火花・色をここに集めてあり、three.js も canvas も DOM も含まない純粋モジュールなので、3つの消費側（WebGL のスプライト／SVG の点線／カード隅のドット）が同じ形と同じ色を読む。**カメラ側に置くのは射影と拡大率だけ**（`scene/camera/roomCamera.ts` の `projectToScreen()` / `pixelsPerUnitAt()`）——寸法比は 2026-09-11 のファイル構成レビューまでカメラ側にあり、テクスチャを描く側と点線が縁を測る側が別モジュールの数を見る形になっていた（`SectionMarkers.tsx` が同じ「マーカーの見た目」のために2つの import を持っていたのがその痕跡）。
   - **座標系は「x右・y下」で `y ∈ [-1, 1]`。** canvas 2D も画面 px も y は下向きなので、テクスチャを描く側と点線に答える側で符号を変えずに済む。**縦が ±1 に届くことがスプライトの sizing の前提**——マーカーの scale は「グリフが `halfHeight` px に届くワールド scale」として逆算するので、輪郭が ±1 に届いていないと全マーカーが黙って小さくなる。
   - **点線の切り詰めは `markerClearance()` を通す。`halfHeight` をそのまま引かない。** 稲妻は縦長で先端が軸から外れているため、インクの縁までの距離は方向ごとに違う（真上 0.61・真横 0.45・真下 0.60 × halfHeight）。中心からレイを飛ばして輪郭との交点を取る厳密解で、**内接楕円は先端がはみ出すので安全ですらなく**（(0.30/0.52)² + 1 = 1.33）、**凸包の支持関数は安全だが真下で1.67倍**と緩い。どちらも「隙間が方向によって呼吸する」を招く。
   - **この輪郭は中心について星形**（20000方向中19999で前方交点はちょうど1つ）。だから「どこまで届くか」に単一の答えがある。実装が max を取っているのは星形でなくなったときの保険で、いま効いている条件ではない。
@@ -143,7 +144,7 @@
   - **`deltaY` は `deltaMode` を見て px に正規化する**（`wheelPixels()`）。Chrome はマウス1ノッチを100px、Firefox は同じ1ノッチを3行で寄越すので、正規化しないとしきい値80に対して**27ノッチ必要＝実質死んだコントロール**になる。
 - **点線の起点は、作り直される要素の中に置かない。** カードは `AnimatePresence` で切り替わりのたびに作り直されるため、アンカーの点は**カードの中ではなくスタックのコンテナ**に置く——退場側の ref コールバックが `null` で後から呼ばれて `anchorRef.current` が空になると、線が最後の位置で凍る。
 - **マーカーの位置は `layout.ts` の `markerPoint()`**（被写体の上、少し中央寄り。家具に刺さらないように）。PC にもマーカーがある（押すと座る）
-- **マーカーの大きさは world 単位ではなく画面 px で決める。** そのスプライトの位置での拡大率（通常の遠近なら焦点距離÷奥行き、魚眼ならレンズの拡大率、`pixelsPerUnitAt()`）から、グリフが指定した px の縦半分に届くワールド scale を毎フレーム逆算する
+- **マーカーの大きさは world 単位ではなく画面 px で決める。** そのスプライトの位置での拡大率（焦点距離÷奥行き、`pixelsPerUnitAt()`）から、グリフが指定した px の縦半分に届くワールド scale を毎フレーム逆算する
 - **カメラの `useFrame` はマーカーより先に走る（優先度 -1）。** 惑星の頃は `camera-controls` が行列を張り直さない問題を `updateMatrixWorld()` で防いでいた。部屋ではカメラの処理の順番そのものが逆になっていて、点線の先が1フレーム遅れていた（手順3で直した）
 ### ジオラマの時計
 
@@ -159,13 +160,13 @@
 | --- | --- | --- |
 | セクション一覧 | ヘッダーのナビ | 全画面パネル（`hub/MobileMenu.tsx`） |
 | ヘッダー右 | 言語 / 照明（1280px 未満はその前にメニュー） | 言語 / 照明 / メニュー |
-| ズーム（画角） | **トラックパッドのピンチ**（`ctrlKey` 付き `wheel`。標準⇄魚眼） | 2本指ピンチ（標準⇄魚眼）。寄るのはマーカーや机のタップ |
+| ピンチ | 何もしない（魚眼の切り替えだった。`ctrlKey` 付き `wheel` は受けて捨て、ページ全体のズームにしない） | 何もしない（2本指スクロールと区別して、部屋を回さない）。寄るのはマーカーや机のタップ |
 | ツアーの飛行・縦スクロール | ホイール／トラックパッドの2本指スクロール | **2本指スクロール**（`twoFingerGesture()` が間隔の変化と区別する） |
 | カード | 画面中央左のスタック、縦スワイプ／ホイールで送る | 画面下のレール、横スワイプで送る（`hub/card/CardRail.tsx`） |
 | 外部リンク・著作権 | 左下のドック・右下のフッター | 全画面パネルの中 |
 | 戻る（BACK）ボタン | 画面下中央 | カードのすぐ上・画面中央。カードの無い PC と自己紹介では画面下中央（`hub/HomeButton.tsx` を両方が使う） |
 | 照明 | ヘッダーの照明メニュー | 同じ（メニューボタンの左） |
-| 画角 | 標準 水平90°（寄ると67°） / 魚眼 161° | 標準 縦78° / 魚眼 横90°（仮） |
+| 画角 | 水平90°（寄ると67°） | 縦78°（仮） |
 | 縦のずらし | 0 | 被写体をカードレールの上の帯の真ん中へ（`cardLift` = 0.21） |
 | 横寄せ | `CARD_SHARE` / `ORBIT_CARD_SHARE` | 0（カードが幅の86%を占めるので意味がない） |
 | 自己紹介 | 部屋の中のホログラムの板 | 画面下部の平らな層（3Dの板は小さすぎて読めない。仮） |
@@ -181,7 +182,7 @@
 **`<Canvas>` より上のコンテキストが変わると、three.js のツリー全体が React に再調停される。** R3F 9 の `CanvasImpl` の setup effect には**依存配列が無く**、再レンダーのたびに `configure()` と `root.render(children)` が走る——部屋の家具・体・照明が毎回そこを通る。
 
 - **`React.memo` では止められない。** `its-fine` の `useContextBridge`（R3F がコンテキストをリコンサイラ境界の向こうへ運ぶ仕組み）は `CanvasImpl` のレンダー中に上位の全コンテキストを `use()` で購読するので、props が変わらなくても Canvas は再レンダーする。しかも memo すると今度は `CameraController` が `activeSection` の変化を受け取れなくなる——Bridge は `root.render` 経由でしか新しい値を運ばないため。**打てる手は「Canvas より上のコンテキストが変わる回数を減らす」しかない。**
-- そのため、毎フレームまたは頻繁に変わる値は**購読チャンネル**（プレーンなモジュール＋リスナーの `Set`）で運ぶ。現在4つ: `scene/camera/viewChannel.ts`（カメラの姿勢と画面の大きさ。HTML を3Dに置く層とレンズの描画が読む）、`scene/camera/markerScreen.ts`（マーカーの画面座標）、`state/facingChannel.ts`（正面の停留所）、`scene/deskPointer.ts`（机のマウスの位置と PC の画面のカーソル。カーソルの絵と座った右手が読む）。**照明の状態は Context に置いている**——切り替えは読み手の操作でしか起きず、そのたびの再調停は問題にならない。
+- そのため、毎フレームまたは頻繁に変わる値は**購読チャンネル**（プレーンなモジュール＋リスナーの `Set`）で運ぶ。現在4つ: `scene/camera/viewChannel.ts`（カメラの姿勢と画面の大きさ。HTML を3Dに置く層・マーカー・クリックの光線が読む）、`scene/camera/markerScreen.ts`（マーカーの画面座標）、`state/facingChannel.ts`（正面の停留所）、`scene/deskPointer.ts`（机のマウスの位置と PC の画面のカーソル。カーソルの絵と座った右手が読む）。**照明の状態は Context に置いている**——切り替えは読み手の操作でしか起きず、そのたびの再調停は問題にならない。
 - **`facing` の読み手は3種類に分かれる**: `SectionCard` は `useSyncExternalStore` で購読（表示するので再レンダーが要る）、`SectionMarkers` は `useFrame` の中で `facingNow()` を読む（描くだけなので再レンダー不要）、`Hub` はハンドラが発火した時点で読む（`cardSection()`）。`AppStateContext` に置いていた頃は1ラップに5回、シーン全体の再調停を起こしていた。
 - `AppStateContext` の value は `useMemo` で包んである。
 
@@ -236,7 +237,7 @@ AdSense の審査で「有用性の低いコンテンツ」として不合格に
 
 ## テスト
 - **Vitest**（node環境）。React も three.js も含まない純粋ロジックのみを対象にしているため、DOMもレンダラも不要で全体が1秒未満で走る（件数は `AGENTS.md` の「コマンド」にだけ書く）。
-- 対象: 部屋の配置・ズームの寄り方・座る位置と椅子・壁の柱（`scene/room/layout.ts`）、巡回の輪（`scene/room/tour.ts`）、HTML を載せる板の位置（`scene/room/screens.ts`）、照明の切り替え（`scene/room/lighting.ts`）、体の関節（`scene/room/self.ts`）、歩き（`scene/room/gait.ts`）、座る度合いと椅子の位置（`scene/room/seat.ts`）、カーブミラーの位置（`scene/room/mirror.ts`）、歩く飛行（`scene/camera/walkFlight.ts`）、レンズの式（`scene/camera/fisheye.ts`）、カメラの姿勢・画面上の位置・飛行・ずらし（`scene/camera/roomCamera.ts`）、CSS の3D変換が WebGL の射影と一致すること（`scene/camera/cssView.ts`）、首振りの減衰と視点の揺れ（`scene/camera/cameraMotion.ts`）、マーカーの可視判定（`scene/camera/markerScreen.ts`）、マーカーの形（`scene/markerBolt.ts`）、Mac のゲームの規則・音とデスクトップのクリック・キー・時間（`scene/mac/snake.ts`・`breakout.ts`・`mines.ts`・`sounds.ts`・`finder.ts`）、座ったときの4つの視点とゲームのズーム（`scene/room/deskViews.ts`）、ジェスチャの判定（`scene/viewGesture.ts`）、ジオラマの時計（`scene/sceneClock.ts`）、決定論的ハッシュ（`scene/hash.ts`）、制作実績のフィルタ（`detail/products/catalog.ts`）、経歴の並び順とリンク先の実在（`data/experience.ts`）、プロジェクトデータの言語解決と、実績が指す画像・過去バージョンが配信物に実在し、過去バージョンが自分のディレクトリの外を指さず、検索よけ（`noindex`）が入っているか（`data/projectModel.ts`。これだけは `public/` を読む）、URL の解釈（`state/sectionUrl.ts`）、ナビの並びと、読み物のページからの行き先（`hub/nav.ts`）、カードレールの窓（`hub/card/railLayout.ts`）、経歴の年ごとのまとめ（`detail/experienceTimeline.ts`）、カードのホイール送り（`hub/card/cardWheel.ts`）、点線の稲妻（`hub/card/lightningPath.ts`）、自己紹介の自動再生と読了判定（`hub/about/aboutScroll.ts`）、自己紹介の文の全角（`hub/about/aboutCopy.tsx` を読む）、ノートの並び順と日付の書式（`data/noteModel.ts`）、読み物のページのメタデータ（`reading/pageMeta.ts`）・パンくず（`reading/breadcrumbs.ts`）・前後の記事（`reading/adjacentEntry.ts`）・本文を見出しごとに区切ること（`reading/splitMdxBody.ts`。実際の MDX をすべてコンパイルして確かめる）、「」囲みのクラス（`ui/cornerBracketClasses.ts`）、サイトマップ（`app/sitemap.ts`）、`ads.txt` と発行者 ID の一致（`data/site.ts`）、読み物の本文の実在・最低文字数・サイト内リンクの実在（`content/`。`src/content/` を読む）。
+- 対象: 部屋の配置・ズームの寄り方・座る位置と椅子・壁の柱（`scene/room/layout.ts`）、巡回の輪（`scene/room/tour.ts`）、HTML を載せる板の位置（`scene/room/screens.ts`）、照明の切り替え（`scene/room/lighting.ts`）、体の関節（`scene/room/self.ts`）、歩き（`scene/room/gait.ts`）、座る度合いと椅子の位置（`scene/room/seat.ts`）、カーブミラーの位置（`scene/room/mirror.ts`）、歩く飛行（`scene/camera/walkFlight.ts`）、カメラの姿勢・画面上の位置・飛行・ずらし（`scene/camera/roomCamera.ts`）、CSS の3D変換が WebGL の射影と一致すること（`scene/camera/cssView.ts`）、首振りの減衰と視点の揺れ（`scene/camera/cameraMotion.ts`）、マーカーの可視判定（`scene/camera/markerScreen.ts`）、マーカーの形（`scene/markerBolt.ts`）、Mac のゲームの規則・音とデスクトップのクリック・キー・時間（`scene/mac/snake.ts`・`breakout.ts`・`mines.ts`・`sounds.ts`・`finder.ts`）、座ったときの4つの視点とゲームのズーム（`scene/room/deskViews.ts`）、ジェスチャの判定（`scene/viewGesture.ts`）、ジオラマの時計（`scene/sceneClock.ts`）、決定論的ハッシュ（`scene/hash.ts`）、制作実績のフィルタ（`detail/products/catalog.ts`）、経歴の並び順とリンク先の実在（`data/experience.ts`）、プロジェクトデータの言語解決と、実績が指す画像・過去バージョンが配信物に実在し、過去バージョンが自分のディレクトリの外を指さず、検索よけ（`noindex`）が入っているか（`data/projectModel.ts`。これだけは `public/` を読む）、URL の解釈（`state/sectionUrl.ts`）、ナビの並びと、読み物のページからの行き先（`hub/nav.ts`）、カードレールの窓（`hub/card/railLayout.ts`）、経歴の年ごとのまとめ（`detail/experienceTimeline.ts`）、カードのホイール送り（`hub/card/cardWheel.ts`）、点線の稲妻（`hub/card/lightningPath.ts`）、自己紹介の自動再生と読了判定（`hub/about/aboutScroll.ts`）、自己紹介の文の全角（`hub/about/aboutCopy.tsx` を読む）、ノートの並び順と日付の書式（`data/noteModel.ts`）、読み物のページのメタデータ（`reading/pageMeta.ts`）・パンくず（`reading/breadcrumbs.ts`）・前後の記事（`reading/adjacentEntry.ts`）・本文を見出しごとに区切ること（`reading/splitMdxBody.ts`。実際の MDX をすべてコンパイルして確かめる）、「」囲みのクラス（`ui/cornerBracketClasses.ts`）、サイトマップ（`app/sitemap.ts`）、`ads.txt` と発行者 ID の一致（`data/site.ts`）、読み物の本文の実在・最低文字数・サイト内リンクの実在（`content/`。`src/content/` を読む）。
 - 新しいテストは**変異テストで検証する運用**にしている。意図的なバグを仕込んで落ちることを確認しないと、緑であることに意味がないため。
 
 ```bash

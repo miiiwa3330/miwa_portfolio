@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
+import { mergeGeometries, mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import {
   FOREARM,
   HEAD_BEHIND_EYE,
@@ -19,6 +20,7 @@ import {
   type BodyJoints,
 } from "../room/self";
 import { FIGURE, TORSO } from "../room/figure";
+import { DIGITS, FINGERS, HAND, digitJoints, gripFor, handBasis } from "../room/hand";
 import { bodyNow, viewNow } from "../camera/viewChannel";
 import { seatOnLine, seatShare } from "../room/seat";
 import { macPointer, pcPointer } from "../deskPointer";
@@ -63,6 +65,8 @@ const X = new THREE.Vector3();
 const Y = new THREE.Vector3();
 const Z = new THREE.Vector3();
 const ACROSS = new THREE.Vector3();
+const BACK = new THREE.Vector3();
+const UP = new THREE.Vector3(0, 1, 0);
 const OUT = [new THREE.Vector3(), new THREE.Vector3()];
 const BASIS = new THREE.Matrix4();
 
@@ -106,6 +110,151 @@ function Skin({ map }: { map?: THREE.Texture }) {
 function Cloth({ color }: { color: string }) {
   // Cotton and canvas: matte, with a soft sheen where the light grazes.
   return <meshPhysicalMaterial color={color} roughness={0.92} sheen={0.6} sheenRoughness={0.8} sheenColor="#5c5654" />;
+}
+
+/** A hand's bones: the wrist first, then three to each digit, in `DIGITS`' order (the thumb last). */
+const boneIndex = (digit: number, joint: number) => 1 + digit * 3 + joint;
+
+/** The axis each digit curls about: from its bones' straight way towards its `bend`. */
+const CURL_AXES = DIGITS.map((d) => new THREE.Vector3(...d.dir).cross(new THREE.Vector3(...d.bend)).normalize());
+
+/**
+ * A hand, straight (the skeleton's rest): the palm, tapered from the wrist
+ * to the knuckles, and a capsule along every bone of `room/hand.ts`, each
+ * vertex wholly on its own bone. One draw, its fingers curled by the bones.
+ */
+function handGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  const onBone = (g: THREE.BufferGeometry, bone: number) => {
+    const flat = g.index ? g.toNonIndexed() : g;
+    if (flat !== g) g.dispose();
+    const n = flat.attributes.position.count;
+    const index = new Uint16Array(n * 4);
+    const weight = new Float32Array(n * 4);
+    for (let k = 0; k < n; k++) {
+      index[k * 4] = bone;
+      weight[k * 4] = 1;
+    }
+    flat.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(index, 4));
+    flat.setAttribute("skinWeight", new THREE.Float32BufferAttribute(weight, 4));
+    parts.push(flat);
+  };
+
+  // Welded so the normals can be worked out again from the shape once it is bent.
+  const box = new RoundedBoxGeometry(HAND.thickness, HAND.palm, HAND.breadth, 3, 0.011);
+  box.deleteAttribute("normal");
+  box.deleteAttribute("uv");
+  const palm = mergeVertices(box);
+  box.dispose();
+  palm.translate(0, HAND.palm / 2, 0);
+  const p = palm.attributes.position;
+  for (let k = 0; k < p.count; k++) {
+    const t = Math.min(1, Math.max(0, p.getY(k) / HAND.palm));
+    const across = (HAND.wristBreadth + (HAND.breadth - HAND.wristBreadth) * t) / HAND.breadth;
+    const z = p.getZ(k) * across;
+    // The back of the hand domed across, the palm a little padded: a box's flat top read as a block.
+    const edge = 1 - Math.min(1, (z / (HAND.breadth / 2)) ** 2);
+    const x = p.getX(k);
+    const swell = x > 0 ? 0.005 : 0.003 * Math.sin(Math.PI * t);
+    p.setXYZ(k, x * (1 + (swell * edge) / (HAND.thickness / 2)), p.getY(k), z);
+  }
+  palm.computeVertexNormals();
+  palm.setAttribute("uv", new THREE.Float32BufferAttribute(new Float32Array(p.count * 2), 2));
+  onBone(palm, 0);
+
+  const q = new THREE.Quaternion();
+  DIGITS.forEach((digit, d) => {
+    const joints = digitJoints(digit, [0, 0, 0]);
+    digit.lengths.forEach((length, k) => {
+      const g = new THREE.CapsuleGeometry(digit.radii[k], length, 4, 10);
+      g.applyQuaternion(q.setFromUnitVectors(UP, new THREE.Vector3(...digit.dir)));
+      const a = joints[k];
+      const b = joints[k + 1];
+      g.translate((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2);
+      onBone(g, boneIndex(d, k));
+    });
+  });
+
+  const merged = mergeGeometries(parts);
+  parts.forEach((g) => g.dispose());
+  return merged;
+}
+
+/** The bones of one hand, at rest (straight): the wrist, and each digit's three in a chain. */
+function handSkeleton(): { root: THREE.Bone; bones: THREE.Bone[]; skeleton: THREE.Skeleton } {
+  const root = new THREE.Bone();
+  const bones = [root];
+  for (const digit of DIGITS) {
+    let parent = root;
+    digit.lengths.forEach((_, k) => {
+      const bone = new THREE.Bone();
+      if (k === 0) bone.position.set(...digit.base);
+      else bone.position.set(...(digit.dir.map((v) => v * digit.lengths[k - 1]) as [number, number, number]));
+      parent.add(bone);
+      bones.push(bone);
+      parent = bone;
+    });
+  }
+  root.updateMatrixWorld(true);
+  return { root, bones, skeleton: new THREE.Skeleton(bones) };
+}
+
+/**
+ * One hand, named for `poseFigure`, which puts it at the wrist and curls its
+ * bones (`userData.bones`). The left is the right mirrored: `poseFigure`
+ * turns its frame's +Z (the thumb's side) the other way.
+ */
+function Hand({ name }: { name: string }) {
+  const geometry = useMemo(() => handGeometry(), []);
+  const rig = useMemo(() => handSkeleton(), []);
+  const mesh = useRef<THREE.SkinnedMesh>(null);
+  useLayoutEffect(() => {
+    const m = mesh.current;
+    if (!m) return;
+    m.add(rig.root);
+    m.bind(rig.skeleton, new THREE.Matrix4());
+    return () => {
+      m.remove(rig.root);
+    };
+  }, [rig]);
+  useEffect(
+    () => () => {
+      geometry.dispose();
+      rig.skeleton.dispose();
+    },
+    [geometry, rig]
+  );
+  return (
+    <group name={name} userData={{ bones: rig.bones }}>
+      <skinnedMesh ref={mesh} geometry={geometry} raycast={noRaycast}>
+        <Skin />
+      </skinnedMesh>
+    </group>
+  );
+}
+
+/**
+ * The forearm, elbow to wrist: round at the elbow, flattening to the wrist
+ * so it meets the palm's thickness (+X, the back of the arm, is the thin
+ * way). A round wrist was twice the palm's thickness and stood out round it.
+ */
+function forearmGeometry(length: number): THREE.BufferGeometry {
+  const g = new THREE.CylinderGeometry(1, 1, length, 16, 6);
+  g.translate(0, length / 2, 0);
+  const p = g.attributes.position;
+  const n = g.attributes.normal;
+  for (let k = 0; k < p.count; k++) {
+    const t = p.getY(k) / length;
+    const thick = 0.034 + (0.018 - 0.034) * t;
+    const wide = 0.034 + (0.03 - 0.034) * t;
+    p.setX(k, p.getX(k) * thick);
+    p.setZ(k, p.getZ(k) * wide);
+    const nx = n.getX(k) / thick;
+    const nz = n.getZ(k) / wide;
+    const l = Math.hypot(nx, n.getY(k), nz) || 1;
+    n.setXYZ(k, nx / l, n.getY(k) / l, nz / l);
+  }
+  return g;
 }
 
 /** The hair: a cap over the skull and clumps on it, as the sheet draws it (シンプルな束で表現). */
@@ -213,7 +362,26 @@ export function poseFigure(root: THREE.Object3D | null, j: BodyJoints, pitch: nu
     placeBone(part(`thigh${i}`), hip, j.knees[i], out);
     placeBone(part(`shin${i}`), j.knees[i], j.feet[i], out);
     placeBone(part(`upperArm${i}`), j.shoulders[i], j.elbows[i], out);
-    placeBone(part(`foreArm${i}`), j.elbows[i], j.hands[i], out);
+    // The hand at the wrist, curled to its grip; the forearm runs to the wrist, its back the hand's.
+    const grip = gripFor(side, j.sat, j.along);
+    const basis = handBasis(j.elbows[i], j.hands[i], [out.x, out.y, out.z], side, grip);
+    placeBone(part(`foreArm${i}`), j.elbows[i], basis.wrist, BACK.set(...basis.back));
+    const hand = part(`hand${i}`);
+    if (hand) {
+      hand.position.set(...basis.wrist);
+      X.set(...basis.x);
+      Y.set(...basis.y);
+      Z.crossVectors(X, Y);
+      hand.quaternion.setFromRotationMatrix(BASIS.makeBasis(X, Y, Z));
+      hand.scale.set(1, 1, side);
+      const bones = hand.userData.bones as THREE.Bone[] | undefined;
+      if (bones) {
+        DIGITS.forEach((_, d) => {
+          const curl = d < FINGERS.length ? grip.fingers[d] : grip.thumb;
+          for (let k = 0; k < 3; k++) bones[boneIndex(d, k)].quaternion.setFromAxisAngle(CURL_AXES[d], curl[k]);
+        });
+      }
+    }
     const shoe = part(`shoe${i}`);
     if (shoe) {
       shoe.position.set(j.feet[i][0], j.feet[i][1], j.feet[i][2]);
@@ -229,8 +397,7 @@ export function poseFigure(root: THREE.Object3D | null, j: BodyJoints, pitch: nu
 
 /**
  * The figure's parts, built once at their real sizes and named for
- * `poseFigure`. Drawn twice in the room: as the reader's own body (`Self`)
- * and as the hologram's projection of them (`HologramSelf`).
+ * `poseFigure`. Drawn as the reader's own body (`Self`), and in the lab (`LabSelf`).
  */
 export function FigureModel({ ref }: { ref?: React.Ref<THREE.Group> }) {
   const hairInstances = useRef<THREE.InstancedMesh>(null);
@@ -255,6 +422,7 @@ export function FigureModel({ ref }: { ref?: React.Ref<THREE.Group> }) {
     return g;
   }, []);
   const shoeGeometry = useMemo(() => new RoundedBoxGeometry(0.12, 0.08, 0.28, 3, 0.035), []);
+  const forearm = useMemo(() => forearmGeometry(FOREARM - HAND.wristBack), []);
   const soleGeometry = useMemo(() => new RoundedBoxGeometry(0.125, 0.035, 0.29, 2, 0.015), []);
   const lensFrame = useMemo(() => {
     // One rim of the glasses: a rounded rectangle, 5 × 3.4 cm.
@@ -277,8 +445,8 @@ export function FigureModel({ ref }: { ref?: React.Ref<THREE.Group> }) {
     return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points, true), 40, 0.0022, 6, true);
   }, []);
   useEffect(
-    () => () => [shirtGeometry, seatGeometry, shoeGeometry, soleGeometry, lensFrame].forEach((g) => g.dispose()),
-    [shirtGeometry, seatGeometry, shoeGeometry, soleGeometry, lensFrame]
+    () => () => [shirtGeometry, seatGeometry, shoeGeometry, soleGeometry, lensFrame, forearm].forEach((g) => g.dispose()),
+    [shirtGeometry, seatGeometry, shoeGeometry, soleGeometry, lensFrame, forearm]
   );
 
   // The hair is instanced once.
@@ -347,20 +515,33 @@ export function FigureModel({ ref }: { ref?: React.Ref<THREE.Group> }) {
               </mesh>
               <Limb length={UPPER_ARM} from={0.038} to={0.034} />
             </group>
+            {/* The forearm, a ball at the elbow so the bend shows no seam, and on the left a watch: a band and a face on the back of the wrist. */}
             <group name={`foreArm${i}`}>
-              <Limb length={FOREARM - 0.05} from={0.034} to={0.028} />
-              {/* The hand, flattened, its middle at the bone's end. */}
-              <mesh position={[0, FOREARM - 0.01, 0]} scale={[0.03, 0.05, 0.016]} raycast={noRaycast}>
-                <sphereGeometry args={[1, 12, 10]} />
+              <mesh raycast={noRaycast}>
+                <sphereGeometry args={[0.035, 14, 10]} />
+                <Skin />
+              </mesh>
+              <mesh geometry={forearm} raycast={noRaycast}>
                 <Skin />
               </mesh>
               {side < 0 && (
-                <mesh position={[0, FOREARM - 0.075, 0]} rotation={[Math.PI / 2, 0, 0]} raycast={noRaycast}>
-                  <torusGeometry args={[0.03, 0.009, 6, 16]} />
-                  <meshStandardMaterial color={COLOURS.watch} roughness={0.5} />
-                </mesh>
+                <group position={[0, FOREARM - HAND.wristBack - 0.022, 0]}>
+                  <mesh scale={[0.0215, 1, 0.0322]} raycast={noRaycast}>
+                    <cylinderGeometry args={[1, 1, 0.018, 24, 1, true]} />
+                    <meshStandardMaterial color={COLOURS.watch} roughness={0.6} />
+                  </mesh>
+                  <mesh position={[0.022, 0, 0]} rotation={[0, 0, Math.PI / 2]} raycast={noRaycast}>
+                    <cylinderGeometry args={[0.017, 0.017, 0.008, 24]} />
+                    <meshStandardMaterial color={COLOURS.watch} roughness={0.35} metalness={0.4} />
+                  </mesh>
+                  <mesh position={[0.0262, 0, 0]} rotation={[0, Math.PI / 2, 0]} raycast={noRaycast}>
+                    <circleGeometry args={[0.0145, 24]} />
+                    <meshStandardMaterial color="#20262a" roughness={0.15} metalness={0.1} />
+                  </mesh>
+                </group>
               )}
             </group>
+            <Hand name={`hand${i}`} />
             {/* The sneaker: a dark upper on a thick pale sole, the toe out in front (−Z). */}
             <group name={`shoe${i}`}>
               <mesh geometry={soleGeometry} position={[0, 0.0175, -0.06]} raycast={noRaycast}>

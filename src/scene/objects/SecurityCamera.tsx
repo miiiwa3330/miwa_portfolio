@@ -12,7 +12,7 @@ import { HEAD_LAYER } from "../layers";
  * turning as the reader turns (docs/room-migration.md, "自分自身").
  *
  * **Drawn ten times a second, not every frame.** It is the room drawn a
- * second time, from another camera (the same kind of cost as the fisheye);
+ * second time, from another camera (as the curve mirror is);
  * a feed this small and this grainy does not need sixty. Real time, not the
  * room's clock: the reader is what it films.
  *

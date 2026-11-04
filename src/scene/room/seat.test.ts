@@ -6,7 +6,7 @@ import { planRoomMove } from "../camera/walkFlight";
 import { bodyJoints } from "./self";
 import { STANDING, advanceGait } from "./gait";
 
-const framing = { hfov: STANDARD_HFOV, lens: 1, share: 0, lift: 0 };
+const framing = { hfov: STANDARD_HFOV, share: 0, lift: 0 };
 const desk = poseFromView(zoomView("desk"), framing);
 const centre = poseFromView(standardView("desk"), framing);
 const deskDistance = pieceCentreDistance(PIECES.desk);

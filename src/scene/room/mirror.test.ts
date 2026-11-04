@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { CURVE_MIRROR, curveMirror, mirrorCapAngle, mirrorRimDepth } from "./mirror";
 import { BOARD_FRAME, EYE_HEIGHT, PIECES, ROOM_RADIUS, SUBJECTS, WALL_HEIGHT, pieceToWorld, standardView } from "./layout";
-import { freeFraming, poseFromView, projectToScreen, toCameraSpace, zoomFraming } from "../camera/roomCamera";
+import { freeFraming, poseFromView, projectToScreen, toCameraSpace, zoomFraming, type RoomPose } from "../camera/roomCamera";
+import { MAX_PITCH } from "../camera/cameraMotion";
 
 const { mount, centre, normal } = curveMirror();
 const sub = (a: readonly number[], b: readonly number[]) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -20,7 +21,7 @@ const boardCorner = pieceToWorld(PIECES.board, [
 
 describe("the curve mirror", () => {
   it("hangs above and to the right of the board's top right corner, seen from the centre", () => {
-    for (const framing of [freeFraming("standard", false), zoomFraming("experience", false)]) {
+    for (const framing of [freeFraming(false), zoomFraming("experience", false)]) {
       const pose = poseFromView(standardView("experience"), framing);
       const corner = projectToScreen(toCameraSpace(pose, boardCorner), pose, 1600, 900)!;
       const glass = projectToScreen(toCameraSpace(pose, centre), pose, 1600, 900)!;
@@ -29,11 +30,11 @@ describe("the curve mirror", () => {
     }
   });
 
-  it("is in the fisheye's picture, rim and all, from the board's stop — on a desktop and a phone", () => {
-    // Facing the board in the standard view it is out of the frame: high
-    // (the frame's top is 20° up; the glass is 22° up) and past the right
-    // edge, where the card's shift puts the board's own corner. The reader
-    // looks up at it, or widens the view.
+  it("fits in the picture, rim and all, looked at from the centre — on a desktop and a phone", () => {
+    // Facing the board it is out of the frame: high (the frame's top is 20°
+    // up; the glass is 22° up) and past the right edge, where the card's
+    // shift puts the board's own corner. The reader looks up at it — the only
+    // way to see all of it since the fisheye went (2026-11-01).
     const side = unit([normal[2], 0, -normal[0]]);
     const up = [
       side[1] * normal[2] - side[2] * normal[1],
@@ -46,7 +47,17 @@ describe("the curve mirror", () => {
       [false, 1600, 900],
       [true, 390, 844],
     ] as const) {
-      const pose = poseFromView(standardView("experience"), freeFraming("fisheye", handheld));
+      const [dx, dy, dz] = sub(centre, [0, EYE_HEIGHT, 0]);
+      const pose: RoomPose = {
+        x: 0,
+        z: 0,
+        yaw: Math.atan2(dx, -dz),
+        pitch: Math.atan2(dy, Math.hypot(dx, dz)),
+        forward: 0,
+        eyeHeight: EYE_HEIGHT,
+        ...freeFraming(handheld),
+      };
+      expect(pose.pitch).toBeLessThan(MAX_PITCH);
       for (const point of rim) {
         const p = projectToScreen(toCameraSpace(pose, point), pose, width, height)!;
         expect(p.x).toBeGreaterThan(0);

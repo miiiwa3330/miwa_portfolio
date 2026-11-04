@@ -4,7 +4,6 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { hashForState, movedToPage, sectionFromHash } from "./sectionUrl";
 import { pathForSection } from "@/hub/nav";
 import type { Focus, SectionType } from "@/types";
-import type { ViewZoom } from "@/scene/room/layout";
 import { DEFAULT_LIGHTS, flipLight as flip, type LightSwitch, type RoomLights } from "@/scene/room/lighting";
 
 interface AppStateContextType {
@@ -32,16 +31,6 @@ interface AppStateContextType {
   turnTo: (section: NonNullable<SectionType>) => void;
   turnRequest: { section: NonNullable<SectionType>; nonce: number } | null;
   /**
-   * Which of the free view's two stages is in effect while no section is
-   * focused — "standard" (the default) or "fisheye" (widened to take in the
-   * room). Only ever changes in the free view; every way of leaving a section
-   * resets it back to "standard", so "fisheye" is always a deliberate,
-   * temporary choice (a pinch), never something you can
-   * get stuck in.
-   */
-  viewZoom: ViewZoom;
-  setViewZoom: (zoom: ViewZoom) => void;
-  /**
    * The room's lights — the ceiling light, the desk lamp and the neon's
    * colours. The one copy: the switch plate in the room and the light menu in
    * the header both only call `flipLight` (see `scene/room/lighting.ts`).
@@ -56,7 +45,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [activeSection, setActiveSection] = useState<Focus>(null);
   const [homeNonce, setHomeNonce] = useState(0);
   const [turnRequest, setTurnRequest] = useState<{ section: NonNullable<SectionType>; nonce: number } | null>(null);
-  const [viewZoom, setViewZoom] = useState<ViewZoom>("standard");
   const [lights, setLights] = useState<RoomLights>(DEFAULT_LIGHTS);
   const flipLight = useCallback((which: LightSwitch) => setLights((current) => flip(current, which)), []);
 
@@ -66,7 +54,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const unfocus = useCallback(() => {
     setActiveSection(null);
-    setViewZoom("standard");
   }, []);
 
   const goHome = useCallback(() => {
@@ -94,10 +81,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         return;
       }
       setActiveSection(section);
-      // The same "always land at standard" normalization unfocus() carries —
-      // otherwise the back button or a direct link could leave the visitor
-      // stranded in the fisheye.
-      setViewZoom("standard");
       // Going back to no section is a request to see the diorama again.
       if (fromHistory && !section) setHomeNonce((n) => n + 1);
       urlApplied.current = true;
@@ -138,9 +121,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       activeSection, setActiveSection, unfocus, goHome, homeNonce,
-      turnTo, turnRequest, viewZoom, setViewZoom, lights, flipLight,
+      turnTo, turnRequest, lights, flipLight,
     }),
-    [activeSection, unfocus, goHome, homeNonce, turnTo, turnRequest, viewZoom, lights, flipLight]
+    [activeSection, unfocus, goHome, homeNonce, turnTo, turnRequest, lights, flipLight]
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;

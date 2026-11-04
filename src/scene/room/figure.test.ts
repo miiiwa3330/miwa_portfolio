@@ -32,7 +32,7 @@ describe("the figure, measured off the character sheet", () => {
 });
 
 describe("sitting at the PC, on a chair the figure fits", () => {
-  const seated = bodyJoints(poseFromView(zoomView("desk"), { hfov: STANDARD_HFOV, lens: 1, share: 0, lift: 0 }));
+  const seated = bodyJoints(poseFromView(zoomView("desk"), { hfov: STANDARD_HFOV, share: 0, lift: 0 }));
 
   it("has a seat the lower legs reach: the knees at or over the cushion, the feet on the floor", () => {
     for (const knee of seated.knees) expect(knee[1]).toBeGreaterThan(CHAIR_SEAT_TOP - 0.01);

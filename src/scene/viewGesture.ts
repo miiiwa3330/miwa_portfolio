@@ -25,18 +25,19 @@
  * catching a two-finger swipe, where the separation barely changes at all.
  *
  * The caller latches the answer for the rest of the gesture: a scroll must not
- * turn into a zoom halfway through a swipe, and the zoom is a single discrete
- * step rather than a dial (see `OrbitZoom`).
+ * turn into a pinch halfway through a swipe. (A pinch does nothing since the
+ * fisheye it switched to went, 2026-11-01; it is still told apart so that
+ * pinching does not scroll.)
  */
 export function twoFingerGesture(
   spread: number,
   travel: number,
   pinchThresholdPx: number,
   scrollThresholdPx: number
-): "zoom" | "scroll" | null {
+): "pinch" | "scroll" | null {
   const separation = Math.abs(spread);
   const together = Math.abs(travel);
-  if (separation >= pinchThresholdPx && separation >= together) return "zoom";
+  if (separation >= pinchThresholdPx && separation >= together) return "pinch";
   if (together >= scrollThresholdPx && together > separation) return "scroll";
   return null;
 }

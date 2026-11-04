@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { Canvas, events, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import RoomScene from "./objects/RoomScene";
-import LensRenderer from "./LensRenderer";
 import { SCREEN_HOLE_LAYER } from "./layers";
 import {
   MAX_PITCH,
@@ -18,7 +17,6 @@ import {
   beginRoomFlight,
   freeFraming,
   zoomFraming,
-  lensBends,
   floorSpot,
   frameCentreDirection,
   placeCamera,
@@ -56,7 +54,6 @@ import {
   viewDirection,
   yawOf,
   zoomView,
-  type ViewZoom,
 } from "./room/layout";
 import { ROOM_EXPOSURE } from "./room/lighting";
 import { ROOM_TOUR, stopU } from "./room/tour";
@@ -76,7 +73,7 @@ import { twoFingerGesture } from "./viewGesture";
  * `room/layout.ts` for the arithmetic, which is tested there.
  *
  * What carried over from the planet unchanged, because it was never about the
- * planet: the touch input (drag, two fingers, pinch, tap) and the wheel, the
+ * planet: the touch input (drag, two fingers, tap) and the wheel, the
  * free view's damped chase with its capped return after a drag, the tour as a
  * closed path through the stops, and the one effect that decides every
  * destination. What did not: `camera-controls` (a tool for orbiting a target),
@@ -91,15 +88,14 @@ const WHEEL_SENSITIVITY = 0.0004; // radians of turn per unit of wheel deltaY
 
 const DEG = Math.PI / 180;
 
-// How far apart two fingers must move, in px, before a pinch is read as a
-// deliberate request to switch the free view's stage — not a continuous dial,
-// a single discrete step per gesture (see `ViewZoom` in room/layout.ts).
-// Crossed once per two-finger gesture; the fingers have to lift and come back
-// down for a second switch, rather than firing repeatedly on a long pinch.
+// How far apart two fingers must move, in px, before the gesture is read as a
+// pinch. A pinch does nothing now — it switched the free view to the fisheye,
+// which went on 2026-11-01 — but it is still told apart from a swipe and
+// latched, so that pinching does not turn the room as well.
 const PINCH_THRESHOLD_PX = 60;
 
 // How far two fingers must travel *together*, in px, before the gesture is
-// read as a scroll along the tour rather than a zoom.
+// read as a scroll along the tour rather than a pinch.
 //
 // **The two are told apart by which moved more, not by which threshold was
 // crossed first.** A pinch with one finger anchored moves the midpoint by half
@@ -110,15 +106,6 @@ const PINCH_THRESHOLD_PX = 60;
 // latches yet) while still catching a two-finger swipe, where the separation
 // barely changes at all.
 const TWO_FINGER_SCROLL_THRESHOLD_PX = 24;
-
-// A trackpad pinch is not a pointer gesture. Every browser reports it as a
-// wheel event with `ctrlKey` set — the same convention it uses for
-// zoom-the-page — so on a desktop the two-finger zoom arrives through
-// `onWheel` instead of through the pointer handlers, in a stream of small
-// deltas rather than as one distance. This is how much of that stream adds up
-// to one altitude switch. Smaller than it looks: a deliberate trackpad pinch
-// emits deltas of a few units each, tens of times a second.
-const PINCH_WHEEL_THRESHOLD = 24;
 
 // How long the wheel must be quiet before a stream that began while the orbit
 // was locked is trusted again. Longer than the gaps within a momentum tail,
@@ -180,10 +167,10 @@ function directionFor(yaw: number, pitch: number) {
  * nav order (see `room/layout.ts`).
  *
  * A second finger switches the gesture entirely, to one of two things that
- * never overlap: **the separation changing** is a zoom, asking `onPinchZoom`
- * for the free view's other stage — once per gesture, not a dial; **the pair
- * travelling together** is a scroll along the tour, the touch half of what the
- * wheel does, at the drag's own rate.
+ * never overlap: **the separation changing** is a pinch, which does nothing
+ * (it was the fisheye's, gone 2026-11-01) but holds the gesture so it does
+ * not turn the room; **the pair travelling together** is a scroll along the
+ * tour, the touch half of what the wheel does, at the drag's own rate.
  *
  * `followTourRef` is the one piece of state a gesture leaves behind: the
  * wheel and the two-finger swipe put the view back on the tour (it follows
@@ -202,8 +189,7 @@ function useViewInput(
   draggingRef: React.RefObject<boolean>,
   followTourRef: React.RefObject<boolean>,
   lockedRef: React.RefObject<boolean>,
-  flightRef: React.RefObject<unknown>,
-  onPinchZoom: (zoom: ViewZoom) => void
+  flightRef: React.RefObject<unknown>
 ) {
   useEffect(() => {
     let down = false;
@@ -220,7 +206,7 @@ function useViewInput(
       startDist: number;
       startMidY: number;
       lastMidY: number;
-      mode: "undecided" | "zoom" | "scroll";
+      mode: "undecided" | "pinch" | "scroll";
     } | null = null;
 
     const midpointY = (a: { y: number }, b: { y: number }) => (a.y + b.y) / 2;
@@ -305,11 +291,8 @@ function useViewInput(
 
           if (twoFinger.mode === "undecided") {
             const asked = twoFingerGesture(spread, travel, PINCH_THRESHOLD_PX, TWO_FINGER_SCROLL_THRESHOLD_PX);
-            if (asked === "zoom") {
-              twoFinger.mode = "zoom";
-              // Spreading apart asks for the closer stage (standard); closing
-              // asks for the wider one (fisheye). Once per gesture.
-              onPinchZoom(spread > 0 ? "standard" : "fisheye");
+            if (asked === "pinch") {
+              twoFinger.mode = "pinch";
             } else if (asked === "scroll") {
               twoFinger.mode = "scroll";
               // The travel spent deciding is not also scrolled.
@@ -359,31 +342,16 @@ function useViewInput(
     // new gesture always starts after a pause.
     let lastWheelAt = 0;
     let wheelArmed = true;
-    // A trackpad pinch arrives as a stream of small ctrl+wheel deltas, added
-    // up until it amounts to a switch and then latched.
-    let pinchWheel = 0;
-    let pinchWheelConsumed = false;
 
     const onWheel = (e: WheelEvent) => {
       const sinceLast = e.timeStamp - lastWheelAt;
       lastWheelAt = e.timeStamp;
 
-      // **A pinch on a trackpad is a ctrl+wheel, not a pointer gesture.**
-      // Without this branch it would fall through and turn the room instead.
+      // **A pinch on a trackpad is a ctrl+wheel, not a pointer gesture**, and
+      // it does nothing (it was the fisheye's). Taken rather than let through:
+      // through, it would turn the room — or zoom the whole page under it.
       if (e.ctrlKey) {
         e.preventDefault();
-        if (locked()) return;
-        if (sinceLast >= WHEEL_REARM_MS) {
-          pinchWheel = 0;
-          pinchWheelConsumed = false;
-        }
-        if (pinchWheelConsumed) return;
-        pinchWheel += e.deltaY;
-        if (Math.abs(pinchWheel) >= PINCH_WHEEL_THRESHOLD) {
-          // Spreading apart reports negative deltas — the closer stage.
-          onPinchZoom(pinchWheel < 0 ? "standard" : "fisheye");
-          pinchWheelConsumed = true;
-        }
         return;
       }
 
@@ -412,7 +380,7 @@ function useViewInput(
       window.removeEventListener("pointercancel", endDrag);
       window.removeEventListener("wheel", onWheel);
     };
-  }, [canvas, yawRef, pitchRef, yawTargetRef, pitchTargetRef, tourURef, draggingRef, followTourRef, lockedRef, flightRef, onPinchZoom]);
+  }, [canvas, yawRef, pitchRef, yawTargetRef, pitchTargetRef, tourURef, draggingRef, followTourRef, lockedRef, flightRef]);
 }
 
 /** The keys that walk: W/A/S/D by where they are on the keyboard, whatever the layout prints on them. */
@@ -482,7 +450,7 @@ function tourAngles(u: number): { yaw: number; pitch: number } {
 }
 
 function CameraController() {
-  const { activeSection, homeNonce, turnRequest, viewZoom, setViewZoom } = useAppState();
+  const { activeSection, homeNonce, turnRequest } = useAppState();
 
   // Whether the card is the strip along the bottom rather than the panel on
   // the left — which decides whether the subject has to be slid clear of it.
@@ -492,10 +460,7 @@ function CameraController() {
 
   const home = tourAngles(0);
   // Read fresh each render, for `useFrame`'s closure (recreated every render).
-  // How the free view is drawn at its current stage, and how a zoom is: a
-  // zoom is always through the standard view's perspective, since the HTML
-  // placed in the room can only be drawn through one.
-  const free = freeFraming(viewZoom, handheld);
+  const free = freeFraming(handheld);
 
   // The free view's true state. The targets jump the instant a gesture or the
   // tour asks for something new; `yawRef`/`pitchRef` are what is drawn,
@@ -534,7 +499,6 @@ function CameraController() {
   }, []);
   const prevSectionRef = useRef<Focus>(null);
   const prevNonceRef = useRef(homeNonce);
-  const prevZoomRef = useRef(viewZoom);
 
   /** The flight in progress, if any. The record and its step are in `camera/roomCamera.ts`. */
   const flightRef = useRef<RoomFlight | null>(null);
@@ -560,7 +524,7 @@ function CameraController() {
   }, [activeSection]);
 
   const canvas = useThree((state) => state.gl.domElement);
-  useViewInput(canvas, yawRef, pitchRef, yawTargetRef, pitchTargetRef, tourURef, draggingRef, followTourRef, lockedRef, flightRef, setViewZoom);
+  useViewInput(canvas, yawRef, pitchRef, yawTargetRef, pitchTargetRef, tourURef, draggingRef, followTourRef, lockedRef, flightRef);
 
   // Sat at the desk: a two-finger swipe off the screens turns to the next of
   // its screens that way (`room/deskViews.ts`). On a screen the swipe is
@@ -677,10 +641,6 @@ function CameraController() {
    * shift of the projection rather than of the camera — both are fractions of
    * the frame, so a resize needs nothing of its own.
    *
-   * Through a bent lens the camera itself only carries the position and the
-   * direction: `LensRenderer` draws the frame from a cube map, shifting it in
-   * its own shader, so the camera's projection is left unshifted.
-   *
    * Only ever called from the frame loop, with the frame's own camera: the
    * camera is three.js state that the frame loop owns, not a value of this
    * component's render.
@@ -710,7 +670,7 @@ function CameraController() {
     camera.fov = verticalFov(pose.hfov, camera.aspect);
     const shift = projectionShiftPx(pose.share, size.width);
     const lift = projectionLiftPx(pose.lift, size.height);
-    if (!lensBends(pose.lens) && (Math.abs(shift) > 0.01 || Math.abs(lift) > 0.01)) {
+    if (Math.abs(shift) > 0.01 || Math.abs(lift) > 0.01) {
       camera.setViewOffset(size.width, size.height, shift, lift, size.width, size.height);
     } else {
       camera.clearViewOffset();
@@ -751,12 +711,10 @@ function CameraController() {
     prevSectionRef.current = activeSection;
     const wasReset = homeNonce !== prevNonceRef.current;
     prevNonceRef.current = homeNonce;
-    const wasZoomChange = viewZoom !== prevZoomRef.current;
-    prevZoomRef.current = viewZoom;
 
     const duration = FLIGHT_SECONDS;
 
-    /** Turn the free view to `yaw`/`pitch` and fly there, at the current stage. */
+    /** Turn the free view to `yaw`/`pitch` and fly there. */
     const flyToFree = (yaw: number, pitch: number) => {
       // Unwrapped onto the side of the turn the free view is already on, so
       // the damp after landing has no extra lap to unwind.
@@ -797,21 +755,14 @@ function CameraController() {
       return;
     }
 
-    // 4. The free view's stage changed (a pinch) while
-    //    already in the free view: same direction, new field of view.
-    if (wasZoomChange) {
-      flyToFree(yawRef.current, pitchRef.current);
-      return;
-    }
-
-    // 5. First mount: already at home — the refs start there, and the first
+    // 4. First mount: already at home — the refs start there, and the first
     //    frame draws them (nothing is damping, so nothing moves).
     yawTargetRef.current = home.yaw;
     pitchTargetRef.current = home.pitch;
     yawRef.current = home.yaw;
     pitchRef.current = home.pitch;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSection, homeNonce, viewZoom]);
+  }, [activeSection, homeNonce]);
 
   // Ahead of every other frame callback (a negative priority still leaves
   // the rendering to R3F): the markers project through this camera, and if
@@ -903,14 +854,11 @@ const rayDirection = new THREE.Vector3();
 const rayOrigin = new THREE.Vector3();
 
 /**
- * R3F's pointer events, aimed through the room's lens.
- *
- * The stock `compute` asks the camera's projection which way a pixel looks,
- * and through the fisheye the camera's projection is not what is on screen
- * (`LensRenderer` draws it from a cube map) — a click on a marker would be
- * tested along a ray some way off it. `screenRay` is the same lens and the
- * same shifts the markers are placed with, so the two cannot disagree; for
- * the plain perspective it is exactly what the stock one does.
+ * R3F's pointer events, aimed along `screenRay`: the same projection and
+ * shifts the markers are placed with, so a click and a marker cannot
+ * disagree. For a free pointer it is what the stock `compute` does; while
+ * the mouse is captured it aims at the crosshair instead, which the stock one
+ * cannot (the captured event's position is stale).
  */
 function roomEvents(store: Parameters<typeof events>[0]) {
   const manager = events(store);
@@ -1013,7 +961,6 @@ export default function Scene({
       >
         <RoomScene />
         <CameraController />
-        <LensRenderer />
       </Canvas>
       <Crosshair />
     </>

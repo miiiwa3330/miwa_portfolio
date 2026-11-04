@@ -124,7 +124,7 @@ export function useDeskMouse(spec: DeskMouseSpec) {
     const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     const point = new THREE.Vector3();
 
-    /** Aim the raycaster through a point in client px, through the room's lens (as `roomEvents` does). */
+    /** Aim the raycaster through a point in client px, along the room's projection (as `roomEvents` does). */
     const aim = (clientX: number, clientY: number) => {
       const { camera, gl } = get();
       const rect = gl.domElement.getBoundingClientRect();

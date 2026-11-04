@@ -1,4 +1,4 @@
-import { cameraBasis, lensBends, placeCamera, projectionLiftPx, projectionShiftPx, toCameraSpace, type RoomPose } from "./roomCamera";
+import { cameraBasis, placeCamera, projectionLiftPx, projectionShiftPx, toCameraSpace, type RoomPose } from "./roomCamera";
 import type { Panel } from "../room/screens";
 
 /**
@@ -124,15 +124,11 @@ export function cssPanelTransform(panel: Panel): string {
 /**
  * Whether a panel can be drawn at all from this pose.
  *
- * - **Only through a plain perspective.** CSS draws nothing else, so through
- *   the fisheye the HTML would sit where a perspective camera would have put
- *   it, not where the bent room is. The screen's own lit face stands in.
  * - **Only well in front of the camera**, as in the prototype: CSS's
  *   perspective can turn a panel behind the camera over and draw it huge.
  * - **Only from its front.** The back of a monitor is not a mirrored screen.
  */
 export function panelShown(panel: Panel, pose: RoomPose): boolean {
-  if (lensBends(pose.lens)) return false;
   const [x, y, z] = toCameraSpace(pose, panel.centre);
   const ahead = -z / Math.hypot(x, y, z);
   if (!(ahead > 0.15)) return false;

@@ -45,9 +45,10 @@ export const TORSO_DEPTH = 0.1;
 export const TORSO_HALF_WIDTH = FIGURE.shoulderHalf;
 export const HIP_HALF = FIGURE.hipHalf;
 /**
- * The arm's two bones, shoulder to elbow and elbow to the middle of the
- * hand. The sheet only shows the hands in the pockets; this is long enough
- * for a seated reader to reach the keyboard (`DESK_HANDS`) leaning in.
+ * The arm's two bones, shoulder to elbow and elbow to the ball of the hand
+ * (the wrist is `HAND.wristBack` short of it, `room/hand.ts`). The sheet
+ * only shows the hands in the pockets; this is long enough for a seated
+ * reader to reach the keyboard (`DESK_HANDS`) leaning in.
  */
 export const UPPER_ARM = 0.32;
 export const FOREARM = 0.34;
@@ -77,6 +78,10 @@ export type BodyJoints = {
   headYaw: number;
   /** How far the body leans forward at the hips, in radians (sitting at the PC). */
   lean: number;
+  /** How far through sitting down the body is, 0–1 (`seatShare`): the hands take hold of the keyboard and the mouse with it. */
+  sat: number;
+  /** How far over from the PC's seat to the Mac's (`seatOnLine`): the right hand holds the Mac's mouse instead. */
+  along: number;
   head: Vec3;
   neck: Vec3;
   hips: Vec3;
@@ -218,7 +223,7 @@ export function bodyJoints(
   const knees = legs.map((l) => l.knee) as [Vec3, Vec3];
   const feet = legs.map((l) => l.foot) as [Vec3, Vec3];
 
-  return { yaw, headYaw: pose.yaw, lean, head, neck, hips, shoulders, elbows, hands, knees, feet };
+  return { yaw, headYaw: pose.yaw, lean, sat, along, head, neck, hips, shoulders, elbows, hands, knees, feet };
 }
 
 /** Where a seated body's hip joints come to rest: over the chair's cushion. */

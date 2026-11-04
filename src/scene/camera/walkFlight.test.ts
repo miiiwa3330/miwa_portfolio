@@ -4,7 +4,7 @@ import { easedMove, floorSpot, poseFromView, type RoomPose } from "./roomCamera"
 import { EYE_HEIGHT, SEATED_EYE_HEIGHT, STANDARD_HFOV, standardView, zoomView } from "../room/layout";
 import { seatShare, standForward } from "../room/seat";
 
-const framing = { hfov: STANDARD_HFOV, lens: 1, share: 0, lift: 0 };
+const framing = { hfov: STANDARD_HFOV, share: 0, lift: 0 };
 const centre = (yawDeg: number): RoomPose => poseFromView({ ...standardView("desk"), yaw: yawDeg }, framing);
 const desk = poseFromView(zoomView("desk"), framing);
 
