@@ -20,6 +20,7 @@
 | 置き場 | 何が入るか |
 | --- | --- |
 | `hub/room/` | 部屋の中に置く HTML の層（`RoomHtml.tsx`）。中身は持たない |
+| `hub/BootScreen.tsx` | 部屋の最初のフレームが描かれるまで全体を覆うローディング画面。段階は `state/bootChannel.ts`（`Scene` と `BootScreen` の両方が読み書きするので `state/`） |
 | `hub/desk/` | PC の画面の GUI（`DeskScreen.tsx`）と、その上に描く机のマウスのカーソル（`ScreenCursor.tsx`）。席に留めているあいだ立とうとしたときの一言（文は `standLines.ts`、出すのは `StandRefusal.tsx`） |
 | `hub/about/` | 自己紹介の文（`aboutCopy.tsx`）、ホログラム（`Hologram.tsx`）、自動再生と読了の判定（`aboutScroll.ts`） |
 

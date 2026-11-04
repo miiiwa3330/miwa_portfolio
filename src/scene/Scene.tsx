@@ -49,6 +49,7 @@ import { deskViewNow, onDeskView, setDeskView } from "./deskView";
 import { macPointer, pcPointer } from "./deskPointer";
 import { STANDING, advanceGait, stepBob } from "./room/gait";
 import { AT_CENTRE, NO_KEYS, stepFreeWalk, type FreeWalk, type WalkKeys } from "./camera/freeWalk";
+import { publishBoot } from "@/state/bootChannel";
 import { seatFacing, seatOnLine, seatShare } from "./room/seat";
 import {
   EYE_HEIGHT,
@@ -985,6 +986,21 @@ function Crosshair() {
   );
 }
 
+/**
+ * Says the room's first frame has been drawn (`bootChannel`), once. After
+ * `LensRenderer` (priority 1), which draws: by the time this runs, the frame
+ * is on the canvas.
+ */
+function FirstFrame() {
+  const said = useRef(false);
+  useFrame(() => {
+    if (said.current) return;
+    said.current = true;
+    publishBoot("drawn");
+  }, 2);
+  return null;
+}
+
 export default function Scene({
   interactive = true,
 }: {
@@ -1009,11 +1025,14 @@ export default function Scene({
           gl.toneMappingExposure = ROOM_EXPOSURE;
           // The reader's eye is the one camera that draws the screen cut-outs.
           camera.layers.enable(SCREEN_HOLE_LAYER);
+          // The scene graph exists; nothing is drawn yet.
+          publishBoot("built");
         }}
       >
         <RoomScene />
         <CameraController />
         <LensRenderer />
+        <FirstFrame />
       </Canvas>
       <Crosshair />
     </>

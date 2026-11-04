@@ -25,6 +25,7 @@ import { adjacentSection } from "@/scene/room/tour";
 import { RoomHtmlLayer, RoomPanel } from "./room/RoomHtml";
 import DeskScreen from "./desk/DeskScreen";
 import StandRefusal from "./desk/StandRefusal";
+import BootScreen from "./BootScreen";
 import { SEAT_LOCKED } from "@/state/seatLock";
 import { setDeskView } from "@/scene/deskView";
 import ScreenCursor from "./desk/ScreenCursor";
@@ -290,6 +291,9 @@ export default function Hub() {
 
       {/* Terminal easter egg */}
       <TerminalOverlay />
+
+      {/* Over everything until the room's first frame is drawn. */}
+      <BootScreen isJa={isJa} />
     </main>
   );
 }
