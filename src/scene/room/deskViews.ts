@@ -201,8 +201,8 @@ function aim(eye: readonly [number, number], height: number, target: readonly nu
 
 /**
  * Where a seated reader at the Mac looks: half-way between the top of its
- * screen's recess and the nearer hand — so both are in the frame, as at the
- * PC (`seatedPitch`).
+ * screen's recess and the nearer hand — so both are in the frame, as the PC
+ * did until 2026-11-04 (`seatedPitch`).
  */
 export function macSeatedPitch(): number {
   const eye = seatWorld(macSeatLocal());

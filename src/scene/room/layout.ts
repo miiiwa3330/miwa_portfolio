@@ -676,19 +676,27 @@ export const DESK_HANDS: readonly [readonly [number, number, number], readonly [
 ];
 
 /**
- * Where a seated reader looks: half-way between the top of the screen and
- * their hands on the keyboard (degrees, up positive) — so both are in the
- * frame. Looking at the screen's centre instead, the hands sat about 4°
- * below the bottom of a 16:9 frame, and the requirement is to see them.
+ * How far down a 16:9 frame the top of the PC's screen sits when seated, as a
+ * share of the frame's height (2026-11-04, the user: 「ヘッダーとPCの画面が被らない程度に」).
+ * The header's controls end 84 px down the window (`p-9` + the `h-12` pills),
+ * 8.9% of a 948 px-tall one; 12% leaves about 25 px between them.
+ */
+export const SEATED_SCREEN_TOP_DOWN = 0.12;
+const SEATED_REFERENCE_ASPECT = 16 / 9;
+
+/**
+ * Where a seated reader looks (degrees, up positive): low enough that the top
+ * of the screen sits `SEATED_SCREEN_TOP_DOWN` down a 16:9 frame, clear of the
+ * header. Half-way between the top of the screen and the hands (until
+ * 2026-11-04) put the top 3% down, under the header's navigation; the hands
+ * now rest just below the frame's bottom.
  */
 export function seatedPitch(forward: number): number {
-  const desk = pieceCentreDistance(PIECES.desk);
   const top = MONITORS.gui.y + MONITORS.gui.screen.height / 2;
-  const screenAway = desk - monitorFace("gui").centre[2] - forward;
-  const handsAway = desk - Math.max(DESK_HANDS[0][2], DESK_HANDS[1][2]) - forward;
+  const screenAway = pieceCentreDistance(PIECES.desk) - monitorFace("gui").centre[2] - forward;
   const up = Math.atan2(top - SEATED_EYE_HEIGHT, screenAway);
-  const down = Math.atan2(HAND_Y - SEATED_EYE_HEIGHT, handsAway);
-  return (up + down) / 2 / DEG;
+  const halfTan = Math.tan((STANDARD_HFOV / 2) * DEG) / SEATED_REFERENCE_ASPECT;
+  return (up - Math.atan((1 - 2 * SEATED_SCREEN_TOP_DOWN) * halfTan)) / DEG;
 }
 
 /** The signed difference `to - from` in degrees, wrapped into (-180, 180]. */

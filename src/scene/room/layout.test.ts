@@ -11,6 +11,7 @@ import {
   PIECE_KEYS,
   ROOM_RADIUS,
   SEATED_EYE_HEIGHT,
+  SEATED_SCREEN_TOP_DOWN,
   STANDARD_HFOV,
   FREE_HFOV,
   STOP_KEYS,
@@ -225,16 +226,28 @@ describe("zoomView", () => {
     expect(Math.abs(view.pitch)).toBeLessThan(15);
   });
 
-  it("sees both the whole screen and the hands on the keyboard from the seat (16:9)", () => {
+  it("keeps the top of the screen clear of the header, and the whole screen in the frame (16:9)", () => {
     const view = zoomView("desk", STANDARD_HFOV);
-    const halfV = Math.atan(Math.tan((STANDARD_HFOV / 2) * DEG) / (16 / 9)) / DEG;
+    const halfTan = Math.tan((STANDARD_HFOV / 2) * DEG) / (16 / 9);
+    const away = subjectDistance("desk") - view.forward;
+    // How far down the frame a height on the screen lands, as a share of the frame's height.
+    const down = (y: number) => (1 - Math.tan(Math.atan2(y - SEATED_EYE_HEIGHT, away) - view.pitch * DEG) / halfTan) / 2;
+    const top = down(MONITORS.gui.y + MONITORS.gui.screen.height / 2);
+    // The header ends 84 px down a 948 px-tall window.
+    expect(top).toBeGreaterThan(84 / 948);
+    expect(top).toBeCloseTo(SEATED_SCREEN_TOP_DOWN, 9);
+    expect(down(MONITORS.gui.y - MONITORS.gui.screen.height / 2)).toBeLessThan(1);
+  });
+
+  it("looks further up at the PC than half-way to the hands", () => {
+    // Half-way between the top of the screen and the hands (until
+    // 2026-11-04) put the top under the header.
+    const view = zoomView("desk", STANDARD_HFOV);
     const desk = pieceCentreDistance(PIECES.desk);
-    const angle = (y: number, away: number) => Math.atan2(y - SEATED_EYE_HEIGHT, away) / DEG - view.pitch;
+    const angle = (y: number, away: number) => Math.atan2(y - SEATED_EYE_HEIGHT, away) / DEG;
     const screenTop = angle(MONITORS.gui.y + MONITORS.gui.screen.height / 2, subjectDistance("desk") - view.forward);
-    // The nearer hand, the one lowest in the frame.
     const hands = angle(HAND_Y, desk - Math.max(DESK_HANDS[0][2], DESK_HANDS[1][2]) - view.forward);
-    expect(screenTop).toBeLessThan(halfV - 1);
-    expect(hands).toBeGreaterThan(-halfV + 1);
+    expect(view.pitch).toBeGreaterThan((screenTop + hands) / 2 + 2);
   });
 
   it("frames the PC's centre monitor, not the whole desk", () => {
