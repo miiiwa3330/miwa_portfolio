@@ -39,7 +39,6 @@ import { sceneClock } from "../sceneClock";
 import SectionMarkers from "./SectionMarkers";
 import Self from "./Self";
 import CurveMirror from "./CurveMirror";
-import HologramSelf from "./HologramSelf";
 import { SecurityCameraBody, SecurityFeed } from "./SecurityCamera";
 import { DeskBody, DeskLamp, DeskMat, DeskMonitor, DeskSmalls, useDeskMaterials } from "./DeskSet";
 import DellMonitor from "./DellMonitor";
@@ -200,7 +199,7 @@ export function Shell({ ceiling, neon }: { ceiling: boolean; neon: NeonTheme }) 
  *
  * Shown exactly when the HTML is (`panelShown`), so there is never a hole
  * with nothing behind it. Only the reader's own camera draws it
- * (`SCREEN_HOLE_LAYER`); through the fisheye, the screen's lit face shows.
+ * (`SCREEN_HOLE_LAYER`); in the mirror and on the security camera, the screen's lit face shows.
  */
 function ScreenHole({ panel }: { panel: Panel }) {
   const mesh = useRef<THREE.Mesh>(null);
@@ -261,7 +260,7 @@ function VideoFeed() {
   );
 }
 
-/** The lit colour each monitor shows where no HTML is drawn on it: the fisheye's view, and the other two screens. */
+/** The lit colour each monitor shows where no HTML is drawn on it: in the mirror and on the security camera, and the other two screens. */
 const MONITOR_GLOW: Record<MonitorKey, string> = { video: "#c45ad0", gui: "#1f5f9e", camera: "#3a3d3a" };
 
 /**
@@ -327,13 +326,12 @@ export function Desk({ typing }: { typing?: boolean }) {
       <DeskMat m={m} />
       <HhkbKeyboard typing={typing ?? seated} />
       <ExgMouse typing={typing ?? seated} />
-      {/* The hologram's device. Idle, it projects the reader themselves, turning
-          (`HologramSelf`); focused, it projects the self-introduction instead — the text is
-          HTML in front of the canvas (`HOLOGRAM_PANEL`), and a cone of light
-          joins it to the device. */}
+      {/* The hologram's device. Idle, it projects nothing: what it should show is
+          undecided (2026-11-01; the reader's own figure was taken off it).
+          Focused, it projects the self-introduction — the text is HTML in front of
+          the canvas (`HOLOGRAM_PANEL`), and a cone of light joins it to the device. */}
       <Box size={[0.28, 0.08, 0.2]} at={[holoX, 0.815, 0]} color="#2a2d33" />
       <Box size={[0.2, 0.01, 0.12]} at={[holoX, 0.86, 0]} color="#000000" glow="#2fe8ff" glowStrength={3} />
-      <HologramSelf at={SUBJECTS.about.local} visible={!projecting} />
       <mesh position={[holoX, (0.865 + beamTop) / 2, SUBJECTS.about.local[2]]}>
         <cylinderGeometry args={[HOLOGRAM_PANEL.width / 2, 0.08, beamTop - 0.865, 32, 1, true]} />
         <meshBasicMaterial

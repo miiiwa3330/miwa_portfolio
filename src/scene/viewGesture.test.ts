@@ -19,9 +19,9 @@ describe("twoFingerGesture", () => {
     expect(read(-3, -40)).toBe("scroll");
   });
 
-  it("reads a symmetric pinch as a zoom, opening or closing", () => {
-    expect(read(70, 0)).toBe("zoom");
-    expect(read(-70, 1)).toBe("zoom");
+  it("reads a symmetric pinch as a pinch, opening or closing", () => {
+    expect(read(70, 0)).toBe("pinch");
+    expect(read(-70, 1)).toBe("pinch");
   });
 
   /**
@@ -33,8 +33,8 @@ describe("twoFingerGesture", () => {
    */
   it("keeps a one-finger-anchored pinch a pinch", () => {
     expect(read(48, 24)).toBeNull(); // partway: neither owns it yet
-    expect(read(60, 30)).toBe("zoom"); // the separation gets there first
-    expect(read(-60, -30)).toBe("zoom");
+    expect(read(60, 30)).toBe("pinch"); // the separation gets there first
+    expect(read(-60, -30)).toBe("pinch");
   });
 
   it("still calls it a scroll when the fingers drift apart a little on the way", () => {

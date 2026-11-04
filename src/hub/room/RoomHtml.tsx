@@ -67,7 +67,7 @@ export function RoomHtmlLayer({ className = "", children }: { className?: string
 /**
  * One rectangle of HTML in the room, laid out at the panel's px size and
  * scaled into its metres. Hidden whenever the camera cannot draw it
- * (`panelShown`): through the fisheye, behind the reader, from behind.
+ * (`panelShown`): behind the reader, or from behind.
  *
  * `interactive` decides whether it takes the pointer at all. Off, every
  * gesture goes through it to whatever is under it, as if it were paint.

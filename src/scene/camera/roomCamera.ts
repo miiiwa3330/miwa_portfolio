@@ -1,6 +1,5 @@
 import { HANDHELD_RAIL_TOP_PX, easeInOutCubic, orbitCardShare, sectionCardShare, wrapAngle } from "./cameraMotion";
-import { hfovForZoom, horizontalAt, lensForZoom, viewDirection, zoomHfov, type RoomView, type ViewZoom } from "../room/layout";
-import { RECTILINEAR, lensPixelsPerRadian, projectLens, unprojectLens } from "./fisheye";
+import { freeHfov, horizontalAt, viewDirection, zoomHfov, type RoomView } from "../room/layout";
 import type { Stop } from "@/types";
 import type { Direction } from "../direction";
 
@@ -37,8 +36,6 @@ export type RoomPose = {
   eyeHeight: number;
   /** Horizontal field of view, in degrees. */
   hfov: number;
-  /** The lens's `k` (`camera/fisheye.ts`): 1 an ordinary perspective, 2 the stereographic fisheye. */
-  lens: number;
   /** The share of the frame's width given up to the card on the left; see `projectionShiftPx`. */
   share: number;
   /** The share of the frame's height given up to the card rail along a phone's bottom; see `projectionLiftPx`. */
@@ -46,20 +43,11 @@ export type RoomPose = {
 };
 
 /** How a pose is drawn, as opposed to where it stands and looks. */
-export type Framing = Pick<RoomPose, "hfov" | "lens" | "share" | "lift">;
+export type Framing = Pick<RoomPose, "hfov" | "share" | "lift">;
 
 /** A `RoomView` (degrees, from `room/layout.ts`) as a pose, drawn with `framing`. */
 export function poseFromView(view: RoomView, framing: Framing): RoomPose {
   return { x: 0, z: 0, yaw: view.yaw * DEG, pitch: view.pitch * DEG, forward: view.forward, eyeHeight: view.eyeHeight, ...framing };
-}
-
-/**
- * Whether a pose has to be drawn through the fisheye's cube map rather than
- * straight through a perspective camera — any lens bent at all, including
- * part-way through a flight between the two.
- */
-export function lensBends(lens: number): boolean {
-  return lens > 1 + 1e-4;
 }
 
 /**
@@ -166,13 +154,14 @@ export function projectionLiftPx(lift: number, height: number): number {
 
 /**
  * Where a camera-space direction lands on screen, in CSS px from the frame's
- * top-left — through the pose's lens and its shifts. `null` if the lens
- * cannot show that direction at all.
+ * top-left — through the pose's perspective and its shifts. `null` at or
+ * behind the image plane, where a perspective cannot show anything.
  *
  * The one projection every screen-space thing in the room uses: the markers
- * and the dotted lines to them, the click test, and the fisheye shader
- * (which is its inverse, `screenRay`, run per pixel). For a perspective with
- * no shift it is exactly what three.js's camera does.
+ * and the dotted lines to them, and the click test (its inverse,
+ * `screenRay`). It is exactly what three.js's camera does with the same
+ * field of view and `setViewOffset` (tested), written out so the markers can
+ * be placed without a camera.
  */
 export function projectToScreen(
   dir: Direction,
@@ -180,16 +169,24 @@ export function projectToScreen(
   width: number,
   height: number
 ): { x: number; y: number } | null {
-  const p = projectLens(dir, (framing.hfov * DEG) / 2, width / height, framing.lens);
-  if (!p) return null;
-  return { x: ((p.x + framing.share) * 0.5 + 0.5) * width, y: (0.5 - (p.y + framing.lift) * 0.5) * height };
+  const [x, y, z] = dir;
+  const length = Math.hypot(x, y, z);
+  // A direction 90° or more off the axis never reaches the image plane.
+  if (length < 1e-12 || -z / length < 1e-6) return null;
+  const tan = Math.tan((framing.hfov * DEG) / 2);
+  // Normalised device coordinates: the frame's half-width is tan(H) on the image plane, its half-height tan(H)/aspect.
+  const ndcX = x / -z / tan;
+  const ndcY = (y / -z / tan) * (width / height);
+  return { x: ((ndcX + framing.share) * 0.5 + 0.5) * width, y: (0.5 - (ndcY + framing.lift) * 0.5) * height };
 }
 
-/** The camera-space direction seen at a point on screen, in CSS px — `projectToScreen` backwards. */
+/** The camera-space unit direction seen at a point on screen, in CSS px — `projectToScreen` backwards. */
 export function screenRay(x: number, y: number, framing: Framing, width: number, height: number): Direction {
-  const ndcX = (x / width) * 2 - 1 - framing.share;
-  const ndcY = 1 - (y / height) * 2 - framing.lift;
-  return unprojectLens(ndcX, ndcY, (framing.hfov * DEG) / 2, width / height, framing.lens);
+  const tan = Math.tan((framing.hfov * DEG) / 2);
+  const px = ((x / width) * 2 - 1 - framing.share) * tan;
+  const py = ((1 - (y / height) * 2 - framing.lift) * tan) / (width / height);
+  const length = Math.hypot(px, py, 1);
+  return [px / length, py / length, -1 / length];
 }
 
 /**
@@ -206,12 +203,14 @@ export function frameCentreDirection(pose: RoomPose, width: number, height: numb
 
 /**
  * How many CSS px one world unit spans, for something `distance` away in
- * camera-space direction `dir` — what a marker is sized with (`lensPixelsPerRadian`).
+ * camera-space direction `dir` — what a marker is sized with. The focal
+ * length in px over the depth (`distance` along the axis), exactly how
+ * three.js sizes a sprite.
  */
 export function pixelsPerUnitAt(dir: Direction, distance: number, framing: Framing, width: number): number {
   const length = Math.hypot(dir[0], dir[1], dir[2]);
-  const theta = Math.acos(Math.max(-1, Math.min(1, -dir[2] / length)));
-  return lensPixelsPerRadian(theta, (framing.hfov * DEG) / 2, framing.lens, width / 2) / distance;
+  const cos = Math.max(1e-6, -dir[2] / length);
+  return width / 2 / Math.tan((framing.hfov * DEG) / 2) / (distance * cos);
 }
 
 /** The frame `HANDHELD_RAIL_TOP_PX` was measured in (390×844). */
@@ -234,23 +233,21 @@ export function cardLift(handheld: boolean): number {
   return handheld ? HANDHELD_CARD_LIFT : 0;
 }
 
-/** How the free view is drawn at a stage: its lens and width, and the shifts that clear the card. */
-export function freeFraming(zoom: ViewZoom, handheld: boolean): Framing {
-  return { hfov: hfovForZoom(zoom, handheld), lens: lensForZoom(zoom), share: orbitCardShare(handheld), lift: cardLift(handheld) };
+/** How the free view is drawn: its width, and the shifts that clear the card. */
+export function freeFraming(handheld: boolean): Framing {
+  return { hfov: freeHfov(handheld), share: orbitCardShare(handheld), lift: cardLift(handheld) };
 }
 
 /**
- * How a zoom into `stop` is drawn: always through the standard view's
- * perspective — the HTML placed in the room can only be drawn through one —
- * and shifted clear of the card only where there is a card. The desk and
- * the hologram have none: what the reader stepped in for (the PC's screen,
- * the hologram's text) sits square in the frame.
+ * How a zoom into `stop` is drawn: at the reading width, and shifted clear
+ * of the card only where there is a card. The desk and the hologram have
+ * none: what the reader stepped in for (the PC's screen, the hologram's
+ * text) sits square in the frame.
  */
 export function zoomFraming(stop: Stop, handheld: boolean): Framing {
   const bare = stop === "desk" || stop === "about";
   return {
     hfov: zoomHfov(handheld),
-    lens: RECTILINEAR,
     share: bare ? 0 : sectionCardShare(handheld),
     lift: bare ? 0 : cardLift(handheld),
   };
@@ -269,10 +266,7 @@ export function blendRoomPose(from: RoomPose, to: RoomPose, t: number): RoomPose
     pitch: mix(from.pitch, to.pitch),
     forward: mix(from.forward, to.forward),
     eyeHeight: mix(from.eyeHeight, to.eyeHeight),
-    // The lens and the field of view travel together, so the standard view
-    // bends into the fisheye over the flight rather than swapping in a frame.
     hfov: mix(from.hfov, to.hfov),
-    lens: mix(from.lens, to.lens),
     share: mix(from.share, to.share),
     lift: mix(from.lift, to.lift),
   };

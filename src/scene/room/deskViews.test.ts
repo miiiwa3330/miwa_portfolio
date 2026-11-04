@@ -27,7 +27,7 @@ import { floorSpot, placeCamera, poseFromView, toCameraSpace, verticalFov, type 
 import { seatedMove } from "../camera/walkFlight";
 
 const DEG = Math.PI / 180;
-const framing = { hfov: STANDARD_HFOV, lens: 1, share: 0, lift: 0 };
+const framing = { hfov: STANDARD_HFOV, share: 0, lift: 0 };
 const pose = (view: DeskView): RoomPose => ({ ...deskViewPose(view), ...framing });
 const world = (local: readonly [number, number, number]) => pieceToWorld(PIECES.desk, local);
 /** The angle between the view and the way to a point, in degrees. */

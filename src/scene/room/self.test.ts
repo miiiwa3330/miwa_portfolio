@@ -8,8 +8,8 @@ import { CHAIR_SEAT_SPAN, chairPlacement } from "./seat";
 import { placeCamera, poseFromView, projectToScreen, toCameraSpace } from "../camera/roomCamera";
 
 // The free view: what the reader looks round the room through, the widest standard frame.
-const desktop = { hfov: FREE_HFOV, lens: 1, share: 0.22, lift: 0 };
-const phone = { hfov: HANDHELD_STANDARD_HFOV, lens: 1, share: 0, lift: 0.21 };
+const desktop = { hfov: FREE_HFOV, share: 0.22, lift: 0 };
+const phone = { hfov: HANDHELD_STANDARD_HFOV, share: 0, lift: 0.21 };
 
 describe("the reader's body", () => {
   it("has its head round the eye, where the camera is", () => {
@@ -99,7 +99,7 @@ describe("looking down", () => {
 });
 
 describe("sitting down at the PC", () => {
-  const seated = bodyJoints(poseFromView(zoomView("desk"), { hfov: STANDARD_HFOV, lens: 1, share: 0, lift: 0 }));
+  const seated = bodyJoints(poseFromView(zoomView("desk"), { hfov: STANDARD_HFOV, share: 0, lift: 0 }));
 
   it("is what the seated zoom is, and standing is not", () => {
     expect(seatedShare(zoomView("desk").eyeHeight)).toBe(1);
@@ -112,7 +112,7 @@ describe("sitting down at the PC", () => {
     expect(over).toBeGreaterThan(0.05);
     expect(over).toBeLessThan(0.11);
     // In the desk's frame (+Z towards the centre; the desk stands at yaw 0).
-    const chair = chairPlacement(poseFromView(zoomView("desk"), { hfov: STANDARD_HFOV, lens: 1, share: 0, lift: 0 }));
+    const chair = chairPlacement(poseFromView(zoomView("desk"), { hfov: STANDARD_HFOV, share: 0, lift: 0 }));
     const intoSeat = chair.z - (seated.hips[2] + pieceCentreDistance(PIECES.desk));
     expect(intoSeat).toBeGreaterThan(CHAIR_SEAT_SPAN.from + 0.05);
     expect(intoSeat).toBeLessThan(CHAIR_SEAT_SPAN.to - 0.05);
@@ -223,7 +223,7 @@ describe("the reader's reach (the desk's machines are used only within it)", () 
   const pcMouse = world(MOUSE.x, MOUSE.z);
   const macMouse = world(MAC_MOUSE.x, MAC_MOUSE.z);
   const board = macKeyboardPlace();
-  const framing = { hfov: STANDARD_HFOV, lens: 1, share: 0, lift: 0 };
+  const framing = { hfov: STANDARD_HFOV, share: 0, lift: 0 };
   const at = (view: "pc" | "mac") => ({ ...deskViewPose(view), ...framing });
 
   it("takes in the PC's mouse and the HHKB's farthest keys from the PC's seat, and the Mac's from the Mac's", () => {

@@ -38,7 +38,7 @@ Next.js 16（App Router / `output: 'export'`）・React・TypeScript・Tailwind�
 ```bash
 npm run dev          # 開発サーバー (:3000)。/lab で部屋の部品を1つずつ見られる（開発のときだけ）
 npm run build        # 静的書き出し → out/
-npm test             # Vitest 一回実行（765件で約3秒）
+npm test             # Vitest 一回実行（808件で約3秒）
 npm run test:watch
 npm run lint
 npx tsc --noEmit     # 型のみ検査（テストは .tsx を1つも通らないので必須）
@@ -50,7 +50,7 @@ npx tsc --noEmit     # 型のみ検査（テストは .tsx を1つも通らな�
 
 | これから触るもの | 先に読む |
 | --- | --- |
-| 3Dシーン（カメラ・部屋・レンズ・マーカー・部屋に置く HTML・照明・自分の体） | [docs/scene-invariants.md](docs/scene-invariants.md) ← **必読**。次いで [docs/tech.md](docs/tech.md) |
+| 3Dシーン（カメラ・部屋・マーカー・部屋に置く HTML・照明・自分の体） | [docs/scene-invariants.md](docs/scene-invariants.md) ← **必読**。次いで [docs/tech.md](docs/tech.md) |
 | スマホの挙動（判定・ジェスチャ・下部のカードレール） | [docs/scene-invariants.md](docs/scene-invariants.md) の「スマホ」節 ← **必読**。次いで [docs/tech.md](docs/tech.md) の「スマホは別の場面として組む」 |
 | ファイルの追加・移動・改名 | [docs/structure.md](docs/structure.md) |
 | テストの追加・変更 | [docs/testing.md](docs/testing.md) |

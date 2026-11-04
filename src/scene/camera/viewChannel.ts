@@ -4,10 +4,10 @@ import { STANDING, type Gait } from "../room/gait";
 
 /**
  * Where the camera is and how it is drawing right now — its whole pose,
- * lens and shifts included — and the size of the frame.
+ * field of view and shifts included — and the size of the frame.
  *
- * The camera's controller writes it every frame, first thing; the fisheye
- * renderer, the markers and the click test read it later in the same frame,
+ * The camera's controller writes it every frame, first thing; the markers
+ * and the click test read it later in the same frame,
  * and the HTML placed in the room (`hub/room/RoomHtml.tsx`) is moved by it.
  * A plain module value rather than React state, for the reason
  * `markerScreen.ts` and `state/facingChannel.ts` give: a per-frame value in a
@@ -17,7 +17,7 @@ import { STANDING, type Gait } from "../room/gait";
 export type ViewState = { pose: RoomPose; width: number; height: number };
 
 const current: ViewState = {
-  pose: { x: 0, z: 0, yaw: 0, pitch: 0, forward: 0, eyeHeight: EYE_HEIGHT, hfov: FREE_HFOV, lens: 1, share: 0, lift: 0 },
+  pose: { x: 0, z: 0, yaw: 0, pitch: 0, forward: 0, eyeHeight: EYE_HEIGHT, hfov: FREE_HFOV, share: 0, lift: 0 },
   width: 1,
   height: 1,
 };
@@ -37,7 +37,6 @@ function samePose(a: RoomPose, b: RoomPose): boolean {
     a.forward === b.forward &&
     a.eyeHeight === b.eyeHeight &&
     a.hfov === b.hfov &&
-    a.lens === b.lens &&
     a.share === b.share &&
     a.lift === b.lift
   );

@@ -174,10 +174,10 @@ export default function SectionMarkers() {
 
     const camera = state.camera as THREE.PerspectiveCamera;
     const { width, height } = state.size;
-    // The lens the frame is about to be drawn through — the camera published
-    // it earlier this frame. Every marker is placed and sized through it, so
-    // the bolts and the dotted line stay together in the fisheye too.
-    const lens = viewNow().pose;
+    // How the frame is about to be drawn — the camera published it earlier
+    // this frame. Every marker is placed and sized through it, so the bolts
+    // and the dotted line stay together.
+    const framing = viewNow().pose;
 
     // Bring the camera's matrices up to date with the position it was just
     // moved to, before anything below reads them.
@@ -236,12 +236,11 @@ export default function SectionMarkers() {
       // where it stands. Through a perspective that is the focal length over
       // the depth along the camera's forward axis — not the straight-line
       // distance, which would size the bolts at the edges of the frame wrongly
-      // — and through the fisheye it is the lens's own magnification there;
-      // `pixelsPerUnitAt` is both.
+      // (`pixelsPerUnitAt`).
       viewSpace.copy(sprite.position).applyMatrix4(camera.matrixWorldInverse);
       const distance = viewSpace.length();
       if (distance > 0.01) {
-        const perUnit = pixelsPerUnitAt([viewSpace.x, viewSpace.y, viewSpace.z], distance, lens, width);
+        const perUnit = pixelsPerUnitAt([viewSpace.x, viewSpace.y, viewSpace.z], distance, framing, width);
         sprite.scale.setScalar(radius / (MARKER_GLYPH_FILL * perUnit));
       }
 
@@ -264,7 +263,7 @@ export default function SectionMarkers() {
     const anchor = ANCHORS[index];
     if (!anchor) return;
     viewSpace.copy(anchor).applyMatrix4(camera.matrixWorldInverse);
-    const onScreen = projectToScreen([viewSpace.x, viewSpace.y, viewSpace.z], lens, width, height);
+    const onScreen = projectToScreen([viewSpace.x, viewSpace.y, viewSpace.z], framing, width, height);
     const screenX = onScreen?.x ?? 0;
     const screenY = onScreen?.y ?? 0;
 

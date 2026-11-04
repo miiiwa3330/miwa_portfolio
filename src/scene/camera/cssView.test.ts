@@ -57,13 +57,13 @@ function panelWorld(panel: Panel, qx: number, qy: number): [number, number, numb
 
 const W = 1600;
 const H = 900;
-const flat = { hfov: STANDARD_HFOV, lens: 1, share: 0, lift: 0 };
+const flat = { hfov: STANDARD_HFOV, share: 0, lift: 0 };
 
 const poses: [string, RoomPose, number, number][] = [
   ["standing in the middle, card on the left", poseFromView(standardView("desk"), { ...flat, share: 0.22 }), W, H],
   ["seated at the desk", poseFromView(zoomView("desk"), flat), W, H],
   ["turned partway, looking up", poseFromView({ yaw: 20, pitch: 8, forward: 0, eyeHeight: 1.55 }, { ...flat, share: 0.22 }), W, H],
-  ["a phone, lifted over the rail", poseFromView(standardView("desk"), { hfov: 41, lens: 1, share: 0, lift: 0.21 }), 390, 844],
+  ["a phone, lifted over the rail", poseFromView(standardView("desk"), { hfov: 41, share: 0, lift: 0.21 }), 390, 844],
 ];
 
 describe("the CSS layer", () => {
@@ -99,11 +99,6 @@ describe("panelShown", () => {
   it("shows the PC's screen from the middle of the room and from the chair", () => {
     expect(panelShown(DESK_SCREEN, poses[0][1])).toBe(true);
     expect(panelShown(DESK_SCREEN, poses[1][1])).toBe(true);
-  });
-
-  it("hides it through the fisheye, which CSS cannot draw", () => {
-    expect(panelShown(DESK_SCREEN, { ...poses[0][1], lens: 2, hfov: 161 })).toBe(false);
-    expect(panelShown(DESK_SCREEN, { ...poses[0][1], lens: 1.3 })).toBe(false);
   });
 
   it("hides it once it is behind the reader", () => {

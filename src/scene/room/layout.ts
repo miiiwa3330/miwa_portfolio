@@ -1,6 +1,5 @@
 import type { Stop } from "@/types";
 import type { Direction } from "../direction";
-import { RECTILINEAR, STEREOGRAPHIC } from "../camera/fisheye";
 import { FIGURE, HIP_OVER_SEAT, PELVIS_BACK, seatedHipsFromEye } from "./figure";
 import { M0110 } from "./macKeyboard";
 import { MAC_HALF_WIDTH, MAC_NOTCH_HALF, MAC_SIZE, MAC_TOP_SLOPE, macTopAt } from "./macCase";
@@ -47,8 +46,6 @@ export const STANDARD_HFOV = 67;
  * desk's 2.8 m, 2 steps back is what 67° → 98° undoes.
  */
 export const FREE_HFOV = 90;
-/** Stereographic fisheye, also chosen in the prototype. Horizontal, in degrees. */
-export const FISHEYE_HFOV = 161;
 
 /** The prototype's wall height. Not a user choice — nothing has been tuned against it yet. */
 export const WALL_HEIGHT = 3.4;
@@ -717,14 +714,6 @@ export function facingStop(dir: Direction): Stop {
 }
 
 /**
- * The free view's two stages: standing at the centre and looking, or the
- * widened fisheye that takes in the room — the room's counterpart of the
- * planet's near/far altitudes. (A zoom into one stop is the third stage, and
- * is a focused section rather than a value of this.)
- */
-export type ViewZoom = "standard" | "fisheye";
-
-/**
  * The frame every phone number on the site is chosen against: 390×844.
  * Phones differ in shape only a little around it (0.46–0.5).
  */
@@ -751,38 +740,14 @@ function horizontalFromVertical(vfovDeg: number, aspect: number): number {
 export const HANDHELD_STANDARD_VFOV = 78;
 export const HANDHELD_STANDARD_HFOV = horizontalFromVertical(HANDHELD_STANDARD_VFOV, HANDHELD_REFERENCE_ASPECT);
 
-/**
- * **Provisional (仮) — waiting on the user.** The phone's fisheye, across:
- * 90°, which the stereographic lens stretches to about 168° up and down a
- * portrait frame.
- *
- * The desktop's 161° across a phone would reach some 245° vertically — past
- * straight up and straight down, the room folding over onto itself. The
- * fisheye is for taking in the room around the reader, which on a portrait
- * frame the height already does, so the width is held to what the standard
- * view's ~41° roughly doubles to.
- */
-export const HANDHELD_FISHEYE_HFOV = 90;
-
-/** The horizontal field of view a free-view stage is drawn at, on the frame `handheld` names. */
-export function hfovForZoom(zoom: ViewZoom, handheld: boolean): number {
-  if (handheld) return zoom === "standard" ? HANDHELD_STANDARD_HFOV : HANDHELD_FISHEYE_HFOV;
-  return zoom === "standard" ? FREE_HFOV : FISHEYE_HFOV;
+/** The horizontal field of view the free view is drawn at, on the frame `handheld` names. */
+export function freeHfov(handheld: boolean): number {
+  return handheld ? HANDHELD_STANDARD_HFOV : FREE_HFOV;
 }
 
 /** The horizontal field of view a zoom is drawn at: the reading perspective, not the free view's wider one. */
 export function zoomHfov(handheld: boolean): number {
   return handheld ? HANDHELD_STANDARD_HFOV : STANDARD_HFOV;
-}
-
-/**
- * The lens a free-view stage is drawn through (`camera/fisheye.ts`): an
- * ordinary perspective for the standard view, stereographic for the fisheye.
- * A zoom is always a perspective — HTML placed in the room (the PC's screen,
- * the hologram) can only be drawn through one.
- */
-export function lensForZoom(zoom: ViewZoom): number {
-  return zoom === "standard" ? RECTILINEAR : STEREOGRAPHIC;
 }
 
 /**
@@ -936,7 +901,8 @@ export function wallRibAngles(): number[] {
  * the floor's triangles then came out in front of the desk in the fisheye
  * (2026-10-01). The square's corners are outside the round wall, never seen,
  * and its UVs are the disc's own bounding square, so the floor texture lands
- * where it did.
+ * where it did. The fisheye went on 2026-11-01; the board stayed — nothing
+ * draws worse for it, and the grid lines (`floorGridLines`) are laid on it.
  */
 export const FLOOR_SEGMENTS = 9;
 

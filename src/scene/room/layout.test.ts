@@ -19,13 +19,10 @@ import {
   ZOOM_FILL,
   ZOOM_MIN_CLEARANCE,
   facingStop,
-  hfovForZoom,
+  freeHfov,
   markerPoint,
-  FISHEYE_HFOV,
-  HANDHELD_FISHEYE_HFOV,
   HANDHELD_REFERENCE_ASPECT,
   HANDHELD_STANDARD_HFOV,
-  lensForZoom,
   pieceCentreDistance,
   pieceSpan,
   pieceToWorld,
@@ -268,46 +265,28 @@ describe("markerPoint", () => {
   });
 });
 
-describe("hfovForZoom", () => {
+describe("freeHfov", () => {
   const verticalOf = (hfov: number, aspect: number) => (2 * Math.atan(Math.tan((hfov * Math.PI) / 360) / aspect) * 180) / Math.PI;
 
-  it("draws the desktop's stages at the user's 67° and 161°", () => {
-    expect(hfovForZoom("standard", false)).toBe(FREE_HFOV);
+  it("draws the desktop's free view at the user's 90°, wider than a zoom", () => {
+    expect(freeHfov(false)).toBe(FREE_HFOV);
     // Looking round is wider than a zoom, which is drawn for reading.
     expect(FREE_HFOV).toBeGreaterThan(STANDARD_HFOV);
-    expect(hfovForZoom("fisheye", false)).toBe(FISHEYE_HFOV);
   });
 
-  it("gives a phone its own, narrower stages", () => {
+  it("gives a phone its own, narrower view", () => {
     // The desktop's width on a portrait phone is ~110° tall (step 2's ceiling).
-    expect(hfovForZoom("standard", true)).toBe(HANDHELD_STANDARD_HFOV);
-    expect(hfovForZoom("fisheye", true)).toBe(HANDHELD_FISHEYE_HFOV);
+    expect(freeHfov(true)).toBe(HANDHELD_STANDARD_HFOV);
     expect(HANDHELD_STANDARD_HFOV).toBeLessThan(STANDARD_HFOV);
-    expect(HANDHELD_FISHEYE_HFOV).toBeLessThan(FISHEYE_HFOV);
-    expect(HANDHELD_FISHEYE_HFOV).toBeGreaterThan(HANDHELD_STANDARD_HFOV);
   });
 
-  it("keeps a phone's standard view well short of the ceiling-heavy 110° up and down", () => {
+  it("keeps a phone's view well short of the ceiling-heavy 110° up and down", () => {
     const vertical = verticalOf(HANDHELD_STANDARD_HFOV, HANDHELD_REFERENCE_ASPECT);
     expect(vertical).toBeLessThan(90);
     expect(vertical).toBeGreaterThan(60);
   });
-
-  it("keeps a phone's fisheye from folding past straight up and down", () => {
-    // Stereographic: a point r half-widths out is 2·atan(r·tan(H/2)) off-axis.
-    // The top edge of a portrait frame is 1/aspect half-widths up.
-    const half = (HANDHELD_FISHEYE_HFOV * Math.PI) / 360;
-    const top = 2 * Math.atan((1 / HANDHELD_REFERENCE_ASPECT) * Math.tan(half / 2));
-    expect(top).toBeLessThan(Math.PI / 2);
-  });
 });
 
-describe("lensForZoom", () => {
-  it("bends only the fisheye", () => {
-    expect(lensForZoom("standard")).toBe(1);
-    expect(lensForZoom("fisheye")).toBe(2);
-  });
-});
 
 describe("the chair", () => {
   const deskDistance = pieceCentreDistance(PIECES.desk);
@@ -673,9 +652,10 @@ describe("wallRibAngles", () => {
 
 describe("the floor's grid", () => {
   it("puts no vertex straight under the camera, on the cube cameras' planes", () => {
-    // The fisheye's cube cameras look along the axes from the centre; a vertex
-    // on x = 0 or z = 0 under the camera sits on their camera planes (w = 0),
-    // and the floor's triangles came out in front of the desk (2026-10-01).
+    // The fisheye's cube cameras looked along the axes from the centre; a
+    // vertex on x = 0 or z = 0 under the camera sat on their camera planes
+    // (w = 0), and the floor's triangles came out in front of the desk
+    // (2026-10-01). The fisheye went (2026-11-01); the board stayed.
     for (const line of floorGridLines()) expect(Math.abs(line)).toBeGreaterThan(0.1);
   });
 

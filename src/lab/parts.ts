@@ -13,6 +13,7 @@ import {
   pieceToWorld,
   type PieceKey,
 } from "@/scene/room/layout";
+import { FIGURE } from "@/scene/room/figure";
 import { viewFrom, type OrbitView, type Vec3 } from "./orbit";
 
 /**
@@ -29,8 +30,8 @@ import { viewFrom, type OrbitView, type Vec3 } from "./orbit";
  * points: a miss only aims the camera a little off, nothing else reads them.
  */
 
-/** Which of the room's drawing functions a part is. `shell` is the walls, floor and ceiling. */
-export type LabPiece = PieceKey | "shell";
+/** Which of the room's drawing functions a part is. `shell` is the walls, floor and ceiling; `self` is the owner's body, standing at the middle facing +Z; `self-desk` the desk with the body sat at it. */
+export type LabPiece = PieceKey | "shell" | "self" | "self-desk";
 
 export type LabPart = {
   id: string;
@@ -56,6 +57,8 @@ function subjectOf(id: string, label: string, group: string, stop: keyof typeof 
 const DESK = "机と PC";
 const FURNITURE = "家具";
 const ROOM = "部屋";
+const SELF = "自分自身";
+const EYE = FIGURE.eye;
 const GUI = MONITORS.gui;
 /** The hologram's middle, as the room's camera frames it (`SUBJECTS`). */
 const HOLO_X = SUBJECTS.about.local[0];
@@ -87,6 +90,19 @@ export const PARTS: readonly LabPart[] = [
   onPiece("door", "扉", FURNITURE, "door", [0, 1.05, 0], [0, 1.2, 2.6]),
   onPiece("workbench", "作業台", FURNITURE, "workbench", [0, 0.9, 0], [0, 1.2, 2.3]),
   { id: "shell", label: "壁・床・天井", group: ROOM, piece: "shell", target: [0, 1.5, 0], eye: [0, 1.9, 2.5] },
+  // The body faces +Z, so the first spot (+Z of it) is its front.
+  { id: "self-front", label: "全身（正面）", group: SELF, piece: "self", target: [0, 0.85, 0], eye: [0, 0.95, 2.7] },
+  { id: "self-side", label: "全身（横）", group: SELF, piece: "self", target: [0, 0.85, 0], eye: [2.7, 0.95, 0] },
+  { id: "self-back", label: "全身（後ろ）", group: SELF, piece: "self", target: [0, 0.85, 0], eye: [0, 0.95, -2.7] },
+  { id: "self-face", label: "顔", group: SELF, piece: "self", target: [0, EYE, 0.05], eye: [0, EYE + 0.02, 0.75] },
+  { id: "self-head-side", label: "頭（横）", group: SELF, piece: "self", target: [0, EYE, 0], eye: [0.8, EYE + 0.05, 0.1] },
+  { id: "self-head-back", label: "後頭部", group: SELF, piece: "self", target: [0, EYE, 0], eye: [0, EYE + 0.1, -0.8] },
+  { id: "self-hands", label: "上半身（腕と手）", group: SELF, piece: "self", target: [0, 1.2, 0.05], eye: [0.5, 1.3, 1.5] },
+  { id: "self-shoes", label: "足元", group: SELF, piece: "self", target: [0, 0.08, 0.1], eye: [0.45, 0.3, 1.0] },
+  // Sat at the PC: the hands on the HHKB and the mouse, from over the shoulder and from the side.
+  { ...onPiece("self-desk-hands", "机の手（肩越し）", SELF, "desk", [0.13, 0.82, 0.12], [0.35, 1.35, 0.75]), piece: "self-desk" },
+  { ...onPiece("self-desk-left", "キーボードの手（横）", SELF, "desk", [-0.1, 0.82, 0.12], [-0.45, 0.9, 0.4]), piece: "self-desk" },
+  { ...onPiece("self-desk-right", "マウスの手（横）", SELF, "desk", [0.36, 0.82, 0.12], [0.7, 0.9, 0.4]), piece: "self-desk" },
 ];
 
 const byId = new Map(PARTS.map((part) => [part.id, part]));

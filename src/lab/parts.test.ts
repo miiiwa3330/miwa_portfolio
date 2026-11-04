@@ -38,7 +38,8 @@ describe("the lab's parts", () => {
 
   it("look at a piece from the room's side, not from behind it (the +Z of its frame faces the centre)", () => {
     // A piece's eye is nearer the middle of the room than the point it looks at.
-    for (const part of PARTS.filter((p) => p.piece !== "shell")) {
+    // (The body stands at the middle itself, so it has no "room's side".)
+    for (const part of PARTS.filter((p) => p.piece !== "shell" && p.piece !== "self")) {
       expect(horizontal(part.eye), part.id).toBeLessThan(horizontal(part.target));
     }
   });

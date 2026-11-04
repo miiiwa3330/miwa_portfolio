@@ -10,6 +10,7 @@ import { useAppState } from "@/state/AppStateContext";
 import { pointerClaim } from "@/scene/pointerClaim";
 import { neonTheme, ROOM_EXPOSURE } from "@/scene/room/lighting";
 import { Board, Bookcase, Comms, Desk, Door, Lights, PortholeAndHammock, Shell, Shelf, Workbench } from "@/scene/objects/RoomScene";
+import LabSelf from "./LabSelf";
 import { eyeFrom, numberParam, viewFrom, viewParams, type OrbitView } from "./orbit";
 import { defaultView, partFor, partGroups, type LabPart } from "./parts";
 
@@ -66,6 +67,15 @@ function Subject({ part }: { part: LabPart }) {
       return <Workbench neon={neon} />;
     case "shell":
       return <Shell ceiling={lights.ceiling} neon={neon} />;
+    case "self":
+      return <LabSelf />;
+    case "self-desk":
+      return (
+        <>
+          <Desk typing />
+          <LabSelf seated />
+        </>
+      );
   }
 }
 

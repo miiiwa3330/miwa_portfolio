@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import * as THREE from "three";
 import {
   advanceRoomFlight,
   beginRoomFlight,
@@ -12,7 +13,6 @@ import {
   cardLift,
   freeFraming,
   zoomFraming,
-  lensBends,
   pixelsPerUnitAt,
   poseFromView,
   cameraBasis,
@@ -29,7 +29,7 @@ import { EYE_HEIGHT, STANDARD_HFOV, standardView, subjectPoint, zoomView } from 
 
 const DEG = Math.PI / 180;
 
-const FLAT = { hfov: STANDARD_HFOV, lens: 1, share: 0, lift: 0 };
+const FLAT = { hfov: STANDARD_HFOV, share: 0, lift: 0 };
 
 const pose = (over: Partial<RoomPose> = {}): RoomPose => ({
   x: 0,
@@ -39,7 +39,6 @@ const pose = (over: Partial<RoomPose> = {}): RoomPose => ({
   forward: 0,
   eyeHeight: EYE_HEIGHT,
   hfov: STANDARD_HFOV,
-  lens: 1,
   share: 0,
   lift: 0,
   ...over,
@@ -172,20 +171,44 @@ describe("projectToScreen", () => {
   const W = 1600;
   const H = 900;
 
+  it("is the pinhole projection three.js draws", () => {
+    // Written out independently: a point (X, Y, Z) in front of a pinhole
+    // lands at X/-Z and Y/-Z on the image plane, and the frame's half-width
+    // on that plane is tan(H); three.js's own camera agrees.
+    const camera = new THREE.PerspectiveCamera(verticalFov(67, W / H), W / H, 0.05, 60);
+    camera.updateMatrixWorld();
+    for (const [x, y, z] of [
+      [0, 0, -1],
+      [0.3, 0.1, -1],
+      [-0.5, -0.2, -1.4],
+      [0.4, 0.6, -0.9],
+    ]) {
+      const p = projectToScreen([x, y, z], FLAT, W, H)!;
+      const tan = Math.tan((67 / 2) * DEG);
+      expect(p.x).toBeCloseTo((x / -z / tan / 2 + 0.5) * W, 6);
+      const ndc = new THREE.Vector3(x, y, z).project(camera);
+      expect(p.x).toBeCloseTo((ndc.x / 2 + 0.5) * W, 6);
+      expect(p.y).toBeCloseTo((0.5 - ndc.y / 2) * H, 6);
+    }
+  });
+
+  it("cannot show anything at or behind the image plane", () => {
+    expect(projectToScreen([1, 0, 0], FLAT, W, H)).toBeNull();
+    expect(projectToScreen([1, 0, 0.5], FLAT, W, H)).toBeNull();
+  });
+
   it("puts the view axis where the shifted projection's centre is", () => {
     // The same arithmetic as `setViewOffset`: the subject ends up
     // `projectionShiftPx` left of where it would be, i.e. right of centre.
-    const framing = { hfov: 67, lens: 1, share: 0.3, lift: 0 };
+    const framing = { hfov: 67, share: 0.3, lift: 0 };
     const p = projectToScreen([0, 0, -1], framing, W, H)!;
     expect(p.x).toBeCloseTo(W / 2 - projectionShiftPx(0.3, W), 9);
     expect(p.y).toBeCloseTo(H / 2, 9);
   });
 
-  it("lifts the view axis by the lift, through either lens", () => {
-    for (const lens of [1, 2]) {
-      const p = projectToScreen([0, 0, -1], { hfov: 100, lens, share: 0, lift: 0.2 }, 390, 844)!;
-      expect(p.y).toBeCloseTo(844 / 2 - projectionLiftPx(0.2, 844), 9);
-    }
+  it("lifts the view axis by the lift", () => {
+    const p = projectToScreen([0, 0, -1], { hfov: 100, share: 0, lift: 0.2 }, 390, 844)!;
+    expect(p.y).toBeCloseTo(844 / 2 - projectionLiftPx(0.2, 844), 9);
   });
 
   it("puts something up and to the right, up and to the right", () => {
@@ -194,8 +217,8 @@ describe("projectToScreen", () => {
     expect(p.y).toBeLessThan(H / 2);
   });
 
-  it("is undone by screenRay, through every lens and shift", () => {
-    for (const framing of [FLAT, { hfov: 161, lens: 2, share: 0.22, lift: 0 }, { hfov: 114, lens: 1.5, share: 0, lift: 0.21 }]) {
+  it("is undone by screenRay, through every shift", () => {
+    for (const framing of [FLAT, { hfov: 90, share: 0.22, lift: 0 }, { hfov: 41, share: 0, lift: 0.21 }]) {
       for (const [x, y] of [
         [800, 450],
         [100, 80],
@@ -214,16 +237,14 @@ describe("frameCentreDirection", () => {
   const W = 1600;
   const H = 900;
 
-  it("is what lands at the frame's centre, through every lens and shift", () => {
-    for (const lens of [1, 2]) {
-      for (const [share, lift] of [[0, 0], [0.22, 0], [0, 0.21], [0.3, 0.1]]) {
-        const p = pose({ yaw: 0.7, pitch: -0.3, x: 0.4, z: -0.2, hfov: 90, lens, share, lift });
-        const [dx, dy, dz] = frameCentreDirection(p, W, H);
-        const { position } = placeCamera(p);
-        const at = projectToScreen(toCameraSpace(p, [position[0] + dx, position[1] + dy, position[2] + dz]), p, W, H)!;
-        expect(at.x).toBeCloseTo(W / 2, 6);
-        expect(at.y).toBeCloseTo(H / 2, 6);
-      }
+  it("is what lands at the frame's centre, through every shift", () => {
+    for (const [share, lift] of [[0, 0], [0.22, 0], [0, 0.21], [0.3, 0.1]]) {
+      const p = pose({ yaw: 0.7, pitch: -0.3, x: 0.4, z: -0.2, hfov: 90, share, lift });
+      const [dx, dy, dz] = frameCentreDirection(p, W, H);
+      const { position } = placeCamera(p);
+      const at = projectToScreen(toCameraSpace(p, [position[0] + dx, position[1] + dy, position[2] + dz]), p, W, H)!;
+      expect(at.x).toBeCloseTo(W / 2, 6);
+      expect(at.y).toBeCloseTo(H / 2, 6);
     }
   });
 
@@ -253,23 +274,10 @@ describe("pixelsPerUnitAt", () => {
   });
 });
 
-describe("lensBends", () => {
-  it("draws the plain perspective straight, and anything bent at all through the cube", () => {
-    expect(lensBends(1)).toBe(false);
-    expect(lensBends(1.01)).toBe(true);
-    expect(lensBends(2)).toBe(true);
-  });
-});
-
 describe("blendRoomPose", () => {
-  it("bends the lens and widens the view together, over the whole flight", () => {
-    const from = pose({ hfov: 67, lens: 1 });
-    const to = pose({ hfov: 161, lens: 2 });
-    const mid = blendRoomPose(from, to, 0.5);
-    expect(mid.lens).toBeCloseTo(1.5, 12);
-    expect(mid.hfov).toBeCloseTo(114, 12);
-    // Already bending just after it leaves: no lens swap at the end.
-    expect(lensBends(blendRoomPose(from, to, 0.05).lens)).toBe(true);
+  it("widens the view over the whole flight", () => {
+    const mid = blendRoomPose(pose({ hfov: 67 }), pose({ hfov: 90 }), 0.5);
+    expect(mid.hfov).toBeCloseTo(78.5, 12);
   });
 
   it("turns the short way round across ±π", () => {
@@ -281,8 +289,8 @@ describe("blendRoomPose", () => {
   });
 
   it("arrives exactly at both ends", () => {
-    const from = pose({ yaw: 0.2, pitch: -0.1, forward: 0, eyeHeight: 1.55, hfov: 161, lens: 2, share: 0.22, lift: 0.2 });
-    const to = pose({ yaw: 1.1, pitch: 0.05, forward: 1.8, eyeHeight: 1.12, hfov: 67, lens: 1, share: 0.3, lift: 0 });
+    const from = pose({ yaw: 0.2, pitch: -0.1, forward: 0, eyeHeight: 1.55, hfov: 90, share: 0.22, lift: 0.2 });
+    const to = pose({ yaw: 1.1, pitch: 0.05, forward: 1.8, eyeHeight: 1.12, hfov: 67, share: 0.3, lift: 0 });
     expect(blendRoomPose(from, to, 0)).toEqual(from);
     const end = blendRoomPose(from, to, 1);
     for (const key of Object.keys(to) as (keyof RoomPose)[]) expect(end[key]).toBeCloseTo(to[key], 12);
@@ -324,9 +332,10 @@ describe("advanceRoomFlight", () => {
 });
 
 describe("zoomFraming", () => {
-  it("draws every zoom through a plain perspective, which is all the HTML in the room can be drawn through", () => {
+  it("draws every zoom at the reading width, narrower than the free view's", () => {
     for (const stop of ["desk", "about", "products", "skills", "experience", "contact"] as const) {
-      for (const handheld of [false, true]) expect(zoomFraming(stop, handheld).lens).toBe(1);
+      expect(zoomFraming(stop, false).hfov).toBe(STANDARD_HFOV);
+      expect(zoomFraming(stop, false).hfov).toBeLessThan(freeFraming(false).hfov);
     }
   });
 
@@ -346,10 +355,9 @@ describe("zoomFraming", () => {
 });
 
 describe("freeFraming", () => {
-  it("bends only the fisheye, and clears the card at both stages", () => {
-    expect(freeFraming("standard", false).lens).toBe(1);
-    expect(freeFraming("fisheye", false).lens).toBe(2);
-    expect(freeFraming("fisheye", false).share).toBe(freeFraming("standard", false).share);
-    expect(freeFraming("fisheye", true).lift).toBe(HANDHELD_CARD_LIFT);
+  it("clears the card: beside it on a desktop, above the rail on a phone", () => {
+    expect(freeFraming(false).share).toBeGreaterThan(0);
+    expect(freeFraming(false).lift).toBe(0);
+    expect(freeFraming(true).lift).toBe(HANDHELD_CARD_LIFT);
   });
 });
