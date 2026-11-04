@@ -1,134 +1,37 @@
-import { NOTES, PROJECTS, notePath, productPath, sortNotesNewestFirst } from "@/data";
 import Link from "next/link";
+import { NAV, PAGE_LINKS } from "./nav";
 
 /**
  * SemanticSEO:
- * 3D Canvas の中に描かれている内容（自己紹介・制作物・経歴・スキル・連絡先）の、スクリーンリーダー向けの
- * テキスト代替。Canvas 内の文字は支援技術にも検索エンジンにも読めないため、同じ内容を
- * セマンティックな HTML（h1〜h3, article, section, p, ul, a）として DOM に置いている。
+ * トップの 3D の部屋の、スクリーンリーダー向けのテキスト代替。部屋そのものは canvas に描かれていて、
+ * 支援技術にも検索エンジンにも読めないので、「何が見えているか」と「どこへ行けるか」だけをここに書く。
  *
- * **ここに文章を積み増して検索や広告審査に効かせようとしない。** 画面に出ない文章は審査で「サイトの価値」として
- * 数えられず、目的によっては Google のスパムポリシーの「隠しテキスト」に当たる。2026-09 の AdSense の不合格
- * （「有用性の低いコンテンツ」）への答えは、目に見える読み物のページ（`/products/*` と `/notes/*`）の側で出している
- * （docs/devlog/202609.md）。ここからはそれらへのリンクだけを張る。
+ * **ここに中身を書かない。** 2026-10-30 に区画がそれぞれのページになってから、制作実績・経歴・技術の文字は
+ * 部屋（canvas）の中にもう無い。それをここに書くと、代替する相手の無い画面に出ない文章になり、Google の
+ * スパムポリシーの「隠しテキスト」と読まれうる（2026-11-05 に、全プロダクトの説明・経歴・ノートの一覧まで
+ * 持っていた4,774字をこの形に縮めた。review.md の F-3）。部屋に見えている文字（ホログラムの自己紹介・
+ * PC の画面）は本物の HTML なので、それ自身が読める。中身は、リンク先の見えるページにある。
  */
 export default function SemanticSEO() {
   return (
-    <div className="sr-only" aria-label="ポートフォリオサイトの概要とテキスト情報">
+    <div className="sr-only" aria-label="ポートフォリオサイトの概要">
       <h1>Miiiwa | Portfolio - 面白いを最優先！</h1>
       <p>
-        駆け出しの学生エンジニア（27卒）Miiiwaのポートフォリオサイトです。
-        「面白いを最優先！」をモットーに、Webアプリケーション、3Dグラフィックス、モバイルアプリなどの開発に取り組んでいます。
+        学生エンジニア Miiiwa のポートフォリオサイトです。トップページは、ロケットのコロニーの中にある Miiiwa
+        の部屋を 3D で描いたもので、机の PC の前に座ったところから始まります。PC の画面では、このサイトそのものを開けます。
       </p>
-
-      {/* About Section */}
-      <section aria-labelledby="seo-about-heading">
-        <h2 id="seo-about-heading">自己紹介 (About Miiiwa)</h2>
-        <p>
-          2019年、漫画『王様達のヴァイキング』を読んだことをきっかけにプログラミングの世界に魅了されました。
-          情報系高校へ進学し、C言語でアルゴリズムやメモリ管理の基礎を徹底的に習得。
-          その後Pythonと出会い、自らのアイデアを形にするスピードと楽しさを知りました。
-        </p>
-        <p>
-          2024年にはエンジニア養成機関「42tokyo」に入学し、ピアラーニング環境で自走力と本格的なソフトウェアエンジニアリングを鍛えています。
-          2025年には東京大学松尾研究室のGCI（グローバル消費インテリジェンス寄付講座）を修了し、データサイエンスやAIの知見を深化。
-          実社会の課題解決に向けた産学連携プロジェクトのリーダーやエンジニアインターンを経験しながら、多数のWebサービス・アプリを個人開発しています。
-        </p>
-      </section>
-
-      {/* Products Section */}
-      <section aria-labelledby="seo-products-heading">
-        <h2 id="seo-products-heading">制作実績・プロダクト (Projects & Products)</h2>
-        <div className="space-y-4">
-          {PROJECTS.map((project) => (
-            <article key={project.slug}>
-              <h3>{project.title.ja} ({project.title.en})</h3>
-              <p>{project.description.ja}</p>
-              <p>使用技術・タグ: {project.tags.join(", ")}</p>
-              <p>ステータス: {project.status}</p>
-              <p>
-                <Link href={productPath(project.slug)}>{project.title.ja} の紹介ページ</Link>
-              </p>
-              {project.demoUrl && project.demoUrl !== "#" && (
-                <p>
-                  公開URL:{" "}
-                  <a href={project.demoUrl} target="_blank" rel="noopener noreferrer">
-                    {project.demoUrl}
-                  </a>
-                </p>
-              )}
-            </article>
-          ))}
-        </div>
-      </section>
-
-      {/* Skills Section */}
-      <section aria-labelledby="seo-skills-heading">
-        <h2 id="seo-skills-heading">保有スキル・技術スタック (Technical Skills)</h2>
+      <nav aria-label="ページ一覧">
         <ul>
-          <li>フロントエンド: HTML, CSS, JavaScript, TypeScript, React, Next.js, Astro, Vite, Tailwind CSS</li>
-          <li>3D・グラフィックス: Three.js, React Three Fiber, Unity, ARKit</li>
-          <li>バックエンド: Node.js, Hono, Python, C, C#, Java, PHP, Laravel</li>
-          <li>モバイル: Swift / SwiftUI, React Native, Expo, Flutter, Dart</li>
-          <li>データベース: PostgreSQL, MySQL, SQLite, Supabase, Cloudflare D1</li>
-          <li>クラウド・インフラ: AWS, GCP, Cloudflare, Cloudflare Workers, Vercel</li>
-          <li>ツール: Git, GitHub, Vitest, Cypress, Figma</li>
-          <li>AI: Claude, Gemini, ChatGPT, MediaPipe</li>
-        </ul>
-      </section>
-
-      {/* Experience Section */}
-      <section aria-labelledby="seo-experience-heading">
-        <h2 id="seo-experience-heading">経歴・タイムライン (Experience & History)</h2>
-        <ul>
-          <li>2019年: コンピュータの世界に目覚める</li>
-          <li>2020年: 情報系高校へ進学</li>
-          <li>2021年: C言語によるアルゴリズム・メモリ管理の基礎確立</li>
-          <li>2023年: Pythonによるプロダクト開発の加速</li>
-          <li>2024年: エンジニア養成機関「42tokyo」入学</li>
-          <li>2025年: 東京大学松尾研究室 GCI 2025 修了（データサイエンス）</li>
-          <li>2025年5月: 産学連携プロジェクトリーダー完遂</li>
-          <li>2025年8月: リアルタイム位置共有Webアプリ「imadoko」リリース</li>
-          <li>2025年11月: エンジニアインターンシップ開始</li>
-          <li>2025年12月: P2Pスペースシェア「Sukima Park」アーキテクチャ設計</li>
-          <li>2026年4月: 視線推定Webアプリ「mesen」開発・リリース</li>
-          <li>2026年7月: ポートフォリオサイト（v0）公開</li>
-          <li>2026年7月: 感覚を研ぎ澄ます神経衰弱ゲーム集「Synesthesium」公開</li>
-          <li>2026年7月: オンラインGD評価プラットフォーム「Umoja」開発中</li>
-          <li>2026年8月: 「mesen」を視線計測エンタメアプリ「Michaw（見ちゃう）」へリニューアル</li>
-          <li>2026年9月: ポートフォリオサイトを3Dのボクセル惑星へ刷新（v1）</li>
-          <li>2026年10月: 物価感覚を診断するWebサービス「bukka_now」公開</li>
-          <li>2026年10月: 情報漏洩事件で学ぶセキュリティ学習サイト「漏洩百貨店（loo100）」公開</li>
-        </ul>
-      </section>
-
-      {/* Notes */}
-      <section aria-labelledby="seo-notes-heading">
-        <h2 id="seo-notes-heading">ノート (Notes)</h2>
-        <ul>
-          {sortNotesNewestFirst(NOTES).map((note) => (
-            <li key={note.slug}>
-              <Link href={notePath(note.slug)}>{note.title}</Link>
+          {[...NAV, ...PAGE_LINKS].map((entry) => (
+            <li key={entry.page}>
+              <Link href={entry.page}>{entry.ja}</Link>
             </li>
           ))}
+          <li>
+            <Link href="/privacy">プライバシーポリシー</Link>
+          </li>
         </ul>
-      </section>
-
-      {/* Contact & Policy Section */}
-      <section aria-labelledby="seo-contact-heading">
-        <h2 id="seo-contact-heading">お問い合わせ & 法的情報 (Contact & Legal)</h2>
-        <p>
-          開発のご相談、ポートフォリオへのフィードバックなどは X（旧Twitter）
-          <a href="https://x.com/miiiwa3330" target="_blank" rel="noopener noreferrer">
-            @miiiwa3330
-          </a>
-          のDMより受け付けております。
-        </p>
-        <p>
-          プライバシーポリシー・免責事項・Google AdSenseの広告配信ポリシーについては、
-          <Link href="/privacy">こちらのプライバシーポリシーページ</Link>をご確認ください。
-        </p>
-      </section>
+      </nav>
     </div>
   );
 }

@@ -22,7 +22,7 @@ While an app processing all email strictly on-device without external server rel
 
 "I refused to let development stall for months while waiting on an API review before a single user could try the app."
 
-Consequently, under decision `D-025`, **I deprioritized direct Gmail API integration and pivoted to an open, review-free standard: connecting to iCloud Mail using IMAP and SMTP**.
+Consequently, **I deprioritized direct Gmail API integration and pivoted to an open, review-free standard: connecting to iCloud Mail using IMAP and SMTP**.
 
 ## Why Build IMAP, SMTP, and MIME from Scratch in TypeScript?
 
@@ -32,7 +32,7 @@ Node.js boasts battle-tested packages like `node-imap` and `nodemailer`, but the
 
 A few community wrappers existed, but they were unmaintained for years and lacked support for iOS background task execution or opportunistic encryption upgrades via STARTTLS.
 
-This led to decision `D-026`:
+This led to the following design:
 
 **"Delegate only raw OS-level TCP socket networking to `react-native-tcp-socket`, and implement the IMAP client, SMTP client, and MIME parser in pure TypeScript from scratch."**
 

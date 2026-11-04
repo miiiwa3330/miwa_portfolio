@@ -70,7 +70,7 @@ To solve this, I implemented the **1€ Filter (One Euro Filter)**, an adaptive 
 
 Alongside this filter, one critical deletion made an immediate difference: **removing `.animation(.spring, value: bubbleScreenPoint)`**. Attaching a SwiftUI spring animation to a coordinate updated at 60 fps created a compounding disaster. Because a new target arrived before the spring could settle, the bubble swam sluggishly like an underwater buoy and overshot its target whenever movement ceased. Dropping the spring animation and trusting the 1€ filter alone locked the bubble firmly into the AR environment.
 
-Furthermore, bubble scaling was decoupled from raw camera distance. Instead, **one line of bubble height is set to 0.25× the apparent screen size of the plant (average of width and height)** (`D50-a`). When scaling was inversely proportional to metric distance, stepping close to inspect a tiny bonsai resulted in an overwhelmingly massive speech bubble. Tying bubble scale to apparent plant dimensions ensures that small plants receive delicate bubbles, and pulling away shrinks the bubble in natural proportion to the leaves.
+Furthermore, bubble scaling was decoupled from raw camera distance. Instead, **one line of bubble height is set to 0.25× the apparent screen size of the plant (average of width and height)**. When scaling was inversely proportional to metric distance, stepping close to inspect a tiny bonsai resulted in an overwhelmingly massive speech bubble. Tying bubble scale to apparent plant dimensions ensures that small plants receive delicate bubbles, and pulling away shrinks the bubble in natural proportion to the leaves.
 
 ## 5. Fixing Raycast Fallback Offsets and Parallax Drift
 

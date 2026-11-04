@@ -123,7 +123,7 @@ describe("the Japanese crawl copy", () => {
       "ＧＣＩ",
       "ｉｍａｄｏｋｏ",
       "Ｓｕｋｉｍａ　Ｐａｒｋ",
-      "ｍｅｓｅｎ",
+      "Ｍｉｃｈａｗ",
       "Ｕｍｏｊａ",
     ]) {
       expect(copy, `${name} is missing from the Japanese copy`).toContain(name);

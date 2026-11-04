@@ -33,13 +33,13 @@ Additionally, I established the constraint that **plant presence haptics must on
 
 The standard iOS notification generator (`UINotificationFeedbackGenerator`) provides `.error` (a triple buzz) and `.success` (a brisk completion cadence). In standard mobile apps, these are the first tools engineers reach for. In Plavo, both are **strictly forbidden**.
 
-### Never Ring an Error for Something That Isn't a Failure (H-2)
+### Never Ring an Error for Something That Isn't a Failure
 
 When someone points the camera around and no plant has been detected yet, the bubble says, "I can't seem to find anyone." When they open the gallery before taking any shots, it says, "No photos here yet."
 
 If the system triggered the standard `.error` triple buzz in these moments, the device would effectively be scolding the visitor: "Your action was invalid." But neither the absence of a plant in frame nor an empty album is the user's fault. Only when a real limit is hit (such as "You've already saved 10 diary entries today") or when sensor pairing fails does the app produce a `caution` feedback using `.warning`. The harsh `.error` pattern was banned from the entire codebase.
 
-### Deletion Is a Farewell, Not a Successful Task (H-5)
+### Deletion Is a Farewell, Not a Successful Task
 
 Similarly, firing `.success` when deleting a registered plant was discarded. If a plant were merely a database row, "record deleted successfully" might make sense. But in an app that treats plants as living companions, hearing a cheerful success chime upon deleting a plant feels remarkably callous.
 
@@ -59,7 +59,7 @@ While drafting the haptics specification, I realized an uncomfortable truth: **i
 | Switching bottom tab bar tabs | **Silent** | Deferred to standard OS behavior; avoid layering unnecessary semantic meaning |
 | Swiping between photos in full-screen gallery | **Silent** | Full-screen viewing is meant for quiet appreciation; buzzing on every swipe distracts the eye |
 
-Furthermore, I refrained from mapping soil moisture percentages directly to vibration intensity on a continuous scale. Plavo categorizes plant moisture into six discrete bands, which are adequately expressed through tiered steps. If intensity were continuously modulated, running the demo mock (which dries out at 0.6% per second) would cause constant micro-fluctuations in tactile pressure within the same band, obscuring actual state changes. By adhering strictly to **"vibrate only at the instant of transition, and stay silent while the state persists (H-1),"** each individual buzz retains its narrative weight.
+Furthermore, I refrained from mapping soil moisture percentages directly to vibration intensity on a continuous scale. Plavo categorizes plant moisture into six discrete bands, which are adequately expressed through tiered steps. If intensity were continuously modulated, running the demo mock (which dries out at 0.6% per second) would cause constant micro-fluctuations in tactile pressure within the same band, obscuring actual state changes. By adhering strictly to **"vibrate only at the instant of transition, and stay silent while the state persists,"** each individual buzz retains its narrative weight.
 
 ## The Implementation Trap: Instantiating Generators on Every Arc Step
 

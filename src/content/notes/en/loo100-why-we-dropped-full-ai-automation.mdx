@@ -1,6 +1,6 @@
 While building loo100 (formerly SecuTreNews)—a database platform designed to teach security through structured analyses of data breaches across timelines, root causes, and countermeasures—I faced a defining product crisis.
 
-In the earliest planning phase, I designed an autonomous pipeline where an AI agent scraped corporate security disclosures, generated analytical articles, verified their factual accuracy, and pushed them to production without any human involvement (decision `D-005`). Yet within 24 hours of completing that architecture spec, I scrapped the autonomous pipeline entirely. I pivoted 180 degrees toward a semi-automated workflow (`D-008`): **the AI assists with document extraction and initial drafting, but human review and publishing approval remain strictly mandatory**.
+In the earliest planning phase, I designed an autonomous pipeline where an AI agent scraped corporate security disclosures, generated analytical articles, verified their factual accuracy, and pushed them to production without any human involvement. Yet within 24 hours of completing that architecture spec, I scrapped the autonomous pipeline entirely. I pivoted 180 degrees toward a semi-automated workflow: **the AI assists with document extraction and initial drafting, but human review and publishing approval remain strictly mandatory**.
 
 Why did I abandon full AI automation after just one single day? The answer lies in the heavy legal and ethical responsibilities inherent to data breaches, the messy realities of corporate incident notices, and the rigorous engineering required to preserve primary sources.
 
@@ -32,7 +32,7 @@ Before writing code, I was genuinely convinced that with ironclad guardrails, we
 
 However, the moment I simulated this pipeline against real-world incidents—such as the unauthorized access incident at Times Car involving roughly 6.6 million account profiles—the entire theoretical architecture collapsed.
 
-The fundamental breakdown stemmed from an irreconcilable conflict between full automation and our highest founding principle: **"Never publish speculation or rumors; cite only verified primary corporate announcements" (`D-002`)**.
+The fundamental breakdown stemmed from an irreconcilable conflict between full automation and our highest founding principle: **"Never publish speculation or rumors; cite only verified primary corporate announcements"**.
 
 | The Automated Ideal | The Real-World Reality of Corporate Disclosures |
 | --- | --- |
@@ -49,7 +49,7 @@ If an autonomous AI script reconciles these shifting disclosures on its own, it 
 
 **"If an AI misreads a sentence by even one percent, real businesses and security engineering teams suffer unjust reputational harm. The final line of defense cannot be outsourced to automated code checks."**
 
-Recognizing this risk, I revoked `D-005` after just 24 hours and enacted `D-008`: AI assists in extracting and structuring primary sources, but humans make the final call to publish.
+Recognizing this risk, I scrapped the fully automated design after just 24 hours and switched to a new rule: AI assists in extracting and structuring primary sources, but humans make the final call to publish.
 
 ## The New Architecture: From Database Rows to Git-Managed Markdown
 
@@ -84,7 +84,7 @@ I resolved this by abandoning `src/fetch.ts` and explicitly registering an on-de
 
 While articles are served as static files, readers need a place to share security insights and lessons learned. To facilitate this, each incident page features an anonymous comment section (`F-11`). However, an unmoderated comment box on a security incident site quickly attracts leaked credential dumps, exploit payloads, and defamatory rumors.
 
-To enforce `D-002` ("no leaked data, no rumors"), we implemented aggressive server-side input filters:
+To enforce the "no leaked data, no rumors" principle, we implemented aggressive server-side input filters:
 
 - **140-Character Maximum**: Prevents dumps of stolen credentials, private keys, or code snippets.
 - **Strict URL and Evasion Blocking**: In addition to standard `http://` and `https://` prefixes, our regex filters intercept **obfuscated link evasions commonly used in underground channels, such as `hxxp`, `[.]`, and raw domain formats (`example[.]com`)**, returning an immediate 400 Bad Request on the server.

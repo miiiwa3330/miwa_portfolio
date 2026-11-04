@@ -1,10 +1,10 @@
 I am currently building an iOS app called gashaan in Unity 6 (Universal Render Pipeline), designed around a single visceral premise: tapping your screen to shatter a wine glass sitting on a pedestal into smithereens.
 
-The heart of this product experience is pure physical synchronization: the exact millisecond a finger taps the glass, the visuals, PhysX dynamics, breaking audio, and sharp Core Haptics impulses must fire in lockstep without a single frame of latency. During early architecture design, we established a foundational principle (`D10`): **never introduce an artificial completion lock. Even when an item is 99% obliterated, tapping the remaining shards must recursively fracture them further.**
+The heart of this product experience is pure physical synchronization: the exact millisecond a finger taps the glass, the visuals, PhysX dynamics, breaking audio, and sharp Core Haptics impulses must fire in lockstep without a single frame of latency. During early architecture design, we established a foundational principle: **never introduce an artificial completion lock. Even when an item is 99% obliterated, tapping the remaining shards must recursively fracture them further.**
 
 After the first strike shatters the glass, tapping a jagged fragment resting on the booth floor should snap it into even smaller pieces. The player should be able to keep striking until reaching a natural lower bound where further subdivision feels like pounding sand (10 mm for thin bowl shards, 16 mm for solid stem chunks).
 
-However, when trying to implement this with real 3D meshes (a photorealistic wine glass modeled with true glass thickness in Blender), following the standard game dev textbook pattern of **"nested pre-fractured trees"** collapsed under the weight of roughly 3,200 nodes on physical iPhones. Here is the story of how that architecture failed, and how I pivoted to a hybrid pipeline combining **a single-layer pre-fractured shell with runtime planar mesh slicing** (`D15`).
+However, when trying to implement this with real 3D meshes (a photorealistic wine glass modeled with true glass thickness in Blender), following the standard game dev textbook pattern of **"nested pre-fractured trees"** collapsed under the weight of roughly 3,200 nodes on physical iPhones. Here is the story of how that architecture failed, and how I pivoted to a hybrid pipeline combining **a single-layer pre-fractured shell with runtime planar mesh slicing**.
 
 ## Why I Attempted a Deep Pre-Fracture Tree
 
@@ -44,13 +44,13 @@ This was a total architectural dead end. **Issue A and Issue B were mutually exc
 
 Shipping deep pre-fractured hierarchies wholesale was fundamentally incompatible with mobile hardware constraints and realistic glass shading.
 
-## The Pivot: Single-Layer Shell + Runtime Planar Slicing (`D15`)
+## The Pivot: Single-Layer Shell + Runtime Planar Slicing
 
 Stepping back, I recognized a fundamental behavioral truth.
 
 A player never smashes all 30 shards from the first strike down to 3,200 bits of dust. Across an entire session, they only follow up on **a handful of fragments—perhaps 5 to 10 pieces** that land conveniently in front of the camera. Yet the old architecture paid the upfront performance penalty of instantiating 3,200 future shards for the 90% of pieces that were never touched.
 
-This prompted a complete pivot to the **hybrid architecture (`D15`)**:
+This prompted a complete pivot to the **hybrid architecture**:
 
 | Phase | Architecture | Why It Wins |
 | --- | --- | --- |

@@ -68,7 +68,7 @@ Sample 17 was just as dangerous. Small companies, university labs, and event org
 
 ## Putting "Keep When in Doubt" at the Center of the Design
 
-Those failures changed my entire design philosophy for MelTalk's parser—from "how cleanly can we strip boilerplate?" to **"never over-trim the body, and never bury a human message (keep when in doubt)."** I codified this as non-functional requirement `NF-03` and implemented four concrete safeguards:
+Those failures changed my entire design philosophy for MelTalk's parser—from "how cleanly can we strip boilerplate?" to **"never over-trim the body, and never bury a human message (keep when in doubt)."** I codified this as a non-functional requirement and implemented four concrete safeguards:
 
 1. **Anchor signatures strictly to contact-info lines.** I removed the rule that stripped arbitrary short, unpunctuated lines. Instead, a divider-less signature only starts where explicit contact patterns appear (`TEL`, `〒`, email addresses, URLs, `株式会社`, `University`, etc.). Bullet lines above it (`・`, `-`, or numbered items) are never absorbed into a signature
 2. **Collapse removed text instead of hiding it forever.** Whenever greetings or signatures are stripped, the bubble shows a small toggle to expand them inline, alongside a one-tap button to view the raw original email. The UI never pretends that stripped text didn't exist
@@ -81,7 +81,7 @@ While auditing `cleanBody.ts`, I also spotted three more edge cases that risked 
 
 After implementing those safeguards, all 5 of the original unseen samples (13–17) passed. **But the moment I used those 5 emails to design the fixes, they stopped being "unseen."**
 
-To keep myself honest, I added a strict rule (`D-023`) to the project's development guide: whenever we measure parser accuracy, we must write a fresh batch of holdout emails without looking at the rules, run the test suite once without adjustments, and record the raw score before fixing anything. Here is the result of Holdout Batch 2 (`holdout2-test.ts`, 7 new emails):
+To keep myself honest, I added a strict rule to the project's development guide: whenever we measure parser accuracy, we must write a fresh batch of holdout emails without looking at the rules, run the test suite once without adjustments, and record the raw score before fixing anything. Here is the result of Holdout Batch 2 (`holdout2-test.ts`, 7 new emails):
 
 | Sample | Result | Details |
 | --- | --- | --- |
