@@ -67,7 +67,7 @@
 
 - **`demoUrl` は末尾スラッシュ無しで書く。** 本番は Vercel で、`/archive/v1` を直接 200 で返し、`/archive/v1/` は 308 でスラッシュ無しへ飛ばす。`/archive/v1/index.html` は **404**（2026-09-18 に miiiwa.com で実測）。`python3 -m http.server` は逆にスラッシュ無しを 301 でスラッシュ付きへ飛ばすが、どちらでも開ける
 - **`npm run dev` ではカードからは開けない。** dev サーバーは `public/` のディレクトリに `index.html` を補わないので、`/archive/v1` は 404。`http://localhost:3000/archive/v1/index.html` を直接開けば動く（中の Privacy Policy へのリンクだけ 404）。**通しの確認は `npm run build` 後の `out/` を配信して行う**（`python3 -m http.server -d out` で足りる）
-- `ProjectLinks` が `next/link` ではなく素の `<a>` なのはこのため（理由と実測は [tech.md](tech.md) の「その他」）
+- 制作実績の Play／Code（`reading/ProductActions.tsx`）が `next/link` ではなく素の `<a>` なのはこのため（理由と実測は [tech.md](tech.md) の「その他」）
 - **アーカイブは検索に載せない（`noindex`）。** 書き出しには公開当時のメタデータがそのまま焼き込まれている——v1 は `index, follow`（と canonical → 本番トップ）、v0 は robots の指定そのものが無い。放っておくと、古いプロフィールと実績一覧を載せた「Miiiwa | Portfolio」が本番と並んで検索に出る。canonical を本番トップへ向ける案は採らなかった（内容の違うページへの canonical は本来の用途から外れ、検索エンジンに無視されうる。v1 の canonical も、本番が新しい世界観に替われば同じ理由で効かなくなる）。`robots.txt` で `/archive/` を塞ぐ案も採らなかった（クロールを止めるだけで URL は結果に出うるうえ、`noindex` を読ませられなくなる）。リンクから開けば普通に動く
 
 ### 次のバージョンを保存する手順
@@ -94,11 +94,15 @@
      || perl -pi -e 's#<meta charSet="utf-8"/>#<meta charSet="utf-8"/><meta name="robots" content="noindex"/>#' "$f"; done
    ```
    足しただけの `<meta>`（v0）は、ペイロード側に対応する要素が無いので React の hydration で消されないかが心配だったが、ヘッドレスで開いて hydration 後の DOM に残ること・エラーが出ないことを確かめた（v0・v1 のトップ、v1 の Privacy Policy）。404 ページには Next が最初から `noindex` を出している
+7a. **AdSense のスクリプトを外す**（2026-11-05 ユーザー。古い版に広告を出さない）。HTML の `<script … adsbygoogle.js …>` と、**RSC ペイロードの中の同じ要素**（`["$","script",null,{…adsbygoogle…}]`。HTML の中ではエスケープされている）の両方。ペイロードに残すと、版の中でページを移ったときに Next が `<head>` に戻す。ペイロードの要素は `null` に置き換える（親の `head` の子が空になるだけで、構造は崩れない）:
+   ```bash
+   grep -rlE 'pagead2|adsbygoogle' . | while IFS= read -r f; do perl -pi -e 's#<script async="" src="https://pagead2\.googlesyndication\.com/pagead/js/adsbygoogle\.js\?client=ca-pub-\d+" crossorigin="anonymous"></script>##g; s#\[\\?"\$\\?",\\?"script\\?",null,\{\\?"async\\?":true,\\?"src\\?":\\?"https://pagead2\.googlesyndication\.com/pagead/js/adsbygoogle\.js\?client=ca-pub-\d+\\?",\\?"crossOrigin\\?":\\?"anonymous\\?"\}\]#null#g' "$f"; done
+   ```
 8. **どこからも参照されないファイルを消す。** `export` は `public/` を丸写しするので、当時すでに使っていなかった画像や create-next-app の SVG まで入ってくる。`_next/` 以外の各ファイルについて、名前（と URL エンコードした名前）がアーカイブ内の HTML・`.txt`・JS・CSS のどこにも出てこないことを確かめ、**さらに元のソースを `git grep` して、名前を組み立てて参照していないことも確かめてから**消す。消したあとヘッドレスで全ページを開き、画像が全部読めて 404 が無いことを見る。`robots.txt`・`sitemap.xml` は参照されなくても残す（v0 で `me0.png`・`me2.mp4`・SVG 5つ、v1 で未使用の実績画像5枚を消した。どれも git の履歴から取り戻せる）
 9. worktree を削除する（`git worktree remove --force <dir>`。`next.config.ts` の変更と `node_modules` が残っているので `--force` が要る）
 10. 制作実績に載せる。`src/data/projects.ts` に1件足し（`demoUrl: "/archive/vN"`、`githubUrl` はタグの `tree/` URL）、サムネイルを `public/images/` に 1200×630 で置いて、`npm test`
 
-**手順10の `npm test` が、手順3・6・7が効いたかを検査する**——`data/projectModel.test.ts` が、同じサイトを指す `demoUrl` それぞれについて、(1) `index.html` が実在する、(2) その `src=`／`href=` の絶対パスが全部 `demoUrl` の内側、(3) HTML・RSC ペイロード・JS・CSS に出てくる画像とモデルのパスが全部 `demoUrl` の内側で、しかも実在する、(4) すべての `.html` に `noindex` があり、ペイロードも含めて robots・googlebot の指定がすべて `noindex`、を確かめる。(3) が要るのは、v1 の制作実績のように**クライアントでしか描かれない画像は HTML に出てこない**から。
+**手順10の `npm test` が、手順3・6・7が効いたかを検査する**——`data/projectModel.test.ts` が、同じサイトを指す `demoUrl` それぞれについて、(1) `index.html` が実在する、(2) その `src=`／`href=` の絶対パスが全部 `demoUrl` の内側、(3) HTML・RSC ペイロード・JS・CSS に出てくる画像とモデルのパスが全部 `demoUrl` の内側で、しかも実在する、(4) すべての `.html` に `noindex` があり、ペイロードも含めて robots・googlebot の指定がすべて `noindex`、(5) どのテキストファイルにも AdSense のスクリプトが無い、を確かめる。(3) が要るのは、v1 の制作実績のように**クライアントでしか描かれない画像は HTML に出てこない**から。
 
 - **`node_modules` をシンボリックリンクで共有しようとすると Turbopack が `Symlink ... points out of the filesystem root` で落ちる**ので、worktree 側で素直に `npm install` する
 - **手順6を zsh で `for f in $files` と書かない。** zsh は変数を空白で分割しないので、対象が2ファイル以上あると改行でつながった1つの名前として渡り、1つも置換されない（v1 は対象が1ファイルだったので気づかず、v0 で踏んだ）。**macOS の `grep -Z` も NUL 区切りの意味ではない**（BSD の grep では圧縮ファイルを読むオプション）。上の `while read` の形なら両方を避けられる

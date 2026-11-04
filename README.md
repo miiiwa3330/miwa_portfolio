@@ -97,7 +97,7 @@ src/
 │   ├── desk/              #   PCの画面のGUI（デスクトップ・タスクバー・電源と、中のブラウザ miiiwa.com）
 │   └── about/             #   自己紹介の文とホログラム
 ├── detail/                # HTMLで組む区画のページの中身（/about などと、PCの中のブラウザが使う）
-│   └── products/          #   制作実績セクションのUI
+│   └── products/          #   制作実績の公開状態の表示名とバッジ（catalog・Badges）
 ├── terminal/              # ターミナルモード（Context と、中身の Screen。全画面の Overlay と PC の画面の中の両方で使う）
 ├── ui/                    # 複数箇所で使う共有UIパーツ（アイコン・ロゴ等）
 └── data/                  # 制作実績と経歴のデータ（日英）、ノートの登録簿、サイトの URL
