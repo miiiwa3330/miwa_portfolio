@@ -18,16 +18,7 @@ const timelineYearFont = Monoton({
   display: "swap",
 });
 
-type Props = {
-  /**
-   * Switch to Products with this project's modal open — on the PC's screen,
-   * where Experience is a window and Products is another. Without it (the
-   * `/experience` page) a project's card is a link to the project's page.
-   */
-  onOpenProject?: (slug: string) => void;
-};
-
-export default function Experience({ onOpenProject }: Props = {}) {
+export default function Experience() {
   const { language } = useLanguage();
   const isJa = language === "ja";
 
@@ -138,7 +129,6 @@ export default function Experience({ onOpenProject }: Props = {}) {
                         <MilestoneCard
                           href={project ? productPath(project.slug) : externalUrl}
                           external={!project && !!externalUrl}
-                          onOpen={project && onOpenProject ? () => onOpenProject(project.slug) : undefined}
                           label={
                             project
                               ? `${title} - ${isJa ? `${project.title} の紹介を開く` : `Open ${project.title}`}`
@@ -211,43 +201,22 @@ export default function Experience({ onOpenProject }: Props = {}) {
 /**
  * A milestone's card, as whatever it leads to: a link to the project's page
  * or out to the site (a real `<a>`, so a middle-click, a new tab and a crawler
- * all work), a button where a handler stands in for the page (`onOpen`, the
- * PC's screen), or a plain box where it leads nowhere.
+ * all work — and on the PC's screen the window catches the project's link
+ * and shows the page in itself), or a plain box where it leads nowhere.
  */
 function MilestoneCard({
   href,
   external,
-  onOpen,
   label,
   className,
   children,
 }: {
   href: string | undefined;
   external: boolean;
-  onOpen: (() => void) | undefined;
   label: string | undefined;
   className: string;
   children: React.ReactNode;
 }) {
-  if (onOpen) {
-    return (
-      <div
-        role="button"
-        tabIndex={0}
-        aria-label={label}
-        onClick={onOpen}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onOpen();
-          }
-        }}
-        className={`${className} select-none`}
-      >
-        {children}
-      </div>
-    );
-  }
   if (href && external) {
     return (
       <a href={href} target="_blank" rel="noopener noreferrer" className={className}>

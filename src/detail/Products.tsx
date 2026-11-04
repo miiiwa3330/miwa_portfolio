@@ -19,21 +19,20 @@ import { useToast } from "./products/useToast";
 import type { BlockedLink } from "./products/ProjectLinks";
 
 type Props = {
-  /** Open with this project's modal already up (by slug) — how Experience links here. */
-  initialProject?: string | null;
+  /**
+   * Open a card's project somewhere other than the modal — the PC's window,
+   * which shows the project's own page in itself (`hub/desk/DeskScreen`):
+   * the modal is portalled to `<body>`, so in there it came up over the
+   * whole room rather than on the screen.
+   */
+  onOpenProject?: (slug: string) => void;
 };
 
-export default function Products({ initialProject = null }: Props) {
+export default function Products({ onOpenProject }: Props) {
   const { language } = useLanguage();
   const [category, setCategory] = useState<CategoryFilter>("All");
   const [status, setStatus] = useState<StatusFilter>("All");
-  // Read once, on mount: the modal belongs to the reader from then on, and
-  // closing it must not bring it back.
-  const [selected, setSelected] = useState<Project | null>(() =>
-    initialProject
-      ? localizeProjects(PROJECTS, language).find((p) => p.slug === initialProject) ?? null
-      : null
-  );
+  const [selected, setSelected] = useState<Project | null>(null);
   const toast = useToast();
 
   // createPortal needs a real container, and the page is statically
@@ -79,7 +78,7 @@ export default function Products({ initialProject = null }: Props) {
           <ProjectCard
             key={project.slug}
             project={project}
-            onOpen={setSelected}
+            onOpen={onOpenProject ? (p) => onOpenProject(p.slug) : setSelected}
             onBlockedLink={handleBlockedLink}
           />
         ))}

@@ -84,10 +84,10 @@ export default function Hub() {
   const anchorDotRef = useRef<HTMLSpanElement | null>(null);
 
   /**
-   * Step back out of an area. `resetCamera` separates the two intents: getting
-   * up from the PC and reading the hologram to the end leave the camera on the
-   * area just used, while the logo and BACK are a deliberate "take me back to
-   * the start" and fly to the one fixed default view.
+   * Step back out of an area. `resetCamera` separates the two intents:
+   * reading the hologram to the end leaves the camera on the area just used,
+   * while the logo and BACK are a deliberate "take me back to the start" and
+   * fly to the one fixed default view.
    */
   const closeToHome = (resetCamera: boolean) => {
     // Say where the camera will end up facing in the same breath as sending it
@@ -143,7 +143,7 @@ export default function Hub() {
           chair, the lamp — still covers it. */}
       <RoomHtmlLayer className="z-[5]">
         <RoomPanel panel={DESK_SCREEN} interactive={seated}>
-          <DeskScreen isJa={isJa} onLeave={() => closeToHome(false)} openTerminal={openTerminal} />
+          <DeskScreen isJa={isJa} openTerminal={openTerminal} />
           <ScreenCursor />
         </RoomPanel>
       </RoomHtmlLayer>
@@ -262,11 +262,12 @@ export default function Hub() {
         <HomeButton
           onClick={() => closeToHome(true)}
           isJa={isJa}
+          stand={seated}
           className="fixed bottom-7 sm:bottom-9 left-1/2 -translate-x-1/2 z-50"
         />
       )}
 
-      {/* What the reader says when BACK, 「席を立つ」 or a marker tries to get
+      {/* What the reader says when 「立ち上がる」 or a marker tries to get
           them up while they are kept in the chair (`SEAT_LOCKED`). */}
       {SEAT_LOCKED && <StandRefusal isJa={isJa} />}
 

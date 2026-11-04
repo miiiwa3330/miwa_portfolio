@@ -102,12 +102,12 @@ export type BootElement = {
  * parsed) adds to the total.
  *
  * **It looks the screen's parts up afresh and paints again whenever they
- * are replaced.** In development React puts the screen's inside back as it
+ * are replaced.** In development React puts the bar's inside back as it
  * was prerendered (measured on a phone: at 0.58 s, after the script had
  * painted 95%, and after the scripts had said they had run), and parts held
  * from before then are no longer on the page. A `MutationObserver` on the
- * screen's own children sees it; the script's own writes are a level below,
- * inside the parts, so they do not set it off.
+ * bar's own children (`[data-bar]`) sees it; the script's own writes are a
+ * level below, inside the parts, so they do not set it off.
  */
 export function bootScript(percent: typeof bootPercent, bar: typeof bootBar, width: number, win: BootWindow, doc: BootDocument): void {
   if (!doc.getElementById("miiiwa-boot") || win.__miiiwaBoot) return;
@@ -169,7 +169,8 @@ export function bootScript(percent: typeof bootPercent, bar: typeof bootBar, wid
   }
 
   const watch = win.MutationObserver ? new win.MutationObserver(paint) : null;
-  if (watch) watch.observe(doc.getElementById("miiiwa-boot"), { childList: true });
+  const track = doc.getElementById("miiiwa-boot")?.querySelector("[data-bar]");
+  if (watch && track) watch.observe(track, { childList: true });
   count();
   if (win.PerformanceObserver) {
     try {

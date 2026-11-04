@@ -28,7 +28,7 @@ describe("laterStage", () => {
 /** A page with the boot screen and `chunks` script files, for the inline script to run against. */
 function page(chunks: number) {
   const part = () => ({ textContent: "" as string | null, style: { color: "" } });
-  const parts: Record<string, ReturnType<typeof part>> = { "[data-lit]": part(), "[data-dim]": part(), "[data-pct]": part() };
+  const parts: Record<string, ReturnType<typeof part>> = { "[data-bar]": part(), "[data-lit]": part(), "[data-dim]": part(), "[data-pct]": part() };
   const attributes: Record<string, string> = {};
   const root = {
     querySelector: (s: string) => parts[s] ?? null,
@@ -42,6 +42,7 @@ function page(chunks: number) {
   ];
   let observer: ((list: { getEntries(): { name: string }[] }) => void) | null = null;
   let replaced: (() => void) | null = null;
+  let watched: unknown = null;
   const timers: (() => void)[] = [];
   const win: { __miiiwaBoot?: (stage: BootStage) => void } & Record<string, unknown> = {
     PerformanceObserver: class {
@@ -55,7 +56,9 @@ function page(chunks: number) {
       constructor(callback: () => void) {
         replaced = callback;
       }
-      observe() {}
+      observe(target: unknown) {
+        watched = target;
+      }
       disconnect() {}
     },
   };
@@ -71,10 +74,11 @@ function page(chunks: number) {
     root,
     parts,
     attributes,
+    watched: () => watched,
     arrive: (i: number) => observer?.({ getEntries: () => [{ name: scripts[i].src }] }),
-    /** React puts the screen's inside back as it was prerendered. */
+    /** React puts the bar's inside back as it was prerendered. */
     replace: () => {
-      for (const key of Object.keys(parts)) parts[key] = { textContent: key === "[data-pct]" ? "0%" : "", style: { color: "" } };
+      for (const key of Object.keys(parts)) if (key !== "[data-bar]") parts[key] = { textContent: key === "[data-pct]" ? "0%" : "", style: { color: "" } };
       replaced?.();
     },
     runTimers: () => timers.splice(0).forEach((t) => t()),
@@ -119,6 +123,8 @@ describe("bootInlineScript", () => {
 
   it("puts the bar back when the screen's inside has been replaced (React's hydration in development)", () => {
     const p = page(3);
+    // The bar, not the whole screen: the logo above it is React's own.
+    expect(p.watched()).toBe(p.parts["[data-bar]"]);
     p.win.__miiiwaBoot!("built");
     // After the last thing it was told, nothing but the replacement itself can set it off.
     p.replace();

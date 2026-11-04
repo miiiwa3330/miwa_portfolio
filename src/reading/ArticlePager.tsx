@@ -14,6 +14,13 @@ type Props = {
   prev: PagerTarget;
   next: PagerTarget;
   children: React.ReactNode;
+  /**
+   * Drawn inside the PC's window (`hub/desk/DeskScreen`) rather than as a
+   * page: no chevrons or peeking cards at the sides — they are `fixed` and
+   * keyed to the browser's width, so in the window they landed over the
+   * article — and the bottom switcher at every width.
+   */
+  embedded?: boolean;
 };
 
 /**
@@ -24,97 +31,101 @@ type Props = {
  * - Floating vermilion chevron (`＜` / `＞`) buttons (`#ea580c`) sit at the exact
  *   midpoint between the viewport edge and the main card edge (`25% - 17rem`).
  */
-export default function ArticlePager({ prev, next, children }: Props) {
+export default function ArticlePager({ prev, next, children, embedded = false }: Props) {
   return (
     <div className="relative overflow-x-clip">
-      {/* Left floating chevron (＜) button — centered between left screen edge and card left edge */}
-      <Link
-        href={prev.href}
-        aria-label={`前の記事: ${prev.title}`}
-        title={prev.title}
-        className="hidden xl:flex fixed left-[calc(25%-17rem)] -translate-x-1/2 top-1/2 -translate-y-1/2 z-30 w-24 h-28 items-center justify-center text-[#ea580c] hover:text-[#c2410c] drop-shadow-md transition-all hover:scale-110 active:scale-95 cursor-pointer select-none"
-      >
-        <svg viewBox="0 0 72 104" fill="none" className="w-full h-full" aria-hidden="true">
-          <path
-            d="M52 14L20 52L52 90"
-            stroke="currentColor"
-            strokeWidth="14"
-            strokeLinecap="square"
-            strokeLinejoin="miter"
-            strokeMiterlimit="10"
-          />
-        </svg>
-      </Link>
+      {!embedded && (
+        <>
+          {/* Left floating chevron (＜) button — centered between left screen edge and card left edge */}
+          <Link
+            href={prev.href}
+            aria-label={`前の記事: ${prev.title}`}
+            title={prev.title}
+            className="hidden xl:flex fixed left-[calc(25%-17rem)] -translate-x-1/2 top-1/2 -translate-y-1/2 z-30 w-24 h-28 items-center justify-center text-[#ea580c] hover:text-[#c2410c] drop-shadow-md transition-all hover:scale-110 active:scale-95 cursor-pointer select-none"
+          >
+            <svg viewBox="0 0 72 104" fill="none" className="w-full h-full" aria-hidden="true">
+              <path
+                d="M52 14L20 52L52 90"
+                stroke="currentColor"
+                strokeWidth="14"
+                strokeLinecap="square"
+                strokeLinejoin="miter"
+                strokeMiterlimit="10"
+              />
+            </svg>
+          </Link>
 
-      {/* Right floating chevron (＞) button — centered between right screen edge and card right edge */}
-      <Link
-        href={next.href}
-        aria-label={`次の記事: ${next.title}`}
-        title={next.title}
-        className="hidden xl:flex fixed right-[calc(25%-17rem)] translate-x-1/2 top-1/2 -translate-y-1/2 z-30 w-24 h-28 items-center justify-center text-[#ea580c] hover:text-[#c2410c] drop-shadow-md transition-all hover:scale-110 active:scale-95 cursor-pointer select-none"
-      >
-        <svg viewBox="0 0 72 104" fill="none" className="w-full h-full" aria-hidden="true">
-          <path
-            d="M20 14L52 52L20 90"
-            stroke="currentColor"
-            strokeWidth="14"
-            strokeLinecap="square"
-            strokeLinejoin="miter"
-            strokeMiterlimit="10"
-          />
-        </svg>
-      </Link>
+          {/* Right floating chevron (＞) button — centered between right screen edge and card right edge */}
+          <Link
+            href={next.href}
+            aria-label={`次の記事: ${next.title}`}
+            title={next.title}
+            className="hidden xl:flex fixed right-[calc(25%-17rem)] translate-x-1/2 top-1/2 -translate-y-1/2 z-30 w-24 h-28 items-center justify-center text-[#ea580c] hover:text-[#c2410c] drop-shadow-md transition-all hover:scale-110 active:scale-95 cursor-pointer select-none"
+          >
+            <svg viewBox="0 0 72 104" fill="none" className="w-full h-full" aria-hidden="true">
+              <path
+                d="M20 14L52 52L20 90"
+                stroke="currentColor"
+                strokeWidth="14"
+                strokeLinecap="square"
+                strokeLinejoin="miter"
+                strokeMiterlimit="10"
+              />
+            </svg>
+          </Link>
 
-      {/* Left peeking card on desktop viewports — top-aligned with main card (`top-4 sm:top-6`) and non-clickable */}
-      <div
-        aria-hidden="true"
-        className="hidden xl:block absolute right-[calc(50%+41rem)] top-4 sm:top-6 w-[32rem] pointer-events-none select-none opacity-60"
-      >
-        <div className="block rounded-none bg-white border border-black/25 p-8 shadow-none">
-          {prev.badge && (
-            <span className="inline-block font-mono text-xs font-bold text-neutral-100 bg-neutral-900 px-2.5 py-0.5 mb-3">
-              {prev.badge}
-            </span>
-          )}
-          <div className="text-xl font-black text-neutral-950 truncate border-b border-black/10 pb-3 mb-4">
-            {prev.title}
+          {/* Left peeking card on desktop viewports — top-aligned with main card (`top-4 sm:top-6`) and non-clickable */}
+          <div
+            aria-hidden="true"
+            className="hidden xl:block absolute right-[calc(50%+41rem)] top-4 sm:top-6 w-[32rem] pointer-events-none select-none opacity-60"
+          >
+            <div className="block rounded-none bg-white border border-black/25 p-8 shadow-none">
+              {prev.badge && (
+                <span className="inline-block font-mono text-xs font-bold text-neutral-100 bg-neutral-900 px-2.5 py-0.5 mb-3">
+                  {prev.badge}
+                </span>
+              )}
+              <div className="text-xl font-black text-neutral-950 truncate border-b border-black/10 pb-3 mb-4">
+                {prev.title}
+              </div>
+              {prev.subtitle && (
+                <p className="text-sm text-neutral-600 line-clamp-3 leading-relaxed">
+                  {prev.subtitle}
+                </p>
+              )}
+            </div>
           </div>
-          {prev.subtitle && (
-            <p className="text-sm text-neutral-600 line-clamp-3 leading-relaxed">
-              {prev.subtitle}
-            </p>
-          )}
-        </div>
-      </div>
 
-      {/* Right peeking card on desktop viewports — top-aligned with main card (`top-4 sm:top-6`) and non-clickable */}
-      <div
-        aria-hidden="true"
-        className="hidden xl:block absolute left-[calc(50%+41rem)] top-4 sm:top-6 w-[32rem] pointer-events-none select-none opacity-60"
-      >
-        <div className="block rounded-none bg-white border border-black/25 p-8 shadow-none">
-          {next.badge && (
-            <span className="inline-block font-mono text-xs font-bold text-neutral-100 bg-neutral-900 px-2.5 py-0.5 mb-3">
-              {next.badge}
-            </span>
-          )}
-          <div className="text-xl font-black text-neutral-950 truncate border-b border-black/10 pb-3 mb-4">
-            {next.title}
+          {/* Right peeking card on desktop viewports — top-aligned with main card (`top-4 sm:top-6`) and non-clickable */}
+          <div
+            aria-hidden="true"
+            className="hidden xl:block absolute left-[calc(50%+41rem)] top-4 sm:top-6 w-[32rem] pointer-events-none select-none opacity-60"
+          >
+            <div className="block rounded-none bg-white border border-black/25 p-8 shadow-none">
+              {next.badge && (
+                <span className="inline-block font-mono text-xs font-bold text-neutral-100 bg-neutral-900 px-2.5 py-0.5 mb-3">
+                  {next.badge}
+                </span>
+              )}
+              <div className="text-xl font-black text-neutral-950 truncate border-b border-black/10 pb-3 mb-4">
+                {next.title}
+              </div>
+              {next.subtitle && (
+                <p className="text-sm text-neutral-600 line-clamp-3 leading-relaxed">
+                  {next.subtitle}
+                </p>
+              )}
+            </div>
           </div>
-          {next.subtitle && (
-            <p className="text-sm text-neutral-600 line-clamp-3 leading-relaxed">
-              {next.subtitle}
-            </p>
-          )}
-        </div>
-      </div>
+        </>
+      )}
 
       {/* Main container — exact same width (`max-w-6xl`) as the index pages */}
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
         {children}
 
         {/* Mobile / tablet prev-next switcher at bottom of article */}
-        <div className="mt-14 grid grid-cols-2 gap-3 sm:gap-4 xl:hidden">
+        <div className={`mt-14 grid grid-cols-2 gap-3 sm:gap-4 ${embedded ? "" : "xl:hidden"}`}>
           <Link
             href={prev.href}
             className="flex items-center gap-2.5 p-3.5 sm:p-4 bg-white border border-black/20 hover:border-black transition-colors"

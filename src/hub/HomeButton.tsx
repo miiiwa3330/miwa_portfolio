@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowUp } from "lucide-react";
 import CornerBrackets from "@/ui/CornerBrackets";
 
 /**
@@ -8,9 +8,10 @@ import CornerBrackets from "@/ui/CornerBrackets";
  *
  * One component for both layouts because it is one control: a desktop pins it
  * to the bottom of the frame, a phone puts it just above the card rail (the
- * bottom of a phone's frame is the rail). Only where it sits differs, so only
- * that is a prop — the label, the icon and the shape are stated once here
- * rather than in two places that would drift.
+ * bottom of a phone's frame is the rail). Where it sits is a prop, and so is
+ * whether the reader is getting up from the desk — 「立ち上がる」 there, not
+ * 「戻る」 (2026-11-04, the user) — the labels, the icons and the shape are
+ * stated once here rather than in places that would drift.
  *
  * The site's box style (square corners, a box label, a fine border), with the
  * corner brackets ("「」") on hover.
@@ -18,14 +19,17 @@ import CornerBrackets from "@/ui/CornerBrackets";
 export default function HomeButton({
   onClick,
   isJa = true,
+  stand = false,
   className = "",
 }: {
   onClick: () => void;
   isJa?: boolean;
+  /** Seated at the desk: the way back is getting up. */
+  stand?: boolean;
   /** Where it sits. Everything else about it is fixed. */
   className?: string;
 }) {
-  const label = isJa ? "戻る" : "BACK";
+  const label = stand ? (isJa ? "立ち上がる" : "STAND UP") : isJa ? "戻る" : "BACK";
   return (
     <button
       onClick={onClick}
@@ -39,7 +43,11 @@ export default function HomeButton({
         colorClass="border-neutral-900"
         className="opacity-0 group-hover:opacity-100 transition-opacity"
       />
-      <ArrowLeft size={16} className="group-hover:-translate-x-0.5 transition-transform" />
+      {stand ? (
+        <ArrowUp size={16} className="group-hover:-translate-y-0.5 transition-transform" />
+      ) : (
+        <ArrowLeft size={16} className="group-hover:-translate-x-0.5 transition-transform" />
+      )}
       <span>{label}</span>
     </button>
   );

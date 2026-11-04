@@ -61,6 +61,9 @@
 - **Python の `http.server` は圧縮しない。** 本番（Vercel）は圧縮して配るので、そのままでは JS・CSS が数倍の大きさで回線を取り合い、差を大きく見積もる。gzip で返す小さなサーバーをスクラッチパッドに書いて測った（`Accept-Encoding` を見て `gzip.compress`。woff2 は圧縮しない）
 - **回線は CDP の `Network.emulateNetworkConditions`、CPU は `Emulation.setCPUThrottlingRate`。** 遅い 4G を latency 150ms・1.6Mbps、CPU 4倍遅くとして測った。FCP は `PerformanceObserver` の `paint`（`evaluateOnNewDocument` で仕込む）
 - **ほかのポートを確かめてから使う。** 8765 には別の作業のサーバー（`whisper_server.py`）が居て、気づかずにそちらを測った
+- **測る前に、ほかの作業のヘッドレス Chrome が CPU を食っていないか確かめる**（`ps -Ao pid,ppid,pcpu,command -r | head`、親をたどる）。並行して動く別の Claude のセッションが SwiftShader で部屋を描いていると（CPU 約480%）、同じ HTML の FCP が0.5秒から4〜18秒に荒れ、変更前と変更後の差は読めなかった（2026-11-04）。そのプロセスは自分のものではないので止めない。待つか、時間ではなく「描けるまでに読む量」（ローディング画面の `</script>` までのバイト数と gzip の大きさ・外部 CSS と止める script の数）で比べる
+- **閉じたページの後始末が次の計測に混ざる。** 1つのブラウザでページを開いては閉じて測ると、閉じたページの WebGL の後始末が残り、回を追うごとに FCP が伸びた（0.7秒 → 5秒台）。1回ごとにブラウザを立ち上げ直し、同じサーバーの小さなファイル（`robots.txt`）を1枚目に開いて捨てる
+- **部屋を描いている最中のページに `page.evaluate` を投げると、`protocolTimeout` で落ちる。** FCP はページの側から `console.log` で知らせ、`page.on("console")` で受ける
 
 **決まった時間だけ出す表示は、ヘッドレスでは入場のアニメーションが終わる前に消えることがある。** 席を立とうとしたときの一言（`StandRefusal`、フェードイン0.18秒・表示2.8秒）は、DOM にあるのに不透明度0のまま消えた（2026-11-04）。表示の時間は実時間の `setTimeout`、アニメーションはフレームで進むため。見た目を撮るときは `page.addStyleTag` で `opacity: 1 !important; transform: none !important` を当ててから撮る
 
