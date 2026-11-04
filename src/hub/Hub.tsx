@@ -24,6 +24,9 @@ import Hologram from "./about/Hologram";
 import { adjacentSection } from "@/scene/room/tour";
 import { RoomHtmlLayer, RoomPanel } from "./room/RoomHtml";
 import DeskScreen from "./desk/DeskScreen";
+import StandRefusal from "./desk/StandRefusal";
+import { SEAT_LOCKED } from "@/state/seatLock";
+import { setDeskView } from "@/scene/deskView";
 import ScreenCursor from "./desk/ScreenCursor";
 import { DESK_SCREEN, HOLOGRAM_PANEL } from "@/scene/room/screens";
 
@@ -197,7 +200,9 @@ export default function Hub() {
             activeSection={section}
             isJa={isJa}
             toggleLanguage={toggleLanguage}
-            onLogoClick={() => closeToHome(true)}
+            // Kept in the chair, the start is the seat: the logo turns the
+            // head back to the PC's screen rather than trying to get up.
+            onLogoClick={() => (SEAT_LOCKED ? setDeskView("pc", true) : closeToHome(true))}
             handheld={handheld}
             onMenuOpen={() => setMenuOpen(true)}
           />
@@ -256,6 +261,10 @@ export default function Hub() {
           className="fixed bottom-7 sm:bottom-9 left-1/2 -translate-x-1/2 z-50"
         />
       )}
+
+      {/* What the reader says when BACK, 「席を立つ」 or a marker tries to get
+          them up while they are kept in the chair (`SEAT_LOCKED`). */}
+      {SEAT_LOCKED && <StandRefusal isJa={isJa} />}
 
       {/* The full-screen navigation. Above the header (z-50), so its own close
           button can land on the hamburger's footprint. */}

@@ -20,7 +20,7 @@
 | 置き場 | 何が入るか |
 | --- | --- |
 | `hub/room/` | 部屋の中に置く HTML の層（`RoomHtml.tsx`）。中身は持たない |
-| `hub/desk/` | PC の画面の GUI（`DeskScreen.tsx`）と、その上に描く机のマウスのカーソル（`ScreenCursor.tsx`） |
+| `hub/desk/` | PC の画面の GUI（`DeskScreen.tsx`）と、その上に描く机のマウスのカーソル（`ScreenCursor.tsx`）。席に留めているあいだ立とうとしたときの一言（文は `standLines.ts`、出すのは `StandRefusal.tsx`） |
 | `hub/about/` | 自己紹介の文（`aboutCopy.tsx`）、ホログラム（`Hologram.tsx`）、自動再生と読了の判定（`aboutScroll.ts`） |
 
 - **2026-10-01 に部屋の中への移行（[room-migration.md](room-migration.md)）で、`scene/planet/`（球面の幾何）・`scene/voxel/`（ボクセルエンジン）・惑星の部品・`sunLight`・`planetPlacement`・`camera/cameraLayout`・`camera/cameraFlight` を外した。** 部屋の側が借りていたものは移した: `hash01`（`voxel/rng.ts` → `scene/hash.ts`）、`Direction` 型（`planet/geometry.ts` → `scene/direction.ts`）、`Tour` 型（`planet/tour.ts` → `room/tour.ts`）、首振りの減衰とカードの横寄せ（`cameraLayout.ts` → `camera/cameraMotion.ts`）、`MAX_FLIGHT_STEP`（`cameraFlight.ts` → `roomCamera.ts`）。当時のコードは `v1-voxel-planet` のタグで読める

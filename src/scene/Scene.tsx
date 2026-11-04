@@ -518,7 +518,7 @@ function CameraController() {
   /** This frame's idle sway, added to every pose as it is drawn (`applyPose`). */
   const swayRef = useRef({ yaw: 0, pitch: 0, height: 0 });
   /** How much of the sway is in play: eased to 0 while reading at the desk or the hologram. */
-  const swayGainRef = useRef(1);
+  const swayGainRef = useRef(activeSection === "desk" || activeSection === "about" ? 0 : 1);
   /** The reader's walk, worked out each frame from how the held eye moved (`room/gait.ts`). */
   const gaitRef = useRef(STANDING);
   /** The reader's "reduce motion" setting: no sway at all. */
@@ -532,22 +532,20 @@ function CameraController() {
     query.addEventListener("change", read);
     return () => query.removeEventListener("change", read);
   }, []);
-  const prevSectionRef = useRef<Focus>(null);
+  // Opened already focused (the seat, while the reader is kept in it —
+  // `SEAT_LOCKED`): there from the first frame, not flown to.
+  const prevSectionRef = useRef<Focus>(activeSection);
   const prevNonceRef = useRef(homeNonce);
   const prevZoomRef = useRef(viewZoom);
 
   /** The flight in progress, if any. The record and its step are in `camera/roomCamera.ts`. */
   const flightRef = useRef<RoomFlight | null>(null);
   /** What the camera is holding right now — every flight starts from here. */
-  const poseRef = useRef<RoomPose>({
-    x: 0,
-    z: 0,
-    yaw: home.yaw,
-    pitch: home.pitch,
-    forward: 0,
-    eyeHeight: EYE_HEIGHT,
-    ...free,
-  });
+  const poseRef = useRef<RoomPose>(
+    activeSection
+      ? poseFromView(zoomView(activeSection, zoomFraming(activeSection, handheld).hfov), zoomFraming(activeSection, handheld))
+      : { x: 0, z: 0, yaw: home.yaw, pitch: home.pitch, forward: 0, eyeHeight: EYE_HEIGHT, ...free }
+  );
 
   // Turning only makes sense in the free view — lock out drag/wheel input
   // whenever a section is focused, so stray gestures can't accumulate.
@@ -768,6 +766,8 @@ function CameraController() {
 
     // 1. A section was focused: step out towards its subject. About is no
     //    longer a case of its own — its subject is the hologram on the desk.
+    //    Still the one it was (opened already in it): the pose starts there.
+    if (activeSection && activeSection === cameFrom) return;
     if (activeSection) {
       const framing = zoomFraming(activeSection, handheld);
       startFlight(poseFromView(zoomView(activeSection, framing.hfov), framing), duration, null);

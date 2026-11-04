@@ -6,6 +6,7 @@ import { pathForSection } from "@/hub/nav";
 import type { Focus, SectionType } from "@/types";
 import type { ViewZoom } from "@/scene/room/layout";
 import { DEFAULT_LIGHTS, flipLight as flip, type LightSwitch, type RoomLights } from "@/scene/room/lighting";
+import { SEAT_LOCKED } from "./seatLock";
 
 interface AppStateContextType {
   /**
@@ -48,12 +49,22 @@ interface AppStateContextType {
    */
   lights: RoomLights;
   flipLight: (which: LightSwitch) => void;
+  /**
+   * Bumps every time the reader tries to get up while kept in the chair
+   * (`SEAT_LOCKED`): `unfocus`, `goHome` and a focus other than the desk are
+   * refused, and this is what they do instead. The line it says is
+   * `StandRefusal`'s business.
+   */
+  standRefusals: number;
 }
 
 const AppStateContext = createContext<AppStateContextType | undefined>(undefined);
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
-  const [activeSection, setActiveSection] = useState<Focus>(null);
+  // Kept in the chair, the site opens sat at the PC.
+  const [activeSection, setFocus] = useState<Focus>(SEAT_LOCKED ? "desk" : null);
+  const [standRefusals, setStandRefusals] = useState(0);
+  const refuseStand = useCallback(() => setStandRefusals((n) => n + 1), []);
   const [homeNonce, setHomeNonce] = useState(0);
   const [turnRequest, setTurnRequest] = useState<{ section: NonNullable<SectionType>; nonce: number } | null>(null);
   const [viewZoom, setViewZoom] = useState<ViewZoom>("standard");
@@ -64,15 +75,33 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setTurnRequest((previous) => ({ section, nonce: (previous?.nonce ?? 0) + 1 }));
   }, []);
 
+  // Every way of getting up comes through these three, so the chair is held
+  // here, once, rather than at each button that asks.
+  const setActiveSection = useCallback(
+    (section: Focus) => {
+      if (SEAT_LOCKED && section !== "desk") refuseStand();
+      else setFocus(section);
+    },
+    [refuseStand]
+  );
+
   const unfocus = useCallback(() => {
-    setActiveSection(null);
+    if (SEAT_LOCKED) {
+      refuseStand();
+      return;
+    }
+    setFocus(null);
     setViewZoom("standard");
-  }, []);
+  }, [refuseStand]);
 
   const goHome = useCallback(() => {
+    if (SEAT_LOCKED) {
+      refuseStand();
+      return;
+    }
     unfocus();
     setHomeNonce((n) => n + 1);
-  }, [unfocus]);
+  }, [unfocus, refuseStand]);
 
   // --- The URL ---------------------------------------------------------
   // Sitting at the PC is mirrored into the hash (`/#desk`), so the back button
@@ -85,6 +114,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const applyUrl = (fromHistory: boolean) => {
       const section = sectionFromHash(window.location.hash);
+      // Kept in the chair, the old page links still go to their pages, but
+      // `/#desk` and `/#about` are where the reader already is: the hash is
+      // dropped (replaced, so the back button has nothing to get up into).
+      if (SEAT_LOCKED && !movedToPage(section)) {
+        if (section && window.location.pathname === "/") window.history.replaceState(null, "", "/");
+        urlApplied.current = true;
+        return;
+      }
       // Only on the hub: the provider lives in the root layout, and a reading
       // page's own `#` is a heading, not an area.
       if (movedToPage(section) && window.location.pathname === "/") {
@@ -93,7 +130,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         window.location.replace(pathForSection(section));
         return;
       }
-      setActiveSection(section);
+      setFocus(section);
       // The same "always land at standard" normalization unfocus() carries —
       // otherwise the back button or a direct link could leave the visitor
       // stranded in the fisheye.
@@ -118,7 +155,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Until the incoming hash has been read, writing to the URL would erase it.
-    if (!urlApplied.current) return;
+    // Kept in the chair, the seat is the only place, so it has no hash of its own.
+    if (!urlApplied.current || SEAT_LOCKED) return;
 
     const wanted = hashForState(activeSection);
     // Already correct — which is exactly the case when this state came *from*
@@ -138,9 +176,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       activeSection, setActiveSection, unfocus, goHome, homeNonce,
-      turnTo, turnRequest, viewZoom, setViewZoom, lights, flipLight,
+      turnTo, turnRequest, viewZoom, setViewZoom, lights, flipLight, standRefusals,
     }),
-    [activeSection, unfocus, goHome, homeNonce, turnTo, turnRequest, viewZoom, lights, flipLight]
+    [activeSection, setActiveSection, unfocus, goHome, homeNonce, turnTo, turnRequest, viewZoom, lights, flipLight, standRefusals]
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
