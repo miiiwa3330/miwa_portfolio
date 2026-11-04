@@ -6,6 +6,7 @@ import { useCursor } from "@react-three/drei";
 import * as THREE from "three";
 import type { KeySample } from "../room/keyboard";
 import { isInteractive, pointerClaim } from "../pointerClaim";
+import { pcFrameInput } from "../frameInput";
 import { useDeskFocus, type Machine } from "../deskFocus";
 import { playKey, prefetchKeySound, wakeKeySound } from "./keySound";
 import { bodyNow } from "../camera/viewChannel";
@@ -145,21 +146,29 @@ export function useKeyPresses({
   useEffect(() => {
     if (!typing) return;
     const codes = held.current;
-    const down = (e: KeyboardEvent) => {
-      const keys = keysFor(e.code);
+    const press = (code: string) => {
+      const keys = keysFor(code);
       if (!keys.length) return;
       wakeKeySound();
-      codes.set(e.code, keys);
+      codes.set(code, keys);
     };
+    const down = (e: KeyboardEvent) => press(e.code);
     const up = (e: KeyboardEvent) => codes.delete(e.code);
     const clear = () => codes.clear();
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
     window.addEventListener("blur", clear);
+    // Typed into the PC's browser page, a frame whose keys stay in it (`frameInput`).
+    const offFrame = pcFrameInput.on((input) => {
+      if (input.kind !== "key") return;
+      if (input.type === "up") codes.delete(input.code);
+      else press(input.code);
+    });
     return () => {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", clear);
+      offFrame();
       codes.clear();
     };
   }, [typing, keysFor]);

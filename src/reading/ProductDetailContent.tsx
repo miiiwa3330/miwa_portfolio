@@ -18,14 +18,12 @@ type Props = {
   slug: string;
   bodyJa: ReactNode;
   bodyEn: ReactNode;
-  /** Inside the PC's window rather than a page — see `ArticlePager`. */
-  embedded?: boolean;
 };
 
 /** The popup's small caps label above Overview and Tech Stack. */
 const LABEL = "font-mono font-bold mb-3 border-b border-black/10 pb-2 text-xs tracking-widest uppercase text-neutral-600";
 
-export default function ProductDetailContent({ slug, bodyJa, bodyEn, embedded = false }: Props) {
+export default function ProductDetailContent({ slug, bodyJa, bodyEn }: Props) {
   const { language } = useLanguage();
   const isJa = language === "ja";
 
@@ -39,7 +37,6 @@ export default function ProductDetailContent({ slug, bodyJa, bodyEn, embedded = 
 
   return (
     <ArticlePager
-      embedded={embedded}
       prev={{
         href: productPath(prev.slug),
         title: prev.title,

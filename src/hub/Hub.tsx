@@ -143,7 +143,7 @@ export default function Hub() {
           chair, the lamp — still covers it. */}
       <RoomHtmlLayer className="z-[5]">
         <RoomPanel panel={DESK_SCREEN} interactive={seated}>
-          <DeskScreen isJa={isJa} openTerminal={openTerminal} />
+          <DeskScreen isJa={isJa} />
           <ScreenCursor />
         </RoomPanel>
       </RoomHtmlLayer>
@@ -267,7 +267,7 @@ export default function Hub() {
         />
       )}
 
-      {/* What the reader says when 「立ち上がる」 or a marker tries to get
+      {/* What the reader says when 「席を立つ」 or a marker tries to get
           them up while they are kept in the chair (`SEAT_LOCKED`). */}
       {SEAT_LOCKED && <StandRefusal isJa={isJa} />}
 

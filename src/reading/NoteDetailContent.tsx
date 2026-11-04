@@ -14,14 +14,12 @@ type Props = {
   slug: string;
   bodyJa: ReactNode;
   bodyEn: ReactNode;
-  /** Inside the PC's window rather than a page — see `ArticlePager`. */
-  embedded?: boolean;
 };
 
 /** How many other entries to suggest under a note. */
 const MORE_NOTES = 6;
 
-export default function NoteDetailContent({ slug, bodyJa, bodyEn, embedded = false }: Props) {
+export default function NoteDetailContent({ slug, bodyJa, bodyEn }: Props) {
   const { language } = useLanguage();
   const isJa = language === "ja";
 
@@ -39,7 +37,6 @@ export default function NoteDetailContent({ slug, bodyJa, bodyEn, embedded = fal
 
   return (
     <ArticlePager
-      embedded={embedded}
       prev={{
         href: notePath(prev.slug),
         title: prev.title,

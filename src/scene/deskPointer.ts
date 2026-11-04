@@ -90,6 +90,8 @@ export const deskPointerNow = pcPointer.now;
 export const publishDeskPointer = pcPointer.publish;
 export const onDeskPointer = pcPointer.on;
 
+const hideRule = (attribute: string) => `html[${attribute}], html[${attribute}] * { cursor: none !important; }`;
+
 /**
  * Hide the reader's own cursor while either machine's drawn cursor is shown
  * (`cursorShown`), so the drawn one stands in for it (2026-10-23, the user:
@@ -103,27 +105,31 @@ export const onDeskPointer = pcPointer.on;
  * without it — the attribute was set, and the cursor under it stayed `auto`.
  * One rule for the page, however many subscribe (it does nothing without the
  * attribute, so it stays). Returns the undo.
+ *
+ * `doc` is another document the screen shows — the PC's browser page, a
+ * frame of its own (`hub/desk/PcBrowser`), which the rule in this one does
+ * not reach. It takes an attribute of its own: the page there may be the
+ * room itself, which hides the cursor over its own screens with the first.
  */
-const HIDE_RULE = "html[data-screen-cursor], html[data-screen-cursor] * { cursor: none !important; }";
-
-export function hideRealCursorOverScreens(): () => void {
-  const root = document.documentElement;
-  if (!document.getElementById("screen-cursor-rule")) {
-    const style = document.createElement("style");
-    style.id = "screen-cursor-rule";
-    style.textContent = HIDE_RULE;
-    document.head.appendChild(style);
+export function hideRealCursorOverScreens(doc: Document = document, attribute = "data-screen-cursor"): () => void {
+  const root = doc.documentElement;
+  const id = `${attribute}-rule`;
+  if (!doc.getElementById(id)) {
+    const style = doc.createElement("style");
+    style.id = id;
+    style.textContent = hideRule(attribute);
+    doc.head.appendChild(style);
   }
   const sync = () => {
     const over = cursorShown(pcPointer.now()) || cursorShown(macPointer.now());
-    if (over) root.setAttribute("data-screen-cursor", "");
-    else root.removeAttribute("data-screen-cursor");
+    if (over) root.setAttribute(attribute, "");
+    else root.removeAttribute(attribute);
   };
   const offPc = pcPointer.on(sync);
   const offMac = macPointer.on(sync);
   return () => {
     offPc();
     offMac();
-    root.removeAttribute("data-screen-cursor");
+    root.removeAttribute(attribute);
   };
 }

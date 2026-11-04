@@ -1,45 +1,52 @@
 import { describe, expect, it } from "vitest";
-import sitemap from "@/app/sitemap";
-import { pcPageForHref } from "./pcPage";
+import { addressOf, addressToPath, leavesSite } from "./pcPage";
 
-describe("pcPageForHref", () => {
-  it("opens every page of the site in the PC's window, except the room itself and the privacy policy", () => {
-    // Against the sitemap rather than a list written here: a page added to the
-    // site and not to the PC would otherwise leave the room when clicked.
-    const paths = sitemap()
-      .map(({ url }) => new URL(url).pathname)
-      .filter((path) => path !== "/" && path !== "/privacy");
-    expect(paths.length).toBeGreaterThan(20);
-    for (const path of paths) expect(pcPageForHref(path), path).not.toBeNull();
+describe("addressOf", () => {
+  it("writes the host, then the path, the query and the hash", () => {
+    expect(addressOf({ pathname: "/", search: "", hash: "" })).toBe("miiiwa.com");
+    expect(addressOf({ pathname: "/", search: "", hash: "#desk" })).toBe("miiiwa.com#desk");
+    expect(addressOf({ pathname: "/products/loo100", search: "?from=pc", hash: "#top" })).toBe("miiiwa.com/products/loo100?from=pc#top");
+  });
+});
+
+describe("addressToPath", () => {
+  it("takes the address with or without the scheme, the host and the slash", () => {
+    expect(addressToPath("miiiwa.com")).toBe("/");
+    expect(addressToPath("https://miiiwa.com/notes/")).toBe("/notes/");
+    expect(addressToPath("http://www.miiiwa.com/about")).toBe("/about");
+    expect(addressToPath("  MIIIWA.COM/skills ")).toBe("/skills");
+    expect(addressToPath("miiiwa.com#desk")).toBe("/#desk");
+    expect(addressToPath("/contact")).toBe("/contact");
+    expect(addressToPath("products/loo100")).toBe("/products/loo100");
+    expect(addressToPath("archive/v1/index.html")).toBe("/archive/v1/index.html");
   });
 
-  it("reads each kind of page", () => {
-    expect(pcPageForHref("/about")).toEqual({ kind: "file", file: "about" });
-    expect(pcPageForHref("/experience")).toEqual({ kind: "file", file: "experience" });
-    expect(pcPageForHref("/notes")).toEqual({ kind: "file", file: "notes" });
-    expect(pcPageForHref("/products/loo100")).toEqual({ kind: "product", slug: "loo100" });
-    expect(pcPageForHref("/notes/adsense-low-value-content")).toEqual({ kind: "note", slug: "adsense-low-value-content" });
+  it("refuses another host and an empty bar", () => {
+    expect(addressToPath("google.com")).toBeNull();
+    expect(addressToPath("https://x.com/miiiwa3330")).toBeNull();
+    expect(addressToPath("miiiwa.com.example.net/about")).toBeNull();
+    expect(addressToPath("loo100.miiiwa.com")).toBeNull();
+    expect(addressToPath("   ")).toBeNull();
+  });
+});
+
+describe("leavesSite", () => {
+  const origin = "https://miiiwa.com";
+
+  it("is true for another site", () => {
+    expect(leavesSite("https://loo100.miiiwa.com/", origin)).toBe(true);
+    expect(leavesSite("https://github.com/miiiwa1121", origin)).toBe(true);
+    expect(leavesSite("http://miiiwa.com/about", origin)).toBe(true);
   });
 
-  it("ignores a trailing slash, a query and a hash", () => {
-    expect(pcPageForHref("/products/loo100/")).toEqual({ kind: "product", slug: "loo100" });
-    expect(pcPageForHref("/products/loo100#top")).toEqual({ kind: "product", slug: "loo100" });
-    expect(pcPageForHref("/skills?from=pc")).toEqual({ kind: "file", file: "skills" });
+  it("is false for the site's own pages, the old versions under /archive among them", () => {
+    expect(leavesSite("https://miiiwa.com/notes", origin)).toBe(false);
+    expect(leavesSite("https://miiiwa.com/archive/v0", origin)).toBe(false);
+    expect(leavesSite("https://miiiwa.com/#desk", origin)).toBe(false);
   });
 
-  it("closes the window for the room's own page", () => {
-    expect(pcPageForHref("/")).toBe("desktop");
-    expect(pcPageForHref("/#products")).toBe("desktop");
-  });
-
-  it("leaves alone what the window cannot show", () => {
-    expect(pcPageForHref("https://github.com/miiiwa1121")).toBeNull();
-    expect(pcPageForHref("//example.com/notes")).toBeNull();
-    expect(pcPageForHref("/archive/v0")).toBeNull();
-    expect(pcPageForHref("/privacy")).toBeNull();
-    expect(pcPageForHref("/products/no-such-product")).toBeNull();
-    expect(pcPageForHref("/notes/no-such-note")).toBeNull();
-    expect(pcPageForHref("/notes/adsense-low-value-content/more")).toBeNull();
-    expect(pcPageForHref("/notes-archive")).toBeNull();
+  it("leaves mail and what is not a URL to the browser", () => {
+    expect(leavesSite("mailto:someone@example.com", origin)).toBe(false);
+    expect(leavesSite("not a url", origin)).toBe(false);
   });
 });

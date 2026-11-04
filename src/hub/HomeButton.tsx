@@ -9,7 +9,7 @@ import CornerBrackets from "@/ui/CornerBrackets";
  * One component for both layouts because it is one control: a desktop pins it
  * to the bottom of the frame, a phone puts it just above the card rail (the
  * bottom of a phone's frame is the rail). Where it sits is a prop, and so is
- * whether the reader is getting up from the desk — 「立ち上がる」 there, not
+ * whether the reader is getting up from the desk — 「席を立つ」 there, not
  * 「戻る」 (2026-11-04, the user) — the labels, the icons and the shape are
  * stated once here rather than in places that would drift.
  *
@@ -29,7 +29,7 @@ export default function HomeButton({
   /** Where it sits. Everything else about it is fixed. */
   className?: string;
 }) {
-  const label = stand ? (isJa ? "立ち上がる" : "STAND UP") : isJa ? "戻る" : "BACK";
+  const label = stand ? (isJa ? "席を立つ" : "STAND UP") : isJa ? "戻る" : "BACK";
   return (
     <button
       onClick={onClick}

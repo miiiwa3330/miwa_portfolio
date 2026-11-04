@@ -12,6 +12,7 @@ import { withinReach } from "../room/self";
 import { isInteractive, pointerClaim } from "../pointerClaim";
 import type { Machine } from "../deskFocus";
 import type { PointerChannel } from "../deskPointer";
+import type { FrameInputChannel } from "../frameInput";
 import { playMouse, prefetchKeySound, wakeKeySound } from "./keySound";
 
 /**
@@ -92,6 +93,8 @@ export type DeskMouseSpec = {
   wheel?: { button: MouseButton; drag: (dy: number) => void; scroll: (dy: number) => void };
   /** Every frame, after the buttons have moved. */
   onPress: (press: Readonly<Float32Array>) => void;
+  /** A page on the screen in a frame of its own (the PC's browser), whose pointer is passed on from there. */
+  frame?: FrameInputChannel;
 };
 
 export function useDeskMouse(spec: DeskMouseSpec) {
@@ -273,6 +276,39 @@ export function useDeskMouse(spec: DeskMouseSpec) {
       if (hovering) document.body.style.cursor = "";
     };
   }, [api]);
+
+  // Over the PC's browser page (`frameInput`): its events stay in its own
+  // document, so the browser passes them on, with the place on the screen
+  // already worked out — and the mouse follows it, and holds the reader's
+  // buttons, as it does over the rest of the screen below and above.
+  const frame = spec.frame;
+  const seated = spec.seated;
+  useEffect(() => {
+    if (!frame) return;
+    const off = frame.on((input) => {
+      if (input.kind === "wheel") {
+        const wheel = latest.current.wheel;
+        if (overScreen.current && wheel) wheel.scroll(input.deltaY);
+        return;
+      }
+      if (input.kind !== "pointer" || grip.current) return;
+      const at = !document.pointerLockElement && api.mouseInReach() ? input.at : null;
+      overScreen.current = !!at;
+      spot.current = at;
+      if (at) api.sendCursor(at);
+      if (!seated) return;
+      if (input.type === "down" && at) {
+        wakeKeySound();
+        linked.current = input.buttons;
+      } else if (input.buttons === 0) linked.current = 0;
+      else if (linked.current) linked.current = input.buttons;
+    });
+    return () => {
+      off();
+      overScreen.current = false;
+      spot.current = null;
+    };
+  }, [frame, seated, api]);
 
   // Sitting at the desk: the canvas passes pointers through, so press the
   // mouse from here; and the reader's own buttons hold down the mouse's.
