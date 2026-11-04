@@ -22,6 +22,13 @@ const nextConfig: NextConfig = {
   // ものなので、配信物には影響しない。コンパイルエラーとランタイムエラーの
   // 表示は false にしても残る。
   devIndicators: false,
+  // CSS を HTML に埋め込む。**ローディング画面をすぐ出すため**（2026-11-04
+  // ユーザー「ローディング画面がなかなか出てこないなんてことは絶対にないように」）。
+  // 外部の CSS は描画を止め、しかも同時に始まる JS（gzip で約600KB）と回線を
+  // 取り合う。遅い 4G・CPU 4倍遅くの実測で、最初の描画が 1.05秒 → 0.57秒。
+  // 代わりに HTML が gzip で 15KB → 78.5KB になり（CSS が <style> と RSC の
+  // 両方に入る）、CSS はページごとに読み直す。実験的な機能で、全ページにかかる。
+  experimental: { inlineCss: true },
   images: {
     unoptimized: true, // 静的書き出し時には必須
   },

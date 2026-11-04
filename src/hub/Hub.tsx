@@ -126,6 +126,9 @@ export default function Hub() {
 
   return (
     <main className="w-full h-screen overflow-hidden relative font-sans">
+      {/* Over everything until the room's first frame is drawn. First in the
+          body, so it is the first thing the browser can paint. */}
+      <BootScreen />
       {/* Accessibility & Crawler semantic HTML for SEO and AdSense crawler review */}
       <SemanticSEO />
       {/* Bottom layer: flat space colour. Split out from the canvas (below)
@@ -292,8 +295,6 @@ export default function Hub() {
       {/* Terminal easter egg */}
       <TerminalOverlay />
 
-      {/* Over everything until the room's first frame is drawn. */}
-      <BootScreen isJa={isJa} />
     </main>
   );
 }

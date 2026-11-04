@@ -135,7 +135,7 @@
 ## React / R3F の境界
 
 - **頻繁に変わる値を `<Canvas>` より上のコンテキストに置かない。購読チャンネルで運ぶ**（`camera/viewChannel.ts`／`camera/markerScreen.ts`／`state/facingChannel.ts`）。R3F 9 の `CanvasImpl` の setup effect には依存配列が無く、再レンダーのたびにシーン全体を再調停する。`React.memo` では止められない。**照明の状態は Context に置いてよい**——切り替えは読み手の操作でしか起きない
-- **ローディング画面の段階も購読チャンネルで運ぶ**（`state/bootChannel.ts`）。最初のシーンを組み立てているあいだに3回変わるので、`Hub` の state に置くと、組み立て中の three.js の木をそのたびに再調停する。**「最初のフレームを描いた」は `Scene` の `FirstFrame`（`useFrame` の優先度2）が言う。** 描くのは `LensRenderer`（優先度1）なので、それより後ろで数えないと、描く前に「描いた」と言う。「組み立てた」は `<Canvas>` の `onCreated`（R3F 9 では、シーンの部品はできていて、まだ何も描いていない時点）
+- **ローディング画面の段階は React の state に載せない**（`state/bootChannel.ts` の `publishBoot` → 埋め込みの script）。最初のシーンを組み立てているあいだに3回変わるので、`Hub` の state に置くと、組み立て中の three.js の木をそのたびに再調停する。**「最初のフレームを描いた」は `Scene` の `FirstFrame`（`useFrame` の優先度2）が言う。** 描くのは `LensRenderer`（優先度1）なので、それより後ろで数えないと、描く前に「描いた」と言う。「組み立てた」は `<Canvas>` の `onCreated`（R3F 9 では、シーンの部品はできていて、まだ何も描いていない時点）
 - **`frameloop` を切り替えると R3F が `clock.elapsedTime` を0に戻す。** `sceneClock` が単調化を持っている。**自分から動くもの（視点の揺れ、左のモニターの動画、ホログラムの文字の自動再生、マーカーの脈動）は `sceneClock` から時刻を読む**
 - **`frameloop` は `"always"` のまま。** 2026-10-30 まで、詳細シートがキャンバスを覆っているあいだは `"demand"`（毎秒1回の描画）に落としていた。シートを外してキャンバスを覆うものが無くなったので、切り替えも外した。戻すときは上の `sceneClock` の単調化とセット
 - **canvas は透明のまま（`<color attach="background">` を足さない）。** 部屋は全画素を覆うが、PC の画面の穴（アルファ0）から後ろの HTML を見せているので、背景色を canvas に入れると穴が塞がる。色は `Hub.tsx` の背景色 div が持つ。**canvas 自身の `pointer-events` は `<Canvas>` の `style` で操作する**（R3F が外側の div にインラインで書くため、祖先の CSS は効かない）
