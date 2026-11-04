@@ -211,6 +211,17 @@ describe("the catalogue itself", () => {
       }
     }
   });
+
+  // The ad script was in every build, live then; an old version is not where
+  // ads should run once the site is approved (2026-11-05, the user). The
+  // payload counts here too: it would put the script back on the next page.
+  it("loads no ad script in an archived build", () => {
+    for (const p of LOCAL_DEMOS) {
+      for (const { name, text } of textFilesOf(p.demoUrl)) {
+        expect(text, `${p.slug} ${name}`).not.toMatch(/adsbygoogle|pagead2\.googlesyndication/);
+      }
+    }
+  });
 });
 
 describe("each project's own page", () => {
