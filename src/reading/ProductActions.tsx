@@ -14,17 +14,17 @@ const BUTTON =
   "flex-1 py-3 px-5 flex items-center justify-center gap-2 whitespace-nowrap rounded-none font-mono font-bold text-xs sm:text-sm uppercase transition-all";
 
 /**
- * "Play Now" and "View Code", for a product's own page — the popup's pair,
- * with the popup's labels and shapes, in the site's box style.
+ * "Play Now" and "View Code", for a product's own page, in the site's box
+ * style.
  *
  * Trying the product is the one thing these pages exist to lead to, so Play
- * is the only filled button on them. The hub's `ProjectLinks` intercepts a
- * placeholder URL ("#") with a toast; a static page has no toast to show, so
- * an unreleased product says so in words, in the button's place, instead of
- * offering a dead button.
+ * is the only filled button on them. An unreleased product (a placeholder
+ * URL, "#") says so in words, in the button's place, instead of offering a
+ * dead button.
  *
- * Plain <a>, not next/link, for the same reason as `ProjectLinks`: a local
- * demo (`/archive/v1`) is a separate static build, not one of our routes.
+ * Plain <a>, not next/link: a demo is another site or a separate static
+ * build on this one (`/archive/v1`), never one of our routes, and <Link>
+ * would prefetch it as one (docs/tech.md, "制作実績の Code／Play").
  */
 export default function ProductActions({ project }: Props) {
   const { language } = useLanguage();

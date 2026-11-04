@@ -32,7 +32,7 @@ const components: MDXComponents = {
   // A link to another reading page is a route of this app, so it is a
   // next/link. Anything else stays a plain <a> — including /archive/*, which
   // is a separate static build that <Link> would try to prefetch as one of
-  // our routes (see ProjectLinks), and the hub, which has to be entered with
+  // our routes (see ProductActions), and the hub, which has to be entered with
   // a full load (see `leadsToHub`).
   a: ({ href = "", children }) => {
     const className =
