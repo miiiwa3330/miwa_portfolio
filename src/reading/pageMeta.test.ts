@@ -26,4 +26,9 @@ describe("readingMetadata", () => {
     const og = readingMetadata({ ...page, image: "/images/imadoko.png" }).openGraph as { images?: string[] };
     expect(og.images).toEqual([`${SITE_URL}/images/imadoko.png`]);
   });
+
+  it("asks for the large card only where there is an image to fill it", () => {
+    expect((readingMetadata(page).twitter as { card?: string }).card).toBe("summary");
+    expect((readingMetadata({ ...page, image: "/images/imadoko.png" }).twitter as { card?: string }).card).toBe("summary_large_image");
+  });
 });

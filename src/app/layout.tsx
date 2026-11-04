@@ -40,7 +40,8 @@ export const metadata: Metadata = {
     description: "エンジニアMiiiwaのポートフォリオサイト。「面白いを最優先！」をモットーに、Webサービスやブラウザゲーム、3Dグラフィックスを開発しています。",
   },
   twitter: {
-    card: "summary_large_image",
+    // No image of the site's own yet; the large card would show an empty frame (`readingMetadata`).
+    card: "summary",
     title: "Miiiwa | Portfolio - 面白いを最優先！",
     description: "エンジニアMiiiwaのポートフォリオサイト。「面白いを最優先！」をモットーに、Webサービスやブラウザゲーム、3Dグラフィックスを開発しています。",
     creator: "@miiiwa3330",

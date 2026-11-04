@@ -11,6 +11,8 @@ export const metadata: Metadata = {
     index: false,
     follow: false,
   },
+  // Not the layout's canonical (the top page): a missing page is not a copy of it.
+  alternates: { canonical: null },
 };
 
 export default function NotFound() {

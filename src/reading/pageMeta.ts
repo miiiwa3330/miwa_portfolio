@@ -41,7 +41,8 @@ export function readingMetadata({ path, title, description, image, type = "artic
       images,
     },
     twitter: {
-      card: "summary_large_image",
+      // The large card is an image card: without one it shows an empty frame.
+      card: images ? "summary_large_image" : "summary",
       title,
       description,
       creator: "@miiiwa3330",

@@ -4,6 +4,9 @@ import { PROJECTS, localizeProject, productPath } from "@/data";
 import { readingMetadata } from "@/reading/pageMeta";
 import ProseSections from "@/reading/ProseSections";
 import ProductDetailContent from "@/reading/ProductDetailContent";
+import JsonLd from "@/reading/JsonLd";
+import { bottomNavForPath } from "@/reading/breadcrumbs";
+import { breadcrumbJsonLd } from "@/reading/structuredData";
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -40,11 +43,15 @@ export default async function ProductPage({ params }: Params) {
     import(`@/content/products/en/${slug}.mdx`),
   ]);
 
+  const path = productPath(slug);
   return (
-    <ProductDetailContent
-      slug={slug}
-      bodyJa={<ProseSections Body={BodyJa} />}
-      bodyEn={<ProseSections Body={BodyEn} />}
-    />
+    <>
+      <JsonLd data={breadcrumbJsonLd(bottomNavForPath(path, true).breadcrumbs, path)} />
+      <ProductDetailContent
+        slug={slug}
+        bodyJa={<ProseSections Body={BodyJa} />}
+        bodyEn={<ProseSections Body={BodyEn} />}
+      />
+    </>
   );
 }

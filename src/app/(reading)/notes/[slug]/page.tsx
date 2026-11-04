@@ -4,6 +4,9 @@ import { NOTES, notePath } from "@/data";
 import { readingMetadata } from "@/reading/pageMeta";
 import ProseSections from "@/reading/ProseSections";
 import NoteDetailContent from "@/reading/NoteDetailContent";
+import JsonLd from "@/reading/JsonLd";
+import { bottomNavForPath } from "@/reading/breadcrumbs";
+import { breadcrumbJsonLd, noteJsonLd } from "@/reading/structuredData";
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -22,18 +25,24 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 export default async function NotePage({ params }: Params) {
   const { slug } = await params;
-  if (!NOTES.some((n) => n.slug === slug)) notFound();
+  const note = NOTES.find((n) => n.slug === slug);
+  if (!note) notFound();
 
   const [{ default: BodyJa }, { default: BodyEn }] = await Promise.all([
     import(`@/content/notes/${slug}.mdx`),
     import(`@/content/notes/en/${slug}.mdx`),
   ]);
 
+  const path = notePath(slug);
   return (
-    <NoteDetailContent
-      slug={slug}
-      bodyJa={<ProseSections Body={BodyJa} />}
-      bodyEn={<ProseSections Body={BodyEn} />}
-    />
+    <>
+      <JsonLd data={noteJsonLd(note)} />
+      <JsonLd data={breadcrumbJsonLd(bottomNavForPath(path, true).breadcrumbs, path)} />
+      <NoteDetailContent
+        slug={slug}
+        bodyJa={<ProseSections Body={BodyJa} />}
+        bodyEn={<ProseSections Body={BodyEn} />}
+      />
+    </>
   );
 }
