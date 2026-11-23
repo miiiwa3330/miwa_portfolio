@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { localizeProject, localizeProjects, productPath } from "./projectModel";
+import { localizeProject, localizeProjects, productPath, projectsByKind } from "./projectModel";
 import { MIN_PROSE_CHARS, contentSlugs, proseLength, readContent } from "@/content/contentFiles.testutil";
 import { PROJECTS } from "./projects";
 import type { ProjectSource } from "./projectModel";
@@ -63,6 +63,7 @@ const sample: ProjectSource = {
   description: { ja: "説明", en: "Description" },
   image: "/images/demo.webp",
   tags: ["Next.js"],
+  kind: "product",
   category: "WEB",
   status: "Public",
   githubUrl: "https://example.com/repo",
@@ -81,7 +82,7 @@ describe("localizeProject", () => {
   it("carries the language-invariant fields through untouched", () => {
     const ja = localizeProject(sample, "ja");
     const en = localizeProject(sample, "en");
-    for (const key of ["slug", "image", "category", "status", "githubUrl", "demoUrl"] as const) {
+    for (const key of ["slug", "image", "kind", "category", "status", "githubUrl", "demoUrl"] as const) {
       expect(ja[key]).toBe(sample[key]);
       expect(en[key]).toBe(sample[key]);
     }
@@ -92,6 +93,21 @@ describe("localizeProject", () => {
     const before = JSON.stringify(sample);
     localizeProject(sample, "en");
     expect(JSON.stringify(sample)).toBe(before);
+  });
+});
+
+describe("projectsByKind", () => {
+  const mixed = [
+    sample,
+    { ...sample, slug: "client-1", kind: "client" as const },
+    { ...sample, slug: "product-2", kind: "product" as const },
+  ];
+
+  it("splits projects into product and client groups without mutating input", () => {
+    const before = JSON.stringify(mixed);
+    expect(projectsByKind(mixed, "product").map((p) => p.slug)).toEqual(["demo", "product-2"]);
+    expect(projectsByKind(mixed, "client").map((p) => p.slug)).toEqual(["client-1"]);
+    expect(JSON.stringify(mixed)).toBe(before);
   });
 });
 
@@ -134,6 +150,16 @@ describe("the catalogue itself", () => {
       expect(p.githubUrl, `${p.slug} githubUrl`).not.toBe("");
       expect(p.demoUrl, `${p.slug} demoUrl`).not.toBe("");
     }
+  });
+
+  it("ships only published projects divided into product and client work", () => {
+    for (const p of PROJECTS) {
+      expect(p.status, p.slug).toBe("Public");
+      expect(p.demoUrl, `${p.slug} demoUrl`).not.toBe("#");
+      expect(["product", "client"]).toContain(p.kind);
+    }
+    expect(projectsByKind(PROJECTS, "product").length).toBeGreaterThan(0);
+    expect(projectsByKind(PROJECTS, "client").length).toBeGreaterThan(0);
   });
 
   // A misspelt path fails nowhere but the screen: the images are unoptimized,

@@ -81,8 +81,7 @@
 
 ### PC（6か所目の停留所）
 
-- **机の中央のモニターが PC の画面**（`hub/desk/DeskScreen.tsx`、1400×787px。モニターは Dell U3223QE、31.5インチ）。座ると（マーカー、ズームの段、`/#desk`）操作できる。**デスクトップのアイコンは `miiiwa.com` と `自己紹介.holo` の2つ、タスクバーにターミナル・GitHub・X と電源**（2026-11-04 ユーザー「ターミナル、Github、Xは、下のタブに入れて／自己紹介.holoは、そのまま／それ以外の項目は、miiiwa.comとして画面内でMiiiwa.comでできること全てできるように」）。**ページは PC の中で読み切る**（ユーザーの決定、2026-10-01）
-- **`miiiwa.com` は PC の中のブラウザで、サイトそのものを `<iframe>` で開く**（`hub/desk/PcBrowser.tsx`。2026-11-04 ユーザー「miiiwa.comをPC内PCで忠実に再現」）。ページを部品で描き直すのではなく本物を開くので、ページ・ヘッダーと全画面メニュー・言語・404 のターミナル・`/archive` の旧版まで、サイトでできることはそのまま中でできる。周りに戻る・進む・再読み込み・アドレスバー（`miiiwa.com/notes` のように打って Enter、ほかのサイトは受け付けない）。ページは 1.3 倍で描き、その幅（約957px）で組まれる——その幅の窓で見たときのサイトそのもの（ヘッダーのナビはメニューボタンにまとまる）。**`/` は部屋そのもので、部屋の中の PC に部屋がもう1つ映る**（ユーザーの選択）。**入れ子は1段まで**: 枠の中の部屋の PC で miiiwa.com を開くと、開かずにその旨を出す（`window.self !== window.top`）。3D を2つ描くので、開いているあいだは GPU の負担が増える。**同じオリジンだから成り立つ**: アドレスバー・タイトル（タスクバーに出す、ページの `<title>`）・戻る／進むは、250ms ごとに枠の中を読んで追う（`pushState`・ハッシュ・全体の読み込み・あとから書かれる題を1つの読みで拾える。イベントだと文書ごとに付け直しが要る）。**戻る／進むは Navigation API（`navigation.canGoBack`）が「枠の中に前がある」と言うときだけ押せる**——`history.back()` は枠の最初のページからだとタブ全体の履歴を戻り、部屋から出てしまう。Navigation API の無いブラウザでは押せない。枠の中の移動はタブの履歴にも積まれるので、ブラウザ本体の「戻る」はまず枠の中を戻す（iframe の決まり）。**枠の中のマウスとキーは部屋へ渡す**（`scene/frameInput.ts`）。枠の中のイベントは部屋の `window` に届かないので、そのままでは枠に入った途端に机のマウス・描いたカーソル・HHKB が止まる。枠の文書にリスナーを付け（読み込みのたびに付け直す）、ポインタは画面の px に直して（`frameToScreen`）`useDeskMouse` と `ScreenCursor` へ、キーは `useKeyPresses` へ渡す。本物のカーソルを隠す規則も枠の文書に差し込む（`hideRealCursorOverScreens(doc, "data-pc-frame-cursor")`。中の部屋が自分の画面の上で使う属性と分ける）。**サイトの外へのリンクは、部屋を残して新しいタブで**（`leavesSite`。github.com・x.com・loo100 などは埋め込みを断り、別オリジンに移ると部屋から枠の中が読めなくなる）
+- **机の中央のモニターが PC の画面**（`hub/desk/DeskScreen.tsx`、1400×787px。モニターは Dell U3223QE、31.5インチ）。座ると（マーカー、ズームの段、`/#desk`）操作できる。**デスクトップのアイコンは `自己紹介.holo`、タスクバーにターミナル・GitHub・X と電源**（`miiiwa.com` の PC 内ブラウザは 2026-11-24 に削除）
 - **PC のタスクバーのターミナルは、PC の画面いっぱいに開く**（2026-11-04 ユーザー「PC内PCのターミナルを画面全体ではなく、PC内PCの画面全体に」）。中身は `terminal/TerminalScreen.tsx` の1つで、`fill` で覆う範囲を選ぶ: ドックとメニューからは窓全体（`viewport`、`TerminalOverlay` が `TerminalContext` で開く）、PC からは画面（`screen`、`DeskScreen` が自分の状態で開く。字は1.3倍の 21px）。どちらも枠は `fixed`／`absolute` の箱1つ、スクロールはその中の箱で、走査線と EXIT は箱に `absolute`——板の中の `fixed` は3D変換のかかった板が基準になり、スクロールの外に出る位置が読めない。最新の行へは自分のスクロールだけを動かす（`scrollIntoView` は周りの箱ごと、部屋まで動かす）。電源を切ると閉じる
 - **PC には電源がある**（2026-11-04 ユーザー「席を立つボタンは廃止し、PCの電源に」）。タスクバーの「電源」で、ウィンドウを閉じて「シャットダウンしています…」（1.2秒）→ 黒い画面。黒い画面のどこを押しても「Miiiwa. OS」の起動（1.6秒）→ デスクトップ。時間は仮。電源の状態は `DeskScreen` の中だけに持つ（部屋の3Dは変わらない）
 - **デスクトップの壁紙はユーザーの画像**（`public/images/pc_wallpaper.webp`。2026-11-05 に宇宙服の猫の絵へ差し替え、1672×941 の PNG 1.8MB を WebP q80 で33KB。最初の画像は映画の場面写真で、AdSense の審査で著作権の扱いを問われうるので公開前に外した）。暗い絵なので、アイコンの白い文字は今までどおり読める
@@ -215,7 +214,7 @@ AdSense の審査で「有用性の低いコンテンツ」として不合格に
 | URL | ファイル | 中身 |
 | --- | --- | --- |
 | `/about` | `app/(reading)/about/page.tsx` ＋ `detail/About.tsx` | 自己紹介・プロフィール（2026-10-30 独立ページ化） |
-| `/products` | `app/(reading)/products/page.tsx` | 制作実績の一覧 |
+| `/products` | `app/(reading)/products/page.tsx` ＋ `reading/ProductsIndex.tsx` | 制作実績の一覧（公開済みのみ。「マイプロダクト」と「クライアントワーク」に分けて表示） |
 | `/products/[slug]` | `app/(reading)/products/[slug]/page.tsx` ＋ `content/products/<slug>.mdx` | 制作実績ごとの紹介。先頭と末尾に Play Now |
 | `/skills` | `app/(reading)/skills/page.tsx` ＋ `detail/Skills.tsx` | 技術スタック一覧（2026-10-30 独立ページ化） |
 | `/experience` | `app/(reading)/experience/page.tsx` ＋ `detail/Experience.tsx` | 経歴・活動タイムライン（2026-10-30 独立ページ化） |
@@ -256,7 +255,8 @@ AdSense の審査で「有用性の低いコンテンツ」として不合格に
 ### その他
 
 - **URL**: **PC に座っているあいだは `#desk`**（ユーザーの指定、2026-10-01。`state/sectionUrl.ts` の `hashForState`）。戻るボタンで立ち上がり、リンクを開けば座った状態から始まる。エリアには URL のハッシュを付けない——ページが別にあるから。**シートの頃のリンク（`/#products`・`/#skills`・`/#experience`・`/#contact`）は、ハブが開いた瞬間にそのページへ `location.replace` で送る**（`movedToPage`。2026-10-29 まで読み物のページのナビもこの形で、外にも出ている）。`/#about` は元々シートを持たずホログラムを指していたので、そのまま部屋で開く。送るのはパスが `/` のときだけ——`AppStateProvider` はルートの `layout.tsx` にあり、読み物のページの `#` は見出しへのリンクだから
-- **経歴から制作実績へ。** 経歴のうち `project`（実績の slug）を持つ項目はカード全体が実績のページへの `next/link`、`url` を持つ項目は外部への `<a target="_blank">`（`detail/Experience.tsx` の `MilestoneCard`）。ボタンにして `router.push`／`window.open` で開く形を外したのは、新しいタブで開けず（中クリック・右クリック）、クローラーにもリンクとして見えないから。**PC の画面の中でも同じリンクのまま**で、PC のブラウザが捕まえて実績の個別ページをその中に開く（2026-11-04。それまでは PC の中だけボタンにして、制作実績のウィンドウにポップアップを開いていた）
+- **経歴から制作実績へ。** 経歴のうち `project`（実績の slug）を持つ項目はカード全体が実績のページへの `next/link`、`url` を持つ項目は外部への `<a target="_blank">`（`detail/Experience.tsx` の `MilestoneCard`）。ボタンにして `router.push`／`window.open` で開く形を外したのは、新しいタブで開けず（中クリック・右クリック）、クローラーにもリンクとして見えないから。
+- **画面全体のブラウザのスワイプ遷移（戻る・進む／引っ張り更新）を止める**（2026-11-24 ユーザー）。全ページ共通で `globals.css` の `html, body` に `overscroll-behavior: none` を当て、PC に座ってモニターや UI の上で横スクロールしたときも `Scene.tsx` 側で `e.preventDefault()` してブラウザの戻る・進むを防ぐ（画面の外で 2 本指スワイプして Mac・監視カメラ・ファンへ向きを変える操作は維持）。
 - **制作実績の Code／Play は `next/link` ではなく素の `<a>`（`reading/ProductActions.tsx`）。** 実績のリンク先は、他ドメインか、同じサイトに同居させた過去バージョン（`/archive/v0`・`/archive/v1`、[structure.md](structure.md) の「`public/archive/`」）のどちらかで、**このアプリのルートは1つも無い**。`<Link>` は本番でビューポートに入ったリンクを自分のルートとして先読みするので、`/archive/v1` を指すと**実績を開いただけで v1 のルートツリー・CSS・フォントの計6件を取りに行く**（本番ビルドで実測。`<a>` にして0件）。`target="_blank"` なのでクリック時のクライアント遷移は元々起きず、`<Link>` を使う利点が無い。
 
 ## テスト

@@ -58,7 +58,7 @@ export const NOTES: NoteSource[] = [
     date: "2026-10-16",
     tags: ["React Native", "IMAP", "プロトコル"],
     tagsEn: ["React Native", "IMAP", "Protocols"],
-    products: ["meltalk"],
+    products: [],
   },
   {
     slug: "meltalk-rule-based-email-parsing",
@@ -71,7 +71,7 @@ export const NOTES: NoteSource[] = [
     date: "2026-10-15",
     tags: ["テキスト解析", "テスト", "TypeScript"],
     tagsEn: ["Text Parsing", "Testing", "TypeScript"],
-    products: ["meltalk"],
+    products: [],
   },
   {
     slug: "bukka-now-45deg-stripe-histogram",
@@ -123,7 +123,7 @@ export const NOTES: NoteSource[] = [
     date: "2026-09-24",
     tags: ["iOS", "Core Haptics", "UX"],
     tagsEn: ["iOS", "Core Haptics", "UX"],
-    products: ["plavo"],
+    products: [],
   },
   {
     slug: "plavo-ar-speech-bubble-physics",
@@ -136,7 +136,7 @@ export const NOTES: NoteSource[] = [
     date: "2026-09-20",
     tags: ["ARKit", "SwiftUI", "アルゴリズム"],
     tagsEn: ["ARKit", "SwiftUI", "Algorithms"],
-    products: ["plavo"],
+    products: [],
   },
   {
     slug: "adsense-low-value-content",
@@ -266,6 +266,6 @@ export const NOTES: NoteSource[] = [
     date: "2026-07-18",
     tags: ["Unity", "3Dメッシュ", "パフォーマンス"],
     tagsEn: ["Unity", "3D Mesh", "Performance"],
-    products: ["gashaan"],
+    products: [],
   },
 ];

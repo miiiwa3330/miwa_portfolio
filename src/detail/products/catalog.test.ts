@@ -8,6 +8,7 @@ const project = (over: Partial<Project>): Project => ({
   description: "",
   image: "/images/p.webp",
   tags: [],
+  kind: "product",
   category: "WEB",
   status: "Public",
   githubUrl: "#",
@@ -17,9 +18,7 @@ const project = (over: Partial<Project>): Project => ({
 
 const catalogue: Project[] = [
   project({ slug: "web-public", category: "WEB", status: "Public" }),
-  project({ slug: "web-dev", category: "WEB", status: "dev" }),
   project({ slug: "app-public", category: "APP", status: "Public" }),
-  project({ slug: "app-dev", category: "APP", status: "dev" }),
 ];
 
 const slugs = (c: Parameters<typeof filterProjects>[1], s: Parameters<typeof filterProjects>[2]) =>
@@ -27,21 +26,20 @@ const slugs = (c: Parameters<typeof filterProjects>[1], s: Parameters<typeof fil
 
 describe("filterProjects", () => {
   it("returns everything when both filters are All", () => {
-    expect(slugs("All", "All")).toEqual(["web-public", "web-dev", "app-public", "app-dev"]);
+    expect(slugs("All", "All")).toEqual(["web-public", "app-public"]);
   });
 
   it("filters by category alone", () => {
-    expect(slugs("WEB", "All")).toEqual(["web-public", "web-dev"]);
-    expect(slugs("APP", "All")).toEqual(["app-public", "app-dev"]);
+    expect(slugs("WEB", "All")).toEqual(["web-public"]);
+    expect(slugs("APP", "All")).toEqual(["app-public"]);
   });
 
   it("filters by status alone", () => {
     expect(slugs("All", "Public")).toEqual(["web-public", "app-public"]);
-    expect(slugs("All", "dev")).toEqual(["web-dev", "app-dev"]);
   });
 
   it("applies both filters together", () => {
-    expect(slugs("WEB", "dev")).toEqual(["web-dev"]);
+    expect(slugs("WEB", "Public")).toEqual(["web-public"]);
     expect(slugs("APP", "Public")).toEqual(["app-public"]);
   });
 
@@ -51,7 +49,7 @@ describe("filterProjects", () => {
 
   it("does not mutate or reorder the input", () => {
     const input = [...catalogue];
-    filterProjects(input, "WEB", "dev");
+    filterProjects(input, "WEB", "Public");
     expect(input).toEqual(catalogue);
   });
 });
@@ -60,12 +58,10 @@ describe("statusLabel", () => {
   it("translates the Japanese labels", () => {
     expect(statusLabel("All", "ja")).toBe("すべて");
     expect(statusLabel("Public", "ja")).toBe("公開中");
-    expect(statusLabel("dev", "ja")).toBe("開発中");
   });
 
   it("passes the raw value through for English", () => {
     expect(statusLabel("Public", "en")).toBe("Public");
-    expect(statusLabel("dev", "en")).toBe("dev");
   });
 
   it("falls back to the raw value rather than rendering undefined", () => {

@@ -1,8 +1,9 @@
 export { PROJECTS } from "./projects";
-export { localizeProject, localizeProjects, productPath } from "./projectModel";
+export { localizeProject, localizeProjects, projectsByKind, productPath } from "./projectModel";
 export type {
   Project,
   ProjectSource,
+  ProjectKind,
   ProjectCategory,
   ProjectStatus,
   Localized,

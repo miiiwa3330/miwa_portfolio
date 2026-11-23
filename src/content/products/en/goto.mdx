@@ -1,0 +1,33 @@
+## Brand Website for a Sculptural Cushion Label
+
+GOTO (`goto-cushion.com`) is a client-work brand website built for a cushion label centered on oversized, everyday-object motifs. Combining luxury minimalism with streetwear energy, the site puts product photography, generous whitespace, and scroll-choreographed transitions front and center.
+
+The site supports both Japanese (`/ja/`) and English (`/en/`), defaulting to Japanese while letting visitors switch languages directly on any page.
+
+## Continuous Choreography from Intro Film to Product Detail
+
+Rather than treating each section as an isolated block, the site carries a single product across sections as you scroll:
+
+- **Intro Film to Hero**: On initial visit, a full-screen brand movie expands seamlessly into the hero section, where a cap-shaped cushion rests atop a floating globe above the headline *"Do not wear the norm."*—which rises letter-by-letter with scroll before releasing the scene
+- **Cross-Section Morphs**: As you scroll down, the hero product spins into the model photograph in the About section, then launches onward into the horizontal Gallery strip
+- **Stickers and View Transitions**: Clicking or tapping empty areas playfully drops product stickers onto the page. Selecting an item in the Collection triggers a View Transition that slides the dark stage into view and moves the clicked product directly onto it—reversing cleanly back to the exact card position when you return
+
+## Pages, Bilingual Routing, and Cart Drawer
+
+The site comprises the main scroll narrative (Intro, Hero, About, Gallery, Collection, Craft, Contact), individual product pages (`/ja/products/<id>/` and `/en/products/<id>/`), and a responsive cart (a side drawer on desktop and a swipeable bottom sheet on mobile).
+
+- **Color Variants**: Each of the five colorways has its own URL and swaps seamlessly on the product stage via View Transitions, generating per-variant page titles and metadata automatically
+- **Persistent Local Cart**: Cart items and quantities are stored in `localStorage` and stay synchronized across page loads, language switches, and open tabs
+
+## Typography and Contrast-Inverting Chrome
+
+To balance luxury poise with street grit, the palette alternates pure black (`#000`) and plaster-warm gray (`#eeebe5`), keeping product stages consistently black from the hero through detail pages. Section headings pair bold wide Unbounded display type with Inter body copy and geometric League Spartan for the `GOTO` wordmark. Fixed header navigation and the mobile cart button use `mix-blend-difference` so they stay legible over both light and dark sections.
+
+## Architecture and Delivery on Cloudflare Workers
+
+To keep visual performance crisp alongside rich motion, the site is built with Astro and deployed on Cloudflare Workers:
+
+- **Astro 7 + Cloudflare Workers**: Pre-rendered static HTML with scoped client scripts keeps initial loads light while supporting full-page View Transitions
+- **GSAP + Lenis + View Transitions**: Scroll-pinned choreography and split-text reveals run on GSAP, smooth desktop inertia runs on Lenis, and product-to-detail continuity runs on native View Transitions. Because ScrollTrigger pinning extends document height, deep links like `#collection` re-measure Lenis bounds after pins settle, and a single capture-phase click handler coordinates hash jumps without fighting native anchor scrolling
+- **Byte-Range Video Streaming**: Because Safari on iOS requires HTTP `206 Partial Content` responses for inline video playback, the intro movie is streamed through a dedicated Worker route reading byte ranges from static assets—falling back cleanly to muted playback when unmuted autoplay is blocked
+- **Mobile-First Layout**: Dedicated two-line mobile hero typography, viewport-height-aware photo sizing, a bottom-right cart trigger, and a full-screen navigation menu keep the layout balanced on narrow viewports

@@ -25,7 +25,6 @@ import {
 } from "../room/mouse";
 import { DESK_SCREEN } from "../room/screens";
 import { pcPointer } from "../deskPointer";
-import { pcFrameInput } from "../frameInput";
 import { makeMouseTexture, makeWheelTexture } from "./mouseDecal";
 import { useDeskMouse, type MousePart } from "./useDeskMouse";
 
@@ -167,7 +166,6 @@ export default function ExgMouse({ typing }: { typing: boolean }) {
     mapping: EXG_MAPPING,
     panel: DESK_SCREEN,
     channel: pcPointer,
-    frame: pcFrameInput,
     buttons: MOUSE_BUTTONS,
     seated: typing,
     partOf: (object, local): MousePart => {

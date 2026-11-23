@@ -37,6 +37,11 @@
   outline-offset: 2px;
 }
 
+html,
+body {
+  overscroll-behavior: none;
+}
+
 body {
   background-color: var(--background);
   color: var(--foreground);

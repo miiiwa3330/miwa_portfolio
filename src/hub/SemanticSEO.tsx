@@ -18,7 +18,7 @@ export default function SemanticSEO() {
       <h1>Miiiwa | Portfolio - 面白いを最優先！</h1>
       <p>
         学生エンジニア Miiiwa のポートフォリオサイトです。トップページは、ロケットのコロニーの中にある Miiiwa
-        の部屋を 3D で描いたもので、机の PC の前に座ったところから始まります。PC の画面では、このサイトそのものを開けます。
+        の部屋を 3D で描いたもので、机の PC の前に座ったところから始まります。
       </p>
       <nav aria-label="ページ一覧">
         <ul>

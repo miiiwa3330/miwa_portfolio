@@ -1,0 +1,40 @@
+## Launching from Earth into a Shared Real-Time Universe
+
+star_vessel is a web app where you launch from Earth in your own spaceship and explore the same universe alongside players around the world from a first-person cockpit view. Simply open a browser to fly through our solar system and the wider Milky Way, all synchronized in real time to the current astronomical clock.
+
+Rather than observing planets from the outside like a passive planetarium, the experience centers on **piloting your own vessel through space and passing other live players inside the same star system**. From the title screen onward, the real Earth rotates behind live ships orbiting nearby, and you can jump straight into space without even creating an account.
+
+## Real Astronomical Datasets and Live Orbital Mechanics
+
+Celestial positions are not decorative approximations—they combine published astronomical catalogs with orbital calculation (`astronomy-engine`) tied to real-world UTC time.
+
+- **Stars and Constellations**: Roughly 110,000 stars from the HYG database and 910,000 nearby stars from Gaia DR3 are placed in true 3D coordinates. Because constellation lines connect those stars in three dimensions rather than on a flat sky sphere, constellations hold their familiar shapes near Earth and gradually distort as you travel light-years away
+- **Solar System**: The Sun, planets, 460 moons, ~900,000 numbered asteroids, ~4,000 comets, 18 space probes including Voyager, and ~1,700 active Earth satellites orbit and spin at their real current positions—complete with planetary atmospheres, ring shadows on Saturn, and ring systems around Jupiter, Uranus, and Neptune
+- **Exoplanets and Deep-Sky Objects**: Around 6,600 confirmed exoplanets (such as TRAPPIST-1), 6,900 star clusters, 2,300 nebulae, 862 galaxies, white dwarfs, pulsars, black holes, and Sagittarius A* at the galactic core are modeled at their real positions and scales. Beyond the catalog boundary, procedural stars trace the spiral arms and dust lanes of the Milky Way
+
+Distant objects and ships appear as pinpoint navigation lights and transition smoothly into full-scale 3D bodies as you approach. You can also toggle optical sensitivity between Naked Eye, Binoculars, and Long-Exposure Photo modes.
+
+## Scanning, Collection, Custom UFOs, and Warp Holes
+
+To make exploration rewarding beyond free flight, several interactive systems are woven into the world:
+
+- **Body Scanning and Encyclopedia**: A collection catalog covers roughly 26,000 named celestial bodies. Unvisited bodies appear as dark silhouettes; flying close and firing a 3-second scan laser registers the object, letting you inspect its rotating 3D model, notes, and measured properties alongside a 3D visited-region map
+- **Custom UFO Builder**: Alongside three preset pixel UFOs, players can assemble custom ships inside a 40-meter build volume using 0.5 m, 1 m, and 2 m colored blocks with mirror symmetry and drag placement. Your custom hull and contrails render identically on other players' screens
+- **Shared Warp Holes and Chat**: Anyone can anchor warp holes at cosmic coordinates (named with sector addresses like `MW-ORI-SOL-3-1-002`) for others to jump through, and message nearby pilots with text or emoji stamps that pop up as speech bubbles above their ships
+
+## Sensor Audio and Soundscape
+
+Space itself carries no sound, so outside audio is framed as "signals picked up by the ship's sensors": near Jupiter you hear real radio emissions recorded by NASA's Juno spacecraft, near pulsars you hear clicks matching their actual rotation period, and near the Sun you hear sped-up 5-minute solar oscillations—while empty deep space remains silent. Ambient BGM tracks vary by region (Earth orbit, Solar System, interstellar space, galactic core, extragalactic space) with quiet intervals of several minutes between tracks.
+
+Whenever you find a memorable view, a built-in photo mode hides the HUD so you can capture and share screenshots directly.
+
+## Architecture and Real-Time Infrastructure
+
+The client is built with React, Three.js, and TypeScript, packing star and asteroid catalogs into compact binary files (`stars.bin` and `asteroids-*.bin`) with progressive `Range` loading for mobile devices.
+
+The backend runs entirely on Cloudflare:
+
+- **Cloudflare Workers**: Static asset delivery, REST API endpoints, and WebSocket upgrades
+- **Durable Objects (`SpaceRoom`)**: Per-star-system room instances synchronizing ship positions, orientations, velocities, and chat in real time
+- **Cloudflare D1**: Stores ship-name + password + passkey accounts (no email required), custom UFO blueprints, warp hole records, and scanned collection entries
+- **Security**: Includes 100,000-iteration PBKDF2-HMAC-SHA-256 password hashing, `Origin` checks, and Workers rate limiting

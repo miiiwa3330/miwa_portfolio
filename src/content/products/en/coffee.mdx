@@ -1,0 +1,30 @@
+## A First-Person 3D Coffee Stand Inside a White Graph-Paper World
+
+coffee (`coffee.miiiwa.com`) is a personal support site where visitors can cheer on Miiiwa's indie projects by buying a drink—just like dropping by a street vending machine and handing someone a warm can.
+
+Instead of sending supporters through a standard tip form and external checkout page, the entire flow takes place inside a continuous **first-person 3D sequence set in a white graph-paper world**: you walk up to a blue vending machine, choose a drink, pick it up, and hand it directly to the hand-drawn cat character standing right beside it.
+
+## The Seven-Shot Vending Sequence and Hand-Drawn Cat
+
+The moment the page opens, you see a streetlamp, a cobalt-blue vending machine, and a hand-drawn cat standing next to it. Clicking the machine starts a seven-shot camera sequence:
+
+1. **Approach**: The camera walks toward the machine with subtle footsteps and head bobbing
+2. **Focus on the Slot**: Focusing on the coin and IC reader slot, you enter your payment method in-panel (with a demo coin mode so anyone can test the full flow without paying)
+3. **20-Selection Front Window**: Modeled after a standard 20-selection Japanese vending machine (1,030 × 660 × 1,830 mm), all 20 selection buttons light up across cold and hot rows
+4. **Dispense and Pickup**: The drink drops behind the inner flap with sound effects, the camera tilts down to the chute, and the can or bottle lifts smoothly into your hand
+5. **Turn and Handover**: Turning toward the cat character beside the machine, you swipe upward or click to toss the drink in a parabolic arc right into its paws
+6. **Celebration and Receipt**: The cat reacts with joy, and a serialized digital coaster/receipt is issued—at which point supporters can optionally leave their nickname and a short message for the public board
+
+Eight items are stocked across the 20 slots—blend coffee, espresso, café latte, roasted beans, melon soda, cola, energy drink, and corn potage (¥150–¥3,000)—each with distinct can, slim-can, PET bottle, or bean-bag packaging and rising steam on hot drinks.
+
+The companion character uses 37 hand-inked poses cut out on paper, leaving a thin white sticker-like rim around the outer ink while punching out enclosed gaps between arms and body and automatically filling unclosed pockets such as open ear tips. Rather than interpolating 3D bones, poses switch frame-by-frame with subtle 12 fps line-boil jitter so the character reads genuinely like a 2D drawing standing inside a 3D space. While idle, the cat cycles through small skits and eventually dozes off—and reacts with surprise or shyness if poked.
+
+## Combining a Paper World with Photorealistic Machine Detail
+
+While the world itself is a bright white studio grid, the vending machine uses environment-map reflections, procedural weathering (rain streaks, lower-frame grime, glass fingerprints, coin-slot scratches), GTAO ambient occlusion, depth of field, and FXAA. Because ACES Filmic tone mapping compresses linear white to gray, the background, ground, grid lines, and shadow opacity are mathematically inverted before rendering so the paper reads crisp white. Linear fog starts only beyond 10 meters so the foreground machine stays sharp, and the cat's paper brightness is nudged slightly darker than the backdrop to separate its silhouette.
+
+To keep frame rates smooth across devices, an adaptive quality controller monitors frame times and steps down AO, depth of field, and pixel ratio (tiers 3 through 0), while an LRU texture cache keeps at most 18 character pose frames resident on the GPU at once.
+
+## Deferred Payment Intent on Cloudflare Workers + D1
+
+Payments use Stripe's **Deferred Payment Intent** with Payment Element. Registering the payment method at the slot first and updating the final amount when a drink button is pressed mirrors how real Japanese vending machines work ("insert money first, press a button second"), complete with an optional fee-coverage toggle so supporters can cover the 3.6% processing fee. Completed supports are stored in a single `supports` table in Cloudflare D1, powering downloadable vector-drawn PNG coasters, a public support board, and `/receipts/:serial` pages with dynamic OGP tags injected by a Hono worker.

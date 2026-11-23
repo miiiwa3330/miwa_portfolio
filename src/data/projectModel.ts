@@ -1,14 +1,15 @@
 import type { Language } from "@/types";
 
+export type ProjectKind = "product" | "client";
 export type ProjectCategory = "WEB" | "APP";
-export type ProjectStatus = "Public" | "dev";
+export type ProjectStatus = "Public";
 
 /** A value that has one form per supported language. */
 export type Localized<T> = Record<Language, T>;
 
 /**
  * How a project is authored. Only the prose is per-language — everything else
- * (image, tags, category, status, links) describes the project itself and was
+ * (image, tags, kind, category, status, links) describes the project itself and was
  * previously copy-pasted into both a `ja` and an `en` object, where the two
  * could and did drift apart.
  */
@@ -19,6 +20,7 @@ export type ProjectSource = {
   description: Localized<string>;
   image: string;
   tags: string[];
+  kind: ProjectKind;
   category: ProjectCategory;
   status: ProjectStatus;
   /** "#" means "not published yet" — see isPlaceholderUrl. */
@@ -47,6 +49,14 @@ export function localizeProjects(
   language: Language
 ): Project[] {
   return projects.map((p) => localizeProject(p, language));
+}
+
+/** Return the projects belonging to `kind`, preserving authoring order. */
+export function projectsByKind<T extends { kind: ProjectKind }>(
+  projects: readonly T[],
+  kind: ProjectKind
+): T[] {
+  return projects.filter((p) => p.kind === kind);
 }
 
 /**

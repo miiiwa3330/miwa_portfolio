@@ -1,25 +1,21 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Fan, Globe, Power, Terminal } from "lucide-react";
+import { Fan, Power, Terminal } from "lucide-react";
 import { GithubIcon, XIcon } from "@/ui/icons";
 import { DESK_SCREEN_PX } from "@/scene/room/screens";
 import { fanShowNow, setFanShow } from "@/scene/holoFanShow";
 import { setDeskView } from "@/scene/deskView";
-import { SITE_HOST } from "./pcPage";
-import PcBrowser from "./PcBrowser";
 import TerminalScreen from "@/terminal/TerminalScreen";
 
 /**
- * The PC's own screen (2026-11-04, the user): a desktop with two icons —
- * `miiiwa.com`, the site itself in a browser (`PcBrowser`), and
- * `自己紹介.holo`, which puts the self-introduction on the hologram fan — and
- * a taskbar holding the terminal (drawn over this screen, `TerminalScreen`),
- * GitHub and X, and the PC's power.
+ * The PC's own screen (2026-11-04, the user): a desktop with `自己紹介.holo`
+ * (which puts the self-introduction on the hologram fan) and a taskbar holding
+ * the terminal (drawn over this screen, `TerminalScreen`), GitHub and X, and
+ * the PC's power.
  *
  * Laid out at the screen's own resolution (`DESK_SCREEN_PX`) and drawn on the
- * middle monitor by `RoomPanel`. **A page is read to the end in here** (the
- * user's call, 2026-10-01).
+ * middle monitor by `RoomPanel`.
  *
  * Nothing in here may carry `overflow: hidden` — see `RoomHtmlLayer`.
  */
@@ -73,10 +69,6 @@ function TaskbarApp({ label, icon, onOpen, href }: { label: string; icon: ReactN
 
 export default function DeskScreen({ isJa }: { isJa: boolean }) {
   const [power, setPower] = useState<Power>("on");
-  const [browserOpen, setBrowserOpen] = useState(false);
-  // The page the browser shows, as it names itself (its `<title>`), for the taskbar.
-  const [pageTitle, setPageTitle] = useState("");
-  const [tooDeep, setTooDeep] = useState(false);
   // The terminal, over this screen rather than the whole window (2026-11-04, the user).
   const [terminalOpen, setTerminalOpen] = useState(false);
 
@@ -87,25 +79,8 @@ export default function DeskScreen({ isJa }: { isJa: boolean }) {
   }, [power]);
 
   const shutDown = () => {
-    setBrowserOpen(false);
-    setTooDeep(false);
     setTerminalOpen(false);
     setPower("shutting-down");
-  };
-
-  /**
-   * Opened at `/` — the room, inside the room. **One level deep** (the
-   * user's choice of a room inside the room, 2026-11-04): in the PC of the
-   * room in the browser, this is itself in a frame, and there it says so
-   * rather than open a third room, and a fourth.
-   */
-  const openBrowser = () => {
-    if (window.self !== window.top) setTooDeep(true);
-    else setBrowserOpen(true);
-  };
-  const closeBrowser = () => {
-    setBrowserOpen(false);
-    setPageTitle("");
   };
 
   /**
@@ -138,28 +113,8 @@ export default function DeskScreen({ isJa }: { isJa: boolean }) {
         <>
           {/* The desktop's icons, down the left edge. */}
           <nav className="absolute left-5 top-5 flex flex-col gap-3" aria-label={isJa ? "デスクトップ" : "Desktop"}>
-            <Icon label={SITE_HOST} icon={<Globe size={40} strokeWidth={1.5} />} onOpen={openBrowser} />
             <Icon label={isJa ? "自己紹介.holo" : "About.holo"} icon={<Fan size={40} strokeWidth={1.5} />} onOpen={toggleHolo} />
           </nav>
-
-          {browserOpen && <PcBrowser isJa={isJa} onClose={closeBrowser} onTitle={setPageTitle} />}
-
-          {tooDeep && (
-            <div
-              role="alertdialog"
-              aria-label={SITE_HOST}
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] p-7 rounded-xl bg-[#101a2e] text-white shadow-2xl shadow-black/60"
-            >
-              <p className="text-[18px] leading-relaxed">
-                {isJa
-                  ? "ここは、PC の中の miiiwa.com の部屋の PC です。この中でまた miiiwa.com を開くと、部屋がどこまでも続いてしまうので、開けません。"
-                  : "This is the PC in the room of miiiwa.com, inside the PC. Opened again in here, miiiwa.com would show a room inside a room without end, so it does not open."}
-              </p>
-              <button type="button" onClick={() => setTooDeep(false)} className="mt-5 px-5 py-2 rounded-md bg-white/15 hover:bg-white/25 text-[16px]">
-                OK
-              </button>
-            </div>
-          )}
 
           {/* The taskbar. */}
           <div className="absolute inset-x-0 bottom-0 h-14 flex items-center gap-2 px-5 bg-black/70 rounded-b-sm">
@@ -170,17 +125,6 @@ export default function DeskScreen({ isJa }: { isJa: boolean }) {
             <TaskbarApp label={isJa ? "ターミナル" : "Terminal"} icon={<Terminal size={22} />} onOpen={() => setTerminalOpen(true)} />
             <TaskbarApp label="GitHub" icon={<GithubIcon size={22} />} href={GITHUB_URL} />
             <TaskbarApp label="X" icon={<XIcon size={19} />} href={X_URL} />
-            {/* The open window, after the pinned programs. */}
-            {browserOpen && (
-              <button
-                type="button"
-                onClick={openBrowser}
-                className="ml-3 flex items-center gap-2 max-w-[40%] h-11 px-3 rounded-md bg-white/15 hover:bg-white/20 text-[15px]"
-              >
-                <Globe size={18} className="shrink-0" />
-                <span className="truncate">{pageTitle || SITE_HOST}</span>
-              </button>
-            )}
             <button
               type="button"
               onClick={shutDown}

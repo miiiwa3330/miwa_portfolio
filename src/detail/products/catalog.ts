@@ -6,7 +6,7 @@ export const CATEGORY_FILTERS = ["All", "WEB", "APP"] as const;
 export type CategoryFilter = (typeof CATEGORY_FILTERS)[number];
 
 /** Status filter values, matching Project["status"] plus the no-op option. */
-export const STATUS_FILTERS = ["All", "Public", "dev"] as const;
+export const STATUS_FILTERS = ["All", "Public"] as const;
 export type StatusFilter = (typeof STATUS_FILTERS)[number];
 
 /**
@@ -34,7 +34,6 @@ export const CARD_TAG_COUNT = 3;
 const STATUS_LABELS_JA: Record<StatusFilter, string> = {
   All: "すべて",
   Public: "公開中",
-  dev: "開発中",
 };
 
 /** Human label for a status. English uses the raw value as-is. */

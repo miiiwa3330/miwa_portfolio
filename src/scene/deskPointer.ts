@@ -105,11 +105,6 @@ const hideRule = (attribute: string) => `html[${attribute}], html[${attribute}] 
  * without it — the attribute was set, and the cursor under it stayed `auto`.
  * One rule for the page, however many subscribe (it does nothing without the
  * attribute, so it stays). Returns the undo.
- *
- * `doc` is another document the screen shows — the PC's browser page, a
- * frame of its own (`hub/desk/PcBrowser`), which the rule in this one does
- * not reach. It takes an attribute of its own: the page there may be the
- * room itself, which hides the cursor over its own screens with the first.
  */
 export function hideRealCursorOverScreens(doc: Document = document, attribute = "data-screen-cursor"): () => void {
   const root = doc.documentElement;

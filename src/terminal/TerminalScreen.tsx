@@ -85,9 +85,8 @@ const FILE_SYSTEM = {
  * screen it is put on (`screen`) — the PC's in the room, opened from its
  * taskbar (2026-11-04, the user: 「PC内PCのターミナルを画面全体ではなく、PC内PC
  * の画面全体に表示されるように」), where `fixed` would mean the room's
- * transformed panel anyway. Larger there, as the PC's browser draws its page
- * (`PcBrowser`'s `FRAME_SCALE`): at the seated zoom the screen's px come out
- * at about 0.7.
+ * transformed panel anyway. Scaled up there so at the seated zoom the screen's
+ * px remain readable.
  */
 export default function TerminalScreen({ isOpen, closeTerminal, fill }: { isOpen: boolean; closeTerminal: () => void; fill: "viewport" | "screen" }) {
   const [phase, setPhase] = useState<"hidden" | "downloading" | "terminal">("hidden");

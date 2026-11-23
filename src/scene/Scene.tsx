@@ -577,8 +577,13 @@ function CameraController() {
     if (activeSection !== "desk") return;
     let latch: SwipeLatch | null = null;
     const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) return;
       // A pinch, the page's own controls, or a screen: not a swipe between the screens.
-      if (e.ctrlKey || isInteractive(e.target) || pcPointer.now().overScreen || macPointer.now().overScreen) return;
+      // Still block horizontal trackpad swipes from triggering browser Back/Forward.
+      if (isInteractive(e.target) || pcPointer.now().overScreen || macPointer.now().overScreen) {
+        if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) e.preventDefault();
+        return;
+      }
       // Ours, horizontal ones included: left alone, they page the browser back.
       e.preventDefault();
       // A game open on the Mac holds the view on its screen, till it is closed (Esc, its close box).

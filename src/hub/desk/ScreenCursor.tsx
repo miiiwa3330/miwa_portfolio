@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import { cursorShown, hideRealCursorOverScreens, onDeskPointer } from "@/scene/deskPointer";
-import { pcFrameInput } from "@/scene/frameInput";
 
 /**
  * The PC's cursor, drawn on its screen where the mouse on the desk puts it
@@ -53,12 +52,6 @@ export default function ScreenCursor() {
       if (over.current) show(shape.current);
     };
     window.addEventListener("pointermove", move);
-    // Over the browser's page, a frame whose pointer is passed on (`frameInput`).
-    const offFrame = pcFrameInput.on((input) => {
-      if (input.kind !== "pointer") return;
-      shape.current = shapeOver(input.target);
-      if (over.current) show(shape.current);
-    });
     const off = onDeskPointer((pointer) => {
       const el = cursor.current;
       if (!el) return;
@@ -69,7 +62,6 @@ export default function ScreenCursor() {
     });
     return () => {
       window.removeEventListener("pointermove", move);
-      offFrame();
       off();
     };
   }, []);
