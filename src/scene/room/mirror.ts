@@ -30,7 +30,7 @@ export const CURVE_MIRROR = {
    * face the room, the mirror's top leans back towards the wall: at 30 cm
    * the top of its back went 6 cm into it.
    */
-  standOff: 0.48,
+  standOff: 0.5,
   /** The rim's radius. */
   radius: 0.48,
   /** The radius of the sphere the glass is cut from: about a 120° view, like a road mirror's. */

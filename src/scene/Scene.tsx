@@ -48,7 +48,7 @@ import { macPlaying, onMacOpen } from "./mac/macSession";
 import { deskViewNow, onDeskView, setDeskView } from "./deskView";
 import { macPointer, pcPointer } from "./deskPointer";
 import { STANDING, advanceGait, stepBob } from "./room/gait";
-import { AT_CENTRE, NO_KEYS, stepFreeWalk, type FreeWalk, type WalkKeys } from "./camera/freeWalk";
+import { HOME_WALK, NO_KEYS, stepFreeWalk, type FreeWalk, type WalkKeys } from "./camera/freeWalk";
 import { publishBoot } from "@/state/bootChannel";
 import { seatFacing, seatOnLine, seatShare } from "./room/seat";
 import {
@@ -545,7 +545,7 @@ function CameraController() {
   const poseRef = useRef<RoomPose>(
     activeSection
       ? poseFromView(zoomView(activeSection, zoomFraming(activeSection, handheld).hfov), zoomFraming(activeSection, handheld))
-      : { x: 0, z: 0, yaw: home.yaw, pitch: home.pitch, forward: 0, eyeHeight: EYE_HEIGHT, ...free }
+      : { x: HOME_WALK.x, z: HOME_WALK.z, yaw: home.yaw, pitch: home.pitch, forward: 0, eyeHeight: EYE_HEIGHT, ...free }
   );
 
   // Turning only makes sense in the free view — lock out drag/wheel input
@@ -662,7 +662,7 @@ function CameraController() {
   }, [handheld]);
 
   /** Where the keys have walked the reader, and their jump: the free view's place on the floor. */
-  const walkRef = useRef<FreeWalk>(AT_CENTRE);
+  const walkRef = useRef<FreeWalk>(HOME_WALK);
   const walkKeys = useWalkKeys();
 
   const freePose = (yaw: number, pitch: number): RoomPose => ({
@@ -783,8 +783,8 @@ function CameraController() {
     // 2. A deliberate reset (logo / HOME) with no section to leave: the start
     //    of the tour, the desk.
     if (wasReset && !cameFrom) {
-      // Home is the middle of the room, wherever the keys had walked to.
-      walkRef.current = AT_CENTRE;
+      // Home stands slightly back so the central hologram sits cleanly ahead of the desk.
+      walkRef.current = HOME_WALK;
       tourURef.current = 0;
       followTourRef.current = true;
       flyToFree(home.yaw, home.pitch);

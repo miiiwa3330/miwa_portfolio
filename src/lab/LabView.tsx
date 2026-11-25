@@ -9,7 +9,7 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useAppState } from "@/state/AppStateContext";
 import { pointerClaim } from "@/scene/pointerClaim";
 import { neonTheme, ROOM_EXPOSURE } from "@/scene/room/lighting";
-import { Board, Bookcase, Comms, Desk, Door, Lights, PortholeAndHammock, Shell, Shelf, Workbench } from "@/scene/objects/RoomScene";
+import { Board, Bookcase, Comms, Desk, Door, Lights, PortholeAndHammock, Shell, Shelf } from "@/scene/objects/RoomScene";
 import { eyeFrom, numberParam, viewFrom, viewParams, type OrbitView } from "./orbit";
 import { defaultView, partFor, partGroups, type LabPart } from "./parts";
 
@@ -59,11 +59,9 @@ function Subject({ part }: { part: LabPart }) {
     case "board":
       return <Board />;
     case "comms":
-      return <Comms neon={neon} />;
+      return <Comms />;
     case "door":
       return <Door neon={neon} />;
-    case "workbench":
-      return <Workbench neon={neon} />;
     case "shell":
       return <Shell ceiling={lights.ceiling} neon={neon} />;
   }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { AT_CENTRE, JUMP_HEIGHT, NO_KEYS, stepFreeWalk, type FreeWalk, type WalkKeys } from "./freeWalk";
 import { WALK_SPEED } from "./walkFlight";
-import { ROOM_RADIUS, horizontalAt } from "../room/layout";
+import { PIECES, ROOM_RADIUS, horizontalAt } from "../room/layout";
 import { BODY_RADIUS } from "../room/floor";
 
 const DT = 1 / 60;
@@ -49,8 +49,8 @@ describe("walking on the keys", () => {
   });
 
   it("stops at the wall rather than pressing on through it", () => {
-    // Between the board and the comms there is wall to walk into (yaw 220°).
-    const walk = run({ forward: 1, right: 0, jump: false }, 225, 4);
+    // Walk straight into the airlock door bulkhead so a square hit stops dead.
+    const walk = run({ forward: 1, right: 0, jump: false }, PIECES.door.angle, 4);
     expect(Math.hypot(walk.x, walk.z)).toBeLessThanOrEqual(ROOM_RADIUS - BODY_RADIUS + 1e-9);
     expect(Math.hypot(walk.vx, walk.vz)).toBeLessThan(0.05);
   });

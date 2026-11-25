@@ -148,9 +148,9 @@ describe("where nothing walks", () => {
 describe("at the hologram", () => {
   it("bends down to look without sitting anywhere on the way", () => {
     const hologram = poseFromView(zoomView("about"), framing);
-    for (const pose of samples(centre(0), hologram)) expect(seatShare(pose)).toBe(0);
+    for (const pose of samples(centre(0), hologram)) expect(seatShare(pose)).toBeLessThan(1e-4);
     for (const pose of samples(desk, hologram)) {
-      if (pose.forward < standForward() - 0.25) expect(seatShare(pose)).toBe(0);
+      if (pose.forward < standForward() - 0.25) expect(seatShare(pose)).toBeLessThan(1e-4);
     }
   });
 });

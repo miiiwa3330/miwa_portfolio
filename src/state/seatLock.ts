@@ -3,7 +3,7 @@
  * 仕様が未実装なので、立ち上がれないようにしたい」). While true the site opens
  * sat at the PC, and every way of getting up — 「席を立つ」 (the BACK button),
  * the browser's back button, a marker — is refused with one of the engineer's
- * lines (`hub/desk/standLines.ts`) instead. The one switch: the room beyond
- * the desk comes back by setting it to false.
+ * lines (`hub/desk/standLines.ts`) instead. Set back to false (2026-11-26) so the
+ * visitor starts standing in the room and can get up from the desk freely.
  */
-export const SEAT_LOCKED = true;
+export const SEAT_LOCKED = false;

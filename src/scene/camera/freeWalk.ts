@@ -27,6 +27,8 @@ const MAX_STEP = 1 / 10;
 
 export type FreeWalk = { x: number; z: number; vx: number; vz: number; height: number; rise: number };
 export const AT_CENTRE: FreeWalk = { x: 0, z: 0, vx: 0, vz: 0, height: 0, rise: 0 };
+/** Initial standing spot back from the room centre so the central hologram globe clears the header cleanly. */
+export const HOME_WALK: FreeWalk = { x: 0, z: 1.28, vx: 0, vz: 0, height: 0, rise: 0 };
 
 /** What the keys ask for: `forward` and `right` each −1, 0 or 1, and whether a jump was asked for since the last frame. */
 export type WalkKeys = { forward: number; right: number; jump: boolean };

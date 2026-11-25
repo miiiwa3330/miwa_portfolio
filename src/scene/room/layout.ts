@@ -21,11 +21,10 @@ const DEG = Math.PI / 180;
 export type { Stop };
 
 /**
- * Chosen by the user in the room-lab prototype (2026-10-01) at 3.3 m, and
- * brought in to 3.0 m by the user (2026-10-02): the floor between the
- * furniture, about 5 m across, read as empty space.
+ * Chosen at 3.3 m (2026-10-01), brought in to 3.0 m (2026-10-02), and compacted
+ * to 2.65 m (2026-11-26) when the workbench left of the desk was removed.
  */
-export const ROOM_RADIUS = 3.0;
+export const ROOM_RADIUS = 2.65;
 /**
  * The room owner's eye (`room/figure.ts`, measured off the character sheet
  * at 168 cm): 1.49 m. It was 1.55 m, picked in the prototype before there
@@ -83,29 +82,23 @@ export const MIN_PIECE_GAP = 3;
  */
 export type Piece = { angle: number; width: number; depth: number };
 
-export type PieceKey = "desk" | "shelf" | "bookcase" | "porthole" | "board" | "comms" | "door" | "workbench";
+export type PieceKey = "desk" | "shelf" | "bookcase" | "porthole" | "board" | "comms" | "door";
 
 /**
- * The floor plan. Order and neighbours were set with the user; the angles and
- * a few widths were re-fitted from the prototype's 4.5 m room to 3.3 m so that
- * no two footprints touch. Kept at the prototype's sizes, the desk and the
- * workbench overlapped by 1.6° and the door sat 2.4° from the workbench.
- *
- * Re-fitted again for 3.0 m (2026-10-02), the widths kept: the 3.3 m angles
- * left the workbench 1.6° into the desk and the board 0.2° from the comms.
- * The pieces take 307° of the round there; with the PC held at 0, the rest
- * is shared out as an even gap of about 6.7° between each pair.
+ * The floor plan. Re-fitted for `ROOM_RADIUS = 2.65` (2026-11-26) after
+ * removing the workbench left of the desk: the 7 remaining pieces (with
+ * `board.width` brought to 2.35 m) span 308°, leaving an even ~7.4° gap
+ * between every neighbouring pair.
  */
 export const PIECES: Record<PieceKey, Piece> = {
   desk: { angle: 0, width: 2.2, depth: 0.8 },
-  shelf: { angle: 54, width: 1.6, depth: 0.45 },
-  bookcase: { angle: 93, width: 1.3, depth: 0.35 },
+  shelf: { angle: 63, width: 1.6, depth: 0.45 },
+  bookcase: { angle: 108, width: 1.3, depth: 0.35 },
   // The porthole is on the wall; this footprint is the hammock hung beneath it.
-  porthole: { angle: 138, width: 2.0, depth: 0.5 },
-  board: { angle: 196, width: 2.8, depth: 0.06 },
-  comms: { angle: 245, width: 1.1, depth: 0.6 },
-  door: { angle: 275, width: 1.0, depth: 0.1 },
-  workbench: { angle: 308, width: 1.3, depth: 0.7 },
+  porthole: { angle: 159, width: 2.0, depth: 0.5 },
+  board: { angle: 222, width: 2.35, depth: 0.06 },
+  comms: { angle: 272, width: 1.1, depth: 0.6 },
+  door: { angle: 307, width: 1.0, depth: 0.1 },
 };
 
 export const PIECE_KEYS = Object.keys(PIECES) as PieceKey[];
@@ -547,7 +540,7 @@ export const SUBJECTS: Record<Stop, Subject> = {
   about: { piece: "desk", local: [0.95, 1.45, 0.05], frameWidth: 0.9, zoomEyeHeight: 1.45, markerY: 1.85 },
   products: { piece: "shelf", local: [0, 1.2, PIECES.shelf.depth / 2], frameWidth: 1.6, zoomEyeHeight: EYE_HEIGHT, markerY: 2.2 },
   skills: { piece: "bookcase", local: [0, 1.35, PIECES.bookcase.depth / 2], frameWidth: 1.3, zoomEyeHeight: EYE_HEIGHT, markerY: 2.65 },
-  experience: { piece: "board", local: [0, 1.55, PIECES.board.depth / 2], frameWidth: 2.9, zoomEyeHeight: EYE_HEIGHT, markerY: 2.45 },
+  experience: { piece: "board", local: [0, 1.55, PIECES.board.depth / 2], frameWidth: 2.45, zoomEyeHeight: EYE_HEIGHT, markerY: 2.45 },
   contact: { piece: "comms", local: [0, 1.15, PIECES.comms.depth / 2], frameWidth: 1.1, zoomEyeHeight: EYE_HEIGHT, markerY: 1.75 },
 };
 

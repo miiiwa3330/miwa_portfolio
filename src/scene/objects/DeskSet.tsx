@@ -4,6 +4,7 @@ import { useEffect, useMemo, type ReactNode } from "react";
 import * as THREE from "three";
 import { RoundedBox } from "@react-three/drei";
 import { DESK_MAT, MAC, MONITOR_ARM, MUG, PEN_POT, PIECES, lampJoints, macToDesk, type Monitor } from "../room/layout";
+import { makeDeskWearMaps } from "./roomTextures";
 
 /**
  * The PC's desk and everything on it, built from rounded forms rather than
@@ -27,17 +28,41 @@ const SURFACE_Y = TOP_Y + TOP_THICKNESS / 2;
 export type DeskMaterials = ReturnType<typeof makeMaterials>;
 
 function makeMaterials() {
+  const wear = makeDeskWearMaps();
   return {
-    top: new THREE.MeshStandardMaterial({ color: "#4b4a45", roughness: 0.5, metalness: 0.65 }),
-    steel: new THREE.MeshStandardMaterial({ color: "#6a6e75", roughness: 0.4, metalness: 0.85 }),
-    painted: new THREE.MeshStandardMaterial({ color: "#3d4148", roughness: 0.6, metalness: 0.5 }),
+    wearBump: wear.bump,
+    wearRough: wear.roughness,
+    top: new THREE.MeshStandardMaterial({
+      color: "#44433f",
+      roughness: 0.72,
+      metalness: 0.65,
+      bumpMap: wear.bump,
+      bumpScale: 0.002,
+      roughnessMap: wear.roughness,
+    }),
+    steel: new THREE.MeshStandardMaterial({
+      color: "#727780",
+      roughness: 0.5,
+      metalness: 0.88,
+      bumpMap: wear.bump,
+      bumpScale: 0.0012,
+      roughnessMap: wear.roughness,
+    }),
+    painted: new THREE.MeshStandardMaterial({
+      color: "#363b42",
+      roughness: 0.75,
+      metalness: 0.55,
+      bumpMap: wear.bump,
+      bumpScale: 0.0018,
+      roughnessMap: wear.roughness,
+    }),
     dark: new THREE.MeshStandardMaterial({ color: "#14161a", roughness: 0.85, metalness: 0.3 }),
     plastic: new THREE.MeshStandardMaterial({ color: "#16181c", roughness: 0.42, metalness: 0.1 }),
     mat: new THREE.MeshStandardMaterial({ color: "#101216", roughness: 0.95, metalness: 0 }),
     paper: new THREE.MeshStandardMaterial({ color: "#b9b09a", roughness: 0.9, metalness: 0 }),
     ceramic: new THREE.MeshStandardMaterial({ color: "#d9d4c7", roughness: 0.35, metalness: 0, side: THREE.DoubleSide }),
     coffee: new THREE.MeshStandardMaterial({ color: "#2a1a10", roughness: 0.2, metalness: 0 }),
-    shade: new THREE.MeshStandardMaterial({ color: "#3a3d44", roughness: 0.5, metalness: 0.6, side: THREE.DoubleSide }),
+    shade: new THREE.MeshStandardMaterial({ color: "#3a3d44", roughness: 0.45, metalness: 0.65, side: THREE.DoubleSide }),
     led: new THREE.MeshBasicMaterial({ color: "#3dff8a", toneMapped: false }),
   };
 }
@@ -45,7 +70,13 @@ function makeMaterials() {
 /** One set of materials for the whole desk, freed with it. */
 export function useDeskMaterials(): DeskMaterials {
   const materials = useMemo(() => makeMaterials(), []);
-  useEffect(() => () => Object.values(materials).forEach((m) => m.dispose()), [materials]);
+  useEffect(
+    () => () =>
+      Object.values(materials).forEach((m) => {
+        if ("dispose" in m) m.dispose();
+      }),
+    [materials]
+  );
   return materials;
 }
 

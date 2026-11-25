@@ -229,8 +229,7 @@ export function poseFigure(root: THREE.Object3D | null, j: BodyJoints, pitch: nu
 
 /**
  * The figure's parts, built once at their real sizes and named for
- * `poseFigure`. Drawn twice in the room: as the reader's own body (`Self`)
- * and as the hologram's projection of them (`HologramSelf`).
+ * `poseFigure`, drawn as the reader's own body (`Self`).
  */
 export function FigureModel({ ref }: { ref?: React.Ref<THREE.Group> }) {
   const hairInstances = useRef<THREE.InstancedMesh>(null);

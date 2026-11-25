@@ -82,11 +82,11 @@ export const PARTS: readonly LabPart[] = [
   subjectOf("shelf", "展示棚", FURNITURE, "products"),
   subjectOf("bookcase", "本棚", FURNITURE, "skills"),
   subjectOf("board", "調査ボード", FURNITURE, "experience"),
-  subjectOf("comms", "通信端末", FURNITURE, "contact"),
-  onPiece("porthole", "丸窓とハンモック", FURNITURE, "porthole", [0, 1.3, 0], [0, 1.4, 3.2]),
-  onPiece("door", "扉", FURNITURE, "door", [0, 1.05, 0], [0, 1.2, 2.6]),
-  onPiece("workbench", "作業台", FURNITURE, "workbench", [0, 0.9, 0], [0, 1.2, 2.3]),
-  { id: "shell", label: "壁・床・天井", group: ROOM, piece: "shell", target: [0, 1.5, 0], eye: [0, 1.9, 2.5] },
+  subjectOf("comms", "郵便ポスト（お問い合わせ）", FURNITURE, "contact"),
+  onPiece("porthole", "丸窓とハンモック", FURNITURE, "porthole", [0, 1.3, 0], [0, 1.4, 2.3]),
+  onPiece("door", "扉", FURNITURE, "door", [0, 1.05, 0], [0, 1.2, 2.2]),
+  { id: "center-hologram", label: "中央ホログラム世界地図", group: ROOM, piece: "shell", target: [0, 1.46, 0], eye: [0, 1.48, 1.5] },
+  { id: "shell", label: "壁・床・天井", group: ROOM, piece: "shell", target: [0, 1.5, 0], eye: [0, 1.85, 2.2] },
 ];
 
 const byId = new Map(PARTS.map((part) => [part.id, part]));
