@@ -9,6 +9,22 @@ import type { ProjectSource } from "./projectModel";
  */
 export const PROJECTS: ProjectSource[] = [
   {
+    slug: "popos",
+    title: { ja: "popos", en: "popos" },
+    description: {
+      ja: "電波がなくても使える、露店・ポップアップ出店のための完全オフラインPOSレジPWA。端末内のIndexedDBにイベント単位で商品・持ち主・在庫・売上を記録し、複数端末間のデータ同期は暗号化した分割QRコードの読み合いだけで完結します。",
+      en: "A fully offline POS register PWA built for street stalls and pop-up markets. Stores events, items, owners, inventory, and sales locally in IndexedDB, and syncs across multiple devices solely by exchanging encrypted multi-frame QR codes—no internet or server database required.",
+    },
+    image: "/images/popos.png",
+    tags: ["React", "Vite", "TypeScript", "PWA", "IndexedDB", "Cloudflare Pages"],
+    kind: "product",
+    category: "WEB",
+    status: "Public",
+    // Private repository (GitHub returns 404 for public visitors)
+    githubUrl: "#",
+    demoUrl: "https://popos.miiiwa.com",
+  },
+  {
     slug: "star-vessel",
     title: { ja: "star_vessel", en: "star_vessel" },
     description: {

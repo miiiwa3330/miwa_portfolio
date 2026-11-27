@@ -1,0 +1,41 @@
+## Fully Offline Peer-to-Peer POS Built for Shared Stalls
+
+popos (`popos.miiiwa.com`) is a zero-server, offline-first POS register PWA built for street markets and pop-up stalls where multiple vendors share a single booth and bring their own products using their own phones or tablets—with no cash register hardware, no Wi-Fi router, and no recurring fees.
+
+Unlike cloud POS services, popos has no backend database at all. Cloudflare Pages serves only the static application bundle. Once added to the Home Screen in Safari on iPhone or iPad and opened once with connectivity, all static assets—including the WebAssembly QR decoder (`zxing-wasm`)—are cached locally on the device. After that initial launch, ringing up sales, checking stock, viewing breakdowns, and syncing across devices all work completely offline.
+
+Every device acts as an equal peer with no central master terminal required. One organizer creates an event on their device, and teammates simply scan an "Add Member" QR code from "Join Event" to receive the product catalog, current stock counts, and prior sales log. Because transactions are written immediately to local IndexedDB, checkout never stalls on weak mobile reception, and even if one device runs out of battery or is lost, records remain recoverable from any synced teammate's device or a backup file.
+
+## Per-Event Isolation, Owner Breakdowns, and Exact Tax Math
+
+At the top of the data hierarchy sits each **Event** listed on the calendar view, keeping store names, tax rounding rules, members, owners, items, inventory counts, and transaction logs cleanly isolated per market day.
+
+- **Template Duplication and Stock Carryover**: When creating a new event, you can copy owners, item definitions, prices, and tax rules from any previous event, choosing either "Remaining from last event" or "Start from zero" for initial stock and adjusting individual quantities before opening.
+- **12-Color Owner Tags and Sales Reports**: Shared booths often combine merchandise from multiple contributors. popos assigns one of 12 colors to each owner, provides one-tap owner filters on the register screen, and aggregates tax-included totals, tax-excluded amounts, tax totals, units sold, and remaining inventory per owner and per item.
+- **Integer Money, Fixed-Point Tax Rates, and Append-Only Logs**: Every monetary amount is stored in integer yen, and tax rates are held as integers scaled by `0.01%` (supporting `0–100%` up to two decimal places) to eliminate floating-point drift. Items can be priced tax-included or tax-excluded individually while sharing an event-wide rounding rule (floor, round, or ceil). Completed checkouts are never mutated; cancellations append a `sale.voided` event so an auditable history remains intact.
+- **CSV Export and Full Backups**: Itemized sales and owner summaries export cleanly as CSV via the OS share sheet, alongside a full single-file backup containing all events stored on the device.
+
+## Multi-Frame Encrypted QR Sync Without Internet or Bluetooth
+
+Choosing an offline browser sync protocol required working around real mobile platform constraints: iOS Safari does not support Web Bluetooth, and even on Android or desktop Chrome, Web Bluetooth only acts as a central client rather than advertising as a peripheral—making direct browser-to-browser Bluetooth impossible. popos solves this with **bidirectional multi-frame animated QR sync** that works reliably across any combination of devices with a camera and screen.
+
+Under the hood, every action is stored as an append-only event keyed by `deviceId.sequence` alongside a per-device vector clock tracking contiguous received records.
+
+- **Compressed, Encrypted, Order-Independent Frames**: When sharing, unsent events and the sender's vector clock are serialized to JSON, compressed via the browser's `CompressionStream` (`deflate-raw`), encrypted with `AES-GCM` using the event's key, and split into 900-byte chunks cycled every 250 ms. The receiving camera can start mid-loop and collect frames in any order until the hash-verified payload is reconstructed.
+- **Unified "Scan QR / Show QR" Flow**: Both 1-to-1 exchanges and multi-person host collection use the same two-card interface. After scanning one or more teammates in sequence, tapping "Show QR" automatically computes the lower bound across their vector clocks and generates a single return/broadcast QR loop containing only what each participant is missing.
+- **Sync Parity Code and Git-Style Ahead Badges**: To verify at a glance that everyone holds identical records, each device computes a 4-digit, 8-color **Sync Code** directly from its vector state—matching codes guarantee everyone is in sync. In addition, each member row displays a red numeric badge showing how many local records haven't yet been delivered to that teammate (mirroring `git` ahead counts).
+- **Deterministic Conflict Detection**: When two offline devices edit the same item or owner independently, tracking the base version (`base`) flags the divergence automatically so users can compare both edits side-by-side with timestamps and pick which version to keep.
+
+## High-Legibility UI and Real-World Booth Ergonomics
+
+Designed for fast booth checkouts and comfortable reading for older vendors as well, the interface follows clean iOS-inspired conventions prioritizing clarity and safe tap targets.
+
+- **Adjustable Typography and Clear States**: Settings allow switching the base UI scale across Standard (`18px`), Large (`20px`, default), and Extra Large (`24px`), scaling buttons and spacing proportionally while keeping bottom tab labels fixed at `14px` to prevent wrapping. Out-of-stock items remain sellable without blocking checkout while warning clearly via both color and explicit text (`Out of Stock`).
+- **Two-Column Register and Full-Width Input Normalization**: On tablets and desktops, item tiles sit beside a live cart and checkout panel; on phones, a persistent bottom summary opens the tender sheet with quick Japanese yen bills (`Exact`, `¥1,000`, `¥5,000`, `¥10,000`) and a large keypad that highlights change before confirming. Numeric inputs automatically normalize full-width Japanese digits and decimal points to half-width.
+- **Single-URL Navigation for iOS PWA Camera Stability**: Changing URLs inside an iOS standalone Home Screen web app triggers repeated camera permission prompts in WebKit; popos switches tabs and sheets purely through in-app state while keeping one URL, and requests persistent storage via `navigator.storage.persist()` alongside backup safeguards.
+
+## Technical Stack and Verification
+
+The client is built with React 19, Vite 8, TypeScript 7, and Tailwind CSS 4, using `vite-plugin-pwa` 2 to precache the full application shell and `zxing-wasm` WASM binaries for offline execution. Local state persists in IndexedDB via Dexie 4 across atomic transactions covering event logs, calendar summaries, and device preferences.
+
+QR generation uses `qrcode`, QR scanning uses `zxing-wasm` (alongside native `BarcodeDetector` where available), and compression and encryption rely solely on native `CompressionStream` and Web Crypto APIs with zero extra crypto dependencies. Core financial math, schema migrations, and sync codecs are decoupled from React, covered by Vitest 5 unit suites and Playwright end-to-end tests with mocked camera video streams, and deployed statically to Cloudflare Pages at `popos.miiiwa.com`.
